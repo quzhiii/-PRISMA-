@@ -1498,12 +1498,36 @@ function performScreening(data, rules) {
     }
   });
 
-  // Apply time window - v3.0: keep records with missing/invalid year
+  // Apply time window - v3.0: improved year parsing
   const inTimeWindow = deduped.filter(row => {
-    const year = parseInt(getValue(row, 'year'));
-    // If year is missing or invalid, keep the record (don't filter out)
-    if (isNaN(year) || !year) return true;
-    return year >= rules.time_window.start_year && year <= rules.time_window.end_year;
+    const yearValue = getValue(row, 'year');
+    
+    // Try to extract year from various formats
+    let year = null;
+    if (yearValue) {
+      // Try direct parsing
+      year = parseInt(yearValue);
+      
+      // If failed, try to extract 4-digit year from string
+      if (isNaN(year)) {
+        const match = String(yearValue).match(/\b(19|20)\d{2}\b/);
+        if (match) {
+          year = parseInt(match[0]);
+        }
+      }
+    }
+    
+    // Log records with invalid years for debugging
+    if (!year || isNaN(year)) {
+      console.log(`⚠️ 年份缺失或无法解析: "${yearValue}" - 标题: ${getValue(row, 'title').substring(0, 50)}...`);
+      return false; // Exclude records with missing/invalid year
+    }
+    
+    const inRange = year >= rules.time_window.start_year && year <= rules.time_window.end_year;
+    if (!inRange) {
+      console.log(`⏰ 年份超出范围: ${year} (范围: ${rules.time_window.start_year}-${rules.time_window.end_year}) - ${getValue(row, 'title').substring(0, 50)}...`);
+    }
+    return inRange;
   });
 
   // Apply include keywords - only filter if keywords are actually specified (not empty)
