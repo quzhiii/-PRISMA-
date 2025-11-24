@@ -1,0 +1,2376 @@
+// Global state
+let uploadedData = [];
+let uploadedFiles = []; // v3.0: Track multiple file sources
+let currentStep = 1;
+let columnMapping = {};
+let screeningResults = null;
+let fileFormat = 'unknown';
+let formatSource = 'Unknown';
+let currentTheme = 'subtle';
+let exclusionReasons = {}; // v3.0: Track exclusion reasons for fulltext stage
+
+// Color themes
+const colorThemes = {
+  colorful: {
+    name: '活力彩色',
+    colors: {
+      identified: '#FF6B6B',
+      screened: '#4ECDC4',
+      included: '#45B7D1',
+      excluded: '#FFA07A',
+      duplicates: '#FFD93D',
+      text: '#2C3E50',
+      border: '#34495E'
+    }
+  },
+  blackwhite: {
+    name: '黑白',
+    colors: {
+      identified: '#1A1A1A',
+      screened: '#4D4D4D',
+      included: '#808080',
+      excluded: '#B3B3B3',
+      duplicates: '#E6E6E6',
+      text: '#000000',
+      border: '#333333'
+    }
+  },
+  subtle: {
+    name: '柔和',
+    colors: {
+      identified: '#8B4F8B',
+      screened: '#5B7C99',
+      included: '#6B8E6F',
+      excluded: '#C89B6B',
+      duplicates: '#A89968',
+      text: '#3E3E3E',
+      border: '#6B6B6B'
+    }
+  }
+};
+
+// Sample data for demonstration
+const sampleData = [
+  {
+    title: "中医针灸对慢性疼痛的疗效研究",
+    abstract: "本研究探讨了针灸治疗慢性疼痛的临床效果，采用随机对照试验方法，结果显示针灸组疼痛评分显著低于对照组。",
+    year: 2020,
+    journal: "中华中医药杂志",
+    authors: "张三;李四",
+    doi: "10.1234/tcm.2020.001",
+    keywords: "中医;针灸;慢性疼痛"
+  },
+  {
+    title: "Acupuncture for chronic pain: systematic review",
+    abstract: "This systematic review evaluates the efficacy of acupuncture in treating chronic pain conditions. Meta-analysis shows significant pain reduction.",
+    year: 2021,
+    journal: "Pain Medicine",
+    authors: "Smith J, Johnson A",
+    doi: "10.5678/pain.2021.042",
+    keywords: "acupuncture;chronic pain;systematic review"
+  },
+  {
+    title: "医保支付方式改革与价值医疗",
+    abstract: "探讨医保支付方式改革对医疗服务价值导向的影响，采用差分中的差分方法评估政策效果。",
+    year: 2022,
+    journal: "中国卫生经济",
+    authors: "王五;赵六",
+    doi: "10.9012/che.2022.018",
+    keywords: "医保;支付方式;价值医疗;DID"
+  },
+  {
+    title: "Animal study of acupuncture mechanisms",
+    abstract: "This study investigates the neurobiological mechanisms of acupuncture using animal models. Rats were subjected to acupuncture treatment.",
+    year: 2019,
+    journal: "Neuroscience Letters",
+    authors: "Chen L, Wang M",
+    doi: "10.3456/neuro.2019.089",
+    keywords: "animal study;acupuncture;mechanisms"
+  },
+  {
+    title: "Editorial: Future of Traditional Chinese Medicine",
+    abstract: "This editorial discusses the future directions and challenges facing traditional Chinese medicine research and practice.",
+    year: 2023,
+    journal: "Journal of TCM",
+    authors: "Li H",
+    doi: "10.7890/jtcm.2023.005",
+    keywords: "editorial;traditional chinese medicine"
+  },
+  {
+    title: "Causal inference in health economics using AIPW",
+    abstract: "We apply augmented inverse probability weighting (AIPW) to estimate causal effects of medical insurance on healthcare utilization.",
+    year: 2022,
+    journal: "Health Economics",
+    authors: "Brown R, Davis K",
+    doi: "10.2468/he.2022.134",
+    keywords: "causal inference;AIPW;medical insurance"
+  },
+  {
+    title: "In vitro study of herbal medicine efficacy",
+    abstract: "Cell culture experiments demonstrate the anti-inflammatory effects of traditional herbal compounds in vitro.",
+    year: 2021,
+    journal: "Phytomedicine",
+    authors: "Liu Y, Zhou X",
+    doi: "10.1357/phyto.2021.067",
+    keywords: "in vitro;herbal medicine;cell culture"
+  },
+  {
+    title: "Protocol: RCT of acupuncture for migraine",
+    abstract: "This paper presents the study protocol for a randomized controlled trial evaluating acupuncture for migraine prevention.",
+    year: 2023,
+    journal: "Trials",
+    authors: "Martinez P, Garcia S",
+    doi: "10.8642/trials.2023.091",
+    keywords: "protocol;acupuncture;migraine;RCT"
+  },
+  {
+    title: "Overlap weighting for observational studies in medical insurance",
+    abstract: "We propose using overlap weighting to improve balance and efficiency in estimating treatment effects from medical insurance data.",
+    year: 2023,
+    journal: "Statistics in Medicine",
+    authors: "Wilson T, Anderson M",
+    doi: "10.9753/sim.2023.156",
+    keywords: "overlap weighting;medical insurance;causal inference"
+  },
+  {
+    title: "Case report: Rare complication of acupuncture",
+    abstract: "We report a case of pneumothorax following acupuncture treatment, highlighting the importance of proper technique and safety precautions.",
+    year: 2020,
+    journal: "Case Reports in Medicine",
+    authors: "Taylor E",
+    doi: "10.4826/crm.2020.023",
+    keywords: "case report;acupuncture;complication"
+  }
+];
+
+// Default rules
+const defaultRules = {
+  time_window: {
+    start_year: 2000,
+    end_year: 2030
+  },
+  include_any: [
+    // v3.0: 默认为空，不进行关键词过滤
+    // 用户可以根据需要自行添加关键词
+  ],
+  exclude: [
+    { keyword: "animal study", reason: "不属于人群研究(动物实验)" },
+    { keyword: "editorial", reason: "非研究性文献(社论/评论)" },
+    { keyword: "protocol", reason: "仅研究方案,无结果" },
+    { keyword: "in vitro", reason: "体外实验,非目标范围" },
+    { keyword: "case report", reason: "病例报道,证据等级不足" }
+  ],
+  language: {
+    allow: ["english", "chinese"]
+  },
+  required_one_of: ["title", "abstract"]
+};
+
+// Initialize
+function init() {
+  const uploadArea = document.getElementById('uploadArea');
+  const fileInput = document.getElementById('fileInput');
+
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+  });
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+  });
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    // v3.0: Support multiple files
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) handleMultipleFiles(files);
+  });
+
+  // v3.0: Change fileInput to support multiple files
+  fileInput.multiple = true;
+  fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) handleMultipleFiles(files);
+  });
+
+  // Initialize sliders
+  document.getElementById('ftExcludeRatio').addEventListener('input', (e) => {
+    document.getElementById('ftExcludeValue').textContent = Math.round(e.target.value * 100) + '%';
+  });
+
+  // Initialize exclude list
+  loadExcludeItems();
+}
+
+// v3.0: Handle multiple file uploads
+function handleMultipleFiles(files) {
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
+  const validFiles = files.filter(file => {
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    return validExts.includes(ext);
+  });
+
+  if (validFiles.length === 0) {
+    showToast('没有有效的文件格式。支持 CSV, TSV, RIS, BibTeX, TXT, ENW, RDF', 'error');
+    return;
+  }
+
+  if (validFiles.length !== files.length) {
+    showToast(`仅${validFiles.length}个文件格式有效，其他文件已跳过`, 'warning');
+  }
+
+  showLoading(`正在处理${validFiles.length}个文件...`);
+  showProgress(`正在上传文件...`, 0);
+
+  let processedCount = 0;
+  let allRecords = [];
+  let uploadedFilesInfo = [];
+
+  const processFile = (index) => {
+    if (index >= validFiles.length) {
+      // All files processed
+      uploadedData = allRecords;
+      uploadedFiles = uploadedFilesInfo;
+      hideProgress();
+      setTimeout(() => {
+        detectColumns();
+        displayUploadInfo();
+        hideLoading();
+        showToast(`成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
+        addSuccessAnimation();
+      }, 500);
+      return;
+    }
+
+    const file = validFiles[index];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const progress = Math.round((index / validFiles.length) * 100);
+    updateProgress(progress);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const fileData = {
+        name: file.name,
+        format: ext,
+        recordCount: 0,
+        source: 'Unknown'
+      };
+
+      // Parse file and get records
+      const records = parseFileContent(text, ext);
+      fileData.recordCount = records.length;
+      
+      // Detect source from format
+      switch (ext) {
+        case '.ris':
+          fileData.source = 'PubMed/Scopus/Endnote';
+          break;
+        case '.enw':
+          fileData.source = 'CNKI';
+          break;
+        case '.rdf':
+          fileData.source = 'Zotero';
+          break;
+        case '.csv':
+        case '.tsv':
+          fileData.source = 'Excel/Generic';
+          break;
+        case '.bib':
+        case '.bibtex':
+          fileData.source = 'Google Scholar/arXiv';
+          break;
+        default:
+          fileData.source = 'Unknown';
+      }
+
+      uploadedFilesInfo.push(fileData);
+      
+      // Mark records with source for PRISMA identification stage
+      records.forEach(record => {
+        record._source = fileData.source;
+        record._sourceFile = file.name;
+      });
+
+      allRecords = allRecords.concat(records);
+      processFile(index + 1);
+    };
+
+    reader.onerror = () => {
+      hideProgress();
+      hideLoading();
+      showToast(`文件 ${file.name} 读取失败`, 'error');
+    };
+
+    reader.readAsText(file);
+  };
+
+  processFile(0);
+}
+
+// File handling
+function handleFile(file) {
+  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
+  
+  if (!validExts.includes(ext)) {
+    showToast('不支持的文件格式，请上传 CSV, TSV, RIS, BibTeX, TXT, ENW 或 RDF 文件', 'error');
+    return;
+  }
+
+  showLoading('正在读取文件...');
+  showProgress('正在上传文件...', 0);
+
+  // Simulate upload progress
+  let progress = 0;
+  const progressInterval = setInterval(() => {
+    progress += 10;
+    updateProgress(progress);
+    if (progress >= 90) clearInterval(progressInterval);
+  }, 100);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    clearInterval(progressInterval);
+    updateProgress(100);
+    setTimeout(() => {
+      hideProgress();
+      const text = e.target.result;
+      parseFile(text, ext);
+      hideLoading();
+    }, 500);
+  };
+  reader.onerror = () => {
+    clearInterval(progressInterval);
+    hideProgress();
+    hideLoading();
+    showToast('文件读取失败', 'error');
+  };
+  reader.readAsText(file);
+}
+
+// v3.0: Unified file content parser (reusable for multiple files)
+function parseFileContent(text, ext) {
+  let records = [];
+  
+  switch (ext) {
+    case '.csv':
+      records = parseCSVContent(text);
+      break;
+    case '.tsv':
+      records = parseTSVContent(text);
+      break;
+    case '.ris':
+      records = parseRISContent(text);
+      break;
+    case '.bib':
+    case '.bibtex':
+      records = parseBibTeXContent(text);
+      break;
+    case '.txt':
+      records = parseTXTContent(text);
+      break;
+    case '.enw':
+      records = parseENWContent(text);
+      break;
+    case '.rdf':
+      records = parseRDFContent(text);
+      break;
+  }
+  
+  return records;
+}
+
+// v3.0: Extract CSV parsing logic to reusable function
+function parseCSVContent(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+    
+    // Use parseCSVLine for proper CSV parsing (handles quoted fields)
+    const values = parseCSVLine(line);
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || '';
+      });
+      data.push(row);
+    } else if (values.length > 0) {
+      // v3.0: More lenient - allow mismatched column counts
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || '';
+      });
+      data.push(row);
+    }
+  }
+
+  return data;
+}
+
+// Similar extraction for other formats...
+function parseTSVContent(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g, ''));
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split('\t').map(v => v.trim().replace(/"/g, ''));
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx];
+      });
+      data.push(row);
+    }
+  }
+
+  return data.length > 0 ? data : [];
+}
+
+function parseRISContent(text) {
+  const records = [];
+  const lines = text.split('\n');
+  let currentRecord = {};
+  
+  const fieldMap = {
+    'TY': 'type', 'T1': 'title', 'TI': 'title', 'AU': 'authors', 'T2': 'journal',
+    'JO': 'journal', 'PY': 'year', 'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords',
+    'VL': 'volume', 'IS': 'issue'
+  };
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('ER')) {
+      if (Object.keys(currentRecord).length > 0) {
+        records.push(currentRecord);
+        currentRecord = {};
+      }
+    } else if (line.includes('  - ')) {
+      const [tag, ...valueParts] = line.split('  - ');
+      const value = valueParts.join('  - ').trim();
+      const mappedField = fieldMap[tag.trim()];
+      
+      if (mappedField) {
+        if (mappedField === 'authors' || mappedField === 'keywords') {
+          if (!currentRecord[mappedField]) {
+            currentRecord[mappedField] = value;
+          } else {
+            currentRecord[mappedField] += '; ' + value;
+          }
+        } else {
+          currentRecord[mappedField] = value;
+        }
+      }
+    }
+  }
+
+  return records.length > 0 ? records : [];
+}
+
+function parseBibTeXContent(text) {
+  const records = [];
+  const entryPattern = /@\w+\{([^,]+),([^}]+)\}/gs;
+  let match;
+
+  while ((match = entryPattern.exec(text)) !== null) {
+    const entryKey = match[1].trim();
+    const entryContent = match[2];
+    const record = { key: entryKey };
+
+    const fieldPattern = /(\w+)\s*=\s*[{"]([^}"]+)[}"]/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(entryContent)) !== null) {
+      const fieldName = fieldMatch[1].toLowerCase();
+      const fieldValue = fieldMatch[2].trim();
+      record[fieldName] = fieldValue;
+    }
+
+    if (record.title || record.author) {
+      records.push(record);
+    }
+  }
+
+  return records.length > 0 ? records : [];
+}
+
+function parseENWContent(text) {
+  const records = [];
+  const lines = text.split('\n');
+  let currentRecord = {};
+  
+  const fieldMap = {
+    'TY': 'type', 'AU': 'authors', 'T1': 'title', 'T2': 'journal', 'PY': 'year',
+    'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords', 'VL': 'volume', 'IS': 'issue',
+    'SP': 'start_page', 'EP': 'end_page', 'PB': 'publisher', 'SN': 'issn'
+  };
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('ER')) {
+      if (Object.keys(currentRecord).length > 0) {
+        records.push(currentRecord);
+        currentRecord = {};
+      }
+    } else if (line.includes('  - ')) {
+      const [tag, ...valueParts] = line.split('  - ');
+      const value = valueParts.join('  - ').trim();
+      const mappedField = fieldMap[tag.trim()];
+      
+      if (mappedField) {
+        if (mappedField === 'authors' || mappedField === 'keywords') {
+          if (!currentRecord[mappedField]) {
+            currentRecord[mappedField] = value;
+          } else {
+            currentRecord[mappedField] += '; ' + value;
+          }
+        } else {
+          currentRecord[mappedField] = value;
+        }
+      }
+    }
+  }
+
+  return records.length > 0 ? records : [];
+}
+
+function parseRDFContent(text) {
+  const records = [];
+  
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(text, 'text/xml');
+  
+  if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+    return [];
+  }
+  
+  const items = xmlDoc.getElementsByTagName('bib:Article');
+  const alternativeItems = xmlDoc.getElementsByTagName('bib:Book');
+  const allItems = [...items, ...alternativeItems];
+  
+  if (allItems.length === 0) {
+    const descriptions = xmlDoc.getElementsByTagName('rdf:Description');
+    for (let item of descriptions) {
+      const record = parseRDFItem(item);
+      if (record.title || record.authors) {
+        records.push(record);
+      }
+    }
+  } else {
+    for (let item of allItems) {
+      const record = parseRDFItem(item);
+      if (record.title || record.authors) {
+        records.push(record);
+      }
+    }
+  }
+
+  return records.length > 0 ? records : [];
+}
+
+function parseTXTContent(text) {
+  const lines = text.trim().split('\n').filter(line => line.trim());
+  
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const possibleHeaders = ['title', 'abstract', 'year', 'author'];
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader = possibleHeaders.some(h => firstLine.includes(h));
+
+  if (hasHeader && lines.length > 1) {
+    const delimiter = firstLine.includes('\t') ? '\t' : ',';
+    const headers = lines[0].split(delimiter).map(h => h.trim());
+    const data = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(delimiter);
+      if (values.length === headers.length) {
+        const row = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx].trim();
+        });
+        data.push(row);
+      }
+    }
+    return data.length > 0 ? data : [];
+  } else {
+    return lines.map((line, idx) => ({
+      title: line,
+      abstract: '',
+      year: new Date().getFullYear(),
+      journal: 'Unknown',
+      authors: 'Unknown',
+      doi: ''
+    }));
+  }
+}
+
+// File parser dispatcher
+function parseFile(text, ext) {
+  switch (ext) {
+    case '.csv':
+      fileFormat = 'CSV';
+      formatSource = 'Excel, Google Sheets';
+      parseCSV(text);
+      break;
+    case '.tsv':
+      fileFormat = 'TSV';
+      formatSource = 'Excel (Tab-delimited)';
+      parseTSV(text);
+      break;
+    case '.ris':
+      fileFormat = 'RIS';
+      formatSource = 'Endnote, Zotero, Mendeley';
+      parseRIS(text);
+      break;
+    case '.bib':
+    case '.bibtex':
+      fileFormat = 'BibTeX';
+      formatSource = 'Google Scholar, arXiv';
+      parseBibTeX(text);
+      break;
+    case '.txt':
+      fileFormat = 'TXT';
+      formatSource = '简单文本';
+      parseTXT(text);
+      break;
+    case '.enw':
+      fileFormat = 'ENW';
+      formatSource = '知网导出';
+      parseENW(text);
+      break;
+    case '.rdf':
+      fileFormat = 'RDF';
+      formatSource = 'Zotero导出';
+      parseRDF(text);
+      break;
+    default:
+      showToast('不支持的文件格式', 'error');
+  }
+}
+
+// CSV parser
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) {
+    showToast('CSV 文件格式错误', 'error');
+    return;
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx];
+      });
+      data.push(row);
+    }
+  }
+
+  if (data.length === 0) {
+    showToast('未能解析到有效数据，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = data;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式)`, 'success');
+  addSuccessAnimation();
+}
+
+// TSV parser
+function parseTSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) {
+    showToast('TSV 文件格式错误', 'error');
+    return;
+  }
+
+  const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g, ''));
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split('\t').map(v => v.trim().replace(/"/g, ''));
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx];
+      });
+      data.push(row);
+    }
+  }
+
+  if (data.length === 0) {
+    showToast('未能解析到有效数据，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = data;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式)`, 'success');
+  addSuccessAnimation();
+}
+
+// RIS parser
+function parseRIS(text) {
+  const records = [];
+  const lines = text.split('\n');
+  let currentRecord = {};
+  
+  const fieldMap = {
+    'TY': 'type',
+    'T1': 'title',
+    'TI': 'title',
+    'AU': 'authors',
+    'T2': 'journal',
+    'JO': 'journal',
+    'PY': 'year',
+    'DO': 'doi',
+    'AB': 'abstract',
+    'KW': 'keywords',
+    'VL': 'volume',
+    'IS': 'issue'
+  };
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('ER')) {
+      if (Object.keys(currentRecord).length > 0) {
+        records.push(currentRecord);
+        currentRecord = {};
+      }
+    } else if (line.includes('  - ')) {
+      const [tag, ...valueParts] = line.split('  - ');
+      const value = valueParts.join('  - ').trim();
+      const mappedField = fieldMap[tag.trim()];
+      
+      if (mappedField) {
+        if (mappedField === 'authors' || mappedField === 'keywords') {
+          if (!currentRecord[mappedField]) {
+            currentRecord[mappedField] = value;
+          } else {
+            currentRecord[mappedField] += '; ' + value;
+          }
+        } else {
+          currentRecord[mappedField] = value;
+        }
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    showToast('未能解析到有效RIS记录，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = records;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式，共${records.length}条记录)`, 'success');
+  addSuccessAnimation();
+}
+
+// BibTeX parser
+function parseBibTeX(text) {
+  const records = [];
+  const entryPattern = /@\w+\{([^,]+),([^}]+)\}/gs;
+  let match;
+
+  while ((match = entryPattern.exec(text)) !== null) {
+    const entryKey = match[1].trim();
+    const entryContent = match[2];
+    const record = { key: entryKey };
+
+    const fieldPattern = /(\w+)\s*=\s*[{"]([^}"]+)[}"]/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(entryContent)) !== null) {
+      const fieldName = fieldMatch[1].toLowerCase();
+      const fieldValue = fieldMatch[2].trim();
+      record[fieldName] = fieldValue;
+    }
+
+    if (record.title || record.author) {
+      records.push(record);
+    }
+  }
+
+  if (records.length === 0) {
+    showToast('未能解析到有效BibTeX记录，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = records;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式，共${records.length}条记录)`, 'success');
+  addSuccessAnimation();
+}
+
+// TXT parser (simple line-by-line)
+// ENW parser (CNKI format)
+function parseENW(text) {
+  const records = [];
+  const lines = text.split('\n');
+  let currentRecord = {};
+  
+  const fieldMap = {
+    'TY': 'type',
+    'AU': 'authors',
+    'T1': 'title',
+    'T2': 'journal',
+    'PY': 'year',
+    'DO': 'doi',
+    'AB': 'abstract',
+    'KW': 'keywords',
+    'VL': 'volume',
+    'IS': 'issue',
+    'SP': 'start_page',
+    'EP': 'end_page',
+    'PB': 'publisher',
+    'SN': 'issn'
+  };
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('ER')) {
+      if (Object.keys(currentRecord).length > 0) {
+        records.push(currentRecord);
+        currentRecord = {};
+      }
+    } else if (line.includes('  - ')) {
+      const [tag, ...valueParts] = line.split('  - ');
+      const value = valueParts.join('  - ').trim();
+      const mappedField = fieldMap[tag.trim()];
+      
+      if (mappedField) {
+        if (mappedField === 'authors' || mappedField === 'keywords') {
+          if (!currentRecord[mappedField]) {
+            currentRecord[mappedField] = value;
+          } else {
+            currentRecord[mappedField] += '; ' + value;
+          }
+        } else {
+          currentRecord[mappedField] = value;
+        }
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    showToast('未能解析到有效ENW记录，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = records;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式 - 知网CNKI，共${records.length}条记录)`, 'success');
+  addSuccessAnimation();
+}
+
+// RDF parser (Zotero RDF/XML format)
+function parseRDF(text) {
+  const records = [];
+  
+  // Simple XML parsing for RDF
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(text, 'text/xml');
+  
+  // Check for parsing errors
+  if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+    showToast('RDF文件格式错误，使用示例数据', 'warning');
+    uploadedData = sampleData;
+    detectColumns();
+    displayUploadInfo();
+    return;
+  }
+  
+  // Find all items (different RDF structures possible)
+  const items = xmlDoc.getElementsByTagName('bib:Article');
+  const alternativeItems = xmlDoc.getElementsByTagName('bib:Book');
+  const allItems = [...items, ...alternativeItems];
+  
+  if (allItems.length === 0) {
+    // Try generic RDF:Description
+    const descriptions = xmlDoc.getElementsByTagName('rdf:Description');
+    for (let item of descriptions) {
+      const record = parseRDFItem(item);
+      if (record.title || record.authors) {
+        records.push(record);
+      }
+    }
+  } else {
+    for (let item of allItems) {
+      const record = parseRDFItem(item);
+      if (record.title || record.authors) {
+        records.push(record);
+      }
+    }
+  }
+
+  if (records.length === 0) {
+    showToast('未能解析到有效RDF记录，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    uploadedData = records;
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式 - Zotero，共${records.length}条记录)`, 'success');
+  addSuccessAnimation();
+}
+
+function parseRDFItem(item) {
+  const record = {};
+  
+  // Field mapping for RDF
+  const fieldMap = {
+    'dc:title': 'title',
+    'dcterms:title': 'title',
+    'dc:creator': 'authors',
+    'dcterms:creator': 'authors',
+    'dcterms:issued': 'year',
+    'dc:date': 'year',
+    'dcterms:abstract': 'abstract',
+    'dc:description': 'abstract',
+    'bib:publicationTitle': 'journal',
+    'dc:source': 'journal',
+    'bib:volume': 'volume',
+    'bib:issue': 'issue',
+    'dc:identifier': 'doi',
+    'bib:pages': 'pages'
+  };
+  
+  // Try to get values from child elements
+  for (let child of item.children) {
+    const tagName = child.tagName;
+    const mappedField = fieldMap[tagName];
+    
+    if (mappedField) {
+      let value = child.textContent.trim();
+      
+      // Handle special cases
+      if (mappedField === 'year') {
+        // Extract year from date string
+        const yearMatch = value.match(/\d{4}/);
+        if (yearMatch) value = yearMatch[0];
+      }
+      
+      if (mappedField === 'authors') {
+        if (!record[mappedField]) {
+          record[mappedField] = value;
+        } else {
+          record[mappedField] += '; ' + value;
+        }
+      } else {
+        record[mappedField] = value;
+      }
+    }
+  }
+  
+  // Also check attributes
+  for (let i = 0; i < item.attributes.length; i++) {
+    const attr = item.attributes[i];
+    if (attr.name === 'rdf:about') {
+      record.id = attr.value;
+    }
+  }
+  
+  return record;
+}
+
+function parseTXT(text) {
+  const lines = text.trim().split('\n').filter(line => line.trim());
+  
+  if (lines.length === 0) {
+    showToast('文本文件为空，使用示例数据', 'warning');
+    uploadedData = sampleData;
+  } else {
+    // Try to detect if first line is header
+    const possibleHeaders = ['title', 'abstract', 'year', 'author'];
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader = possibleHeaders.some(h => firstLine.includes(h));
+
+    if (hasHeader && lines.length > 1) {
+      // Treat as simple delimited format
+      const delimiter = firstLine.includes('\t') ? '\t' : ',';
+      const headers = lines[0].split(delimiter).map(h => h.trim());
+      const data = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(delimiter);
+        if (values.length === headers.length) {
+          const row = {};
+          headers.forEach((header, idx) => {
+            row[header] = values[idx].trim();
+          });
+          data.push(row);
+        }
+      }
+      uploadedData = data.length > 0 ? data : sampleData;
+    } else {
+      // Treat each line as a title
+      uploadedData = lines.map((line, idx) => ({
+        title: line,
+        abstract: '',
+        year: new Date().getFullYear(),
+        journal: 'Unknown',
+        authors: 'Unknown',
+        doi: ''
+      }));
+    }
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式)`, 'success');
+  addSuccessAnimation();
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// Column detection
+function detectColumns() {
+  const aliases = {
+    title: ['title', 'Title', 'TITLE', '题名', '标题', 'ti', 'T1', 'TI', 'dc:title', 'dcterms:title'],
+    abstract: ['abstract', 'Abstract', 'ABSTRACT', '摘要', 'ab', 'AB', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes'],
+    year: ['year', 'Year', 'YEAR', '年份', '出版年', 'publication_year', 'py', 'PY', 'dcterms:issued', 'dc:date', 'Publication Year'],
+    journal: ['journal', 'Journal', 'JOURNAL', '期刊', '来源', 'source', 'so', 'T2', 'JO', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['authors', 'Authors', 'AUTHORS', '作者', 'author', 'au', 'AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['doi', 'DOI', 'Doi', 'DO', 'dc:identifier'],
+    keywords: ['keywords', 'Keywords', 'KEYWORDS', '关键词', 'keyword', 'kw', 'KW', 'Manual Tags', 'Automatic Tags']
+  };
+
+  columnMapping = {};
+  const availableColumns = Object.keys(uploadedData[0] || {});
+  
+  console.log('🔍 检测列名：可用列 =', availableColumns);
+
+  for (const [standard, aliasList] of Object.entries(aliases)) {
+    for (const alias of aliasList) {
+      if (availableColumns.includes(alias)) {
+        columnMapping[standard] = alias;
+        console.log(`✅ 映射成功: ${standard} → ${alias}`);
+        break;
+      }
+    }
+    if (!columnMapping[standard]) {
+      console.warn(`⚠️ 未找到字段: ${standard}`);
+    }
+  }
+  
+  console.log('最终 columnMapping:', columnMapping);
+}
+
+// Display upload info
+function displayUploadInfo() {
+  document.getElementById('totalRecords').textContent = uploadedData.length;
+  
+  // v3.0: Display file sources
+  if (uploadedFiles.length > 0) {
+    fileFormat = uploadedFiles.map(f => f.format.substring(1).toUpperCase()).join(' + ');
+    formatSource = uploadedFiles.map(f => `${f.name} (${f.recordCount})`).join('; ');
+    document.getElementById('fileFormat').textContent = fileFormat;
+    document.getElementById('formatSource').textContent = formatSource;
+  } else {
+    document.getElementById('fileFormat').textContent = fileFormat;
+    document.getElementById('formatSource').textContent = formatSource;
+  }
+  
+  const columns = Object.keys(uploadedData[0] || {});
+  document.getElementById('columnList').textContent = columns.join(', ');
+
+  const mappingDiv = document.getElementById('columnMapping');
+  const mappingEntries = Object.entries(columnMapping);
+  if (mappingEntries.length > 0) {
+    mappingDiv.innerHTML = mappingEntries
+      .map(([std, col]) => `<div><strong>${std}</strong> → ${col}</div>`)
+      .join('');
+  } else {
+    mappingDiv.innerHTML = '<div style="color: var(--color-warning);">未检测到标准字段映射，请在规则配置中确认</div>';
+  }
+
+  displayPreviewTable();
+  document.getElementById('uploadInfo').classList.remove('hidden');
+}
+
+function displayPreviewTable() {
+  const table = document.getElementById('previewTable');
+  const thead = document.getElementById('previewTableHead');
+  const tbody = document.getElementById('previewTableBody');
+
+  const columns = Object.keys(uploadedData[0] || {});
+  thead.innerHTML = '<tr>' + columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+
+  const preview = uploadedData.slice(0, 50);
+  tbody.innerHTML = preview.map(row => 
+    '<tr>' + columns.map(col => `<td>${truncate(row[col] || '', 50)}</td>`).join('') + '</tr>'
+  ).join('');
+}
+
+function truncate(str, len) {
+  str = String(str);
+  return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+// Step navigation
+function goToStep1() {
+  setStep(1);
+}
+
+function goToStep2() {
+  if (uploadedData.length === 0) {
+    showToast('请先上传文件或使用示例数据', 'warning');
+    uploadedData = sampleData.map(item => ({
+      ...item,
+      _source: 'Sample Data',
+      _sourceFile: 'sample.data'
+    }));
+    uploadedFiles = [{
+      name: 'sample.data',
+      format: '.sample',
+      recordCount: uploadedData.length,
+      source: 'Sample Data'
+    }];
+    detectColumns();
+    displayUploadInfo();
+  }
+  setStep(2);
+  syncFormToYAML();
+  displayRulesPreview();
+}
+
+function goToStep3() {
+  setStep(3);
+}
+
+// v3.0: New step 4 for manual fulltext review
+function goToStep4() {
+  if (!screeningResults) {
+    showToast('请先完成文献筛选', 'warning');
+    return;
+  }
+  setStep(4);
+  displayFulltextReviewUI();
+}
+
+function setStep(step) {
+  currentStep = step;
+  
+  // Hide all steps
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.add('hidden');
+  const step4 = document.getElementById('step4');
+  if (step4) step4.classList.add('hidden');
+  
+  // Show current step
+  document.getElementById('step' + step).classList.remove('hidden');
+  
+  // Update indicators
+  for (let i = 1; i <= 4; i++) {
+    const indicator = document.getElementById('step-indicator-' + i);
+    if (indicator) {
+      indicator.classList.remove('active', 'completed');
+      if (i < step) {
+        indicator.classList.add('completed');
+      } else if (i === step) {
+        indicator.classList.add('active');
+      }
+    }
+  }
+}
+
+// Tab switching
+function switchTab(tab) {
+  const tabs = document.querySelectorAll('.tab-button');
+  const contents = [document.getElementById('formTab'), document.getElementById('yamlTab'), document.getElementById('formatTab'), document.getElementById('mappingTab')];
+  
+  tabs.forEach(t => t.classList.remove('active'));
+  contents.forEach(c => c.classList.remove('active'));
+  
+  if (tab === 'form') {
+    tabs[0].classList.add('active');
+    document.getElementById('formTab').classList.add('active');
+    syncYAMLToForm();
+  } else if (tab === 'yaml') {
+    tabs[1].classList.add('active');
+    document.getElementById('yamlTab').classList.add('active');
+    syncFormToYAML();
+  } else if (tab === 'format') {
+    tabs[2].classList.add('active');
+    document.getElementById('formatTab').classList.add('active');
+  } else if (tab === 'mapping') {
+    tabs[3].classList.add('active');
+    document.getElementById('mappingTab').classList.add('active');
+  }
+}
+
+// Rules management
+function loadExcludeItems() {
+  const container = document.getElementById('excludeList');
+  container.innerHTML = '';
+  
+  defaultRules.exclude.forEach((item, idx) => {
+    addExcludeItemToDOM(item.keyword, item.reason);
+  });
+}
+
+function addExcludeItem() {
+  addExcludeItemToDOM('', '');
+}
+
+function addExcludeItemToDOM(keyword = '', reason = '') {
+  const container = document.getElementById('excludeList');
+  const div = document.createElement('div');
+  div.className = 'exclude-item';
+  div.innerHTML = `
+    <input type="text" class="form-input exclude-keyword" placeholder="关键词" value="${keyword}" style="flex: 1;">
+    <input type="text" class="form-input exclude-reason" placeholder="排除理由" value="${reason}" style="flex: 2;">
+    <button class="btn-remove" onclick="this.parentElement.remove()">删除</button>
+  `;
+  container.appendChild(div);
+}
+
+function loadExampleRules() {
+  document.getElementById('startYear').value = defaultRules.time_window.start_year;
+  document.getElementById('endYear').value = defaultRules.time_window.end_year;
+  document.getElementById('includeKeywords').value = defaultRules.include_any.join('\n');
+  
+  const container = document.getElementById('excludeList');
+  container.innerHTML = '';
+  defaultRules.exclude.forEach(item => {
+    addExcludeItemToDOM(item.keyword, item.reason);
+  });
+
+  // Update checkboxes
+  document.querySelectorAll('input[type="checkbox"][value="english"]')[0].checked = true;
+  document.querySelectorAll('input[type="checkbox"][value="chinese"]')[0].checked = true;
+  document.querySelectorAll('.required-field[value="title"]')[0].checked = true;
+  document.querySelectorAll('.required-field[value="abstract"]')[0].checked = true;
+
+  syncFormToYAML();
+  showToast('已加载示例规则', 'success');
+}
+
+function syncFormToYAML() {
+  const rules = getFormRules();
+  const yaml = jsyaml.dump(rules);
+  document.getElementById('yamlEditor').value = yaml;
+}
+
+function syncYAMLToForm() {
+  try {
+    const yaml = document.getElementById('yamlEditor').value;
+    const rules = jsyaml.load(yaml);
+    
+    if (rules.time_window) {
+      document.getElementById('startYear').value = rules.time_window.start_year || 2015;
+      document.getElementById('endYear').value = rules.time_window.end_year || 2025;
+    }
+    
+    if (rules.include_any) {
+      document.getElementById('includeKeywords').value = rules.include_any.join('\n');
+    }
+    
+    if (rules.exclude) {
+      const container = document.getElementById('excludeList');
+      container.innerHTML = '';
+      rules.exclude.forEach(item => {
+        addExcludeItemToDOM(item.keyword, item.reason);
+      });
+    }
+    
+    showToast('YAML 已同步到表单', 'success');
+  } catch (e) {
+    showToast('YAML 格式错误: ' + e.message, 'error');
+  }
+}
+
+function getFormRules() {
+  const excludeItems = [];
+  document.querySelectorAll('.exclude-item').forEach(item => {
+    const keyword = item.querySelector('.exclude-keyword').value.trim();
+    const reason = item.querySelector('.exclude-reason').value.trim();
+    if (keyword) {
+      excludeItems.push({ keyword, reason });
+    }
+  });
+
+  const languages = [];
+  document.querySelectorAll('input[type="checkbox"][value="english"], input[type="checkbox"][value="chinese"]').forEach(cb => {
+    if (cb.checked) languages.push(cb.value);
+  });
+
+  const requiredFields = [];
+  document.querySelectorAll('.required-field:checked').forEach(cb => {
+    requiredFields.push(cb.value);
+  });
+
+  return {
+    time_window: {
+      start_year: parseInt(document.getElementById('startYear').value),
+      end_year: parseInt(document.getElementById('endYear').value)
+    },
+    include_any: document.getElementById('includeKeywords').value
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s),
+    exclude: excludeItems,
+    language: {
+      allow: languages
+    },
+    required_one_of: requiredFields,
+    fulltext_exclude_ratio: parseFloat(document.getElementById('ftExcludeRatio').value)
+  };
+}
+
+function displayRulesPreview() {
+  const thead = document.getElementById('rulesPreviewHead');
+  const tbody = document.getElementById('rulesPreviewBody');
+  
+  const columns = Object.keys(uploadedData[0] || {});
+  thead.innerHTML = '<tr>' + columns.map(col => `<th>${col}</th>`).join('') + '</tr>';
+  
+  const preview = uploadedData.slice(0, 10);
+  tbody.innerHTML = preview.map(row => 
+    '<tr>' + columns.map(col => `<td>${truncate(row[col] || '', 40)}</td>`).join('') + '</tr>'
+  ).join('');
+}
+
+function startScreening() {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传文献数据', 'error');
+    return;
+  }
+
+  showLoading('正在执行文献筛选...');
+  
+  setTimeout(() => {
+    const rules = getFormRules();
+    
+    // v3.0: Debug - check input data
+    console.log('🔍 开始筛选调试：');
+    console.log('- uploadedData 长度:', uploadedData.length);
+    console.log('- 第一条数据:', uploadedData[0]);
+    console.log('- 第一条数据的所有字段:', Object.keys(uploadedData[0]));
+    console.log('- columnMapping:', columnMapping);
+    console.log('- columnMapping.title 映射到:', columnMapping.title);
+    console.log('- columnMapping.abstract 映射到:', columnMapping.abstract);
+    console.log('- 第一条的title值:', uploadedData[0][columnMapping.title]);
+    console.log('- 第一条的abstract值:', uploadedData[0][columnMapping.abstract]);
+    console.log('- rules:', rules);
+    
+    const results = performScreening(uploadedData, rules);
+    screeningResults = results;
+    hideLoading();
+    
+    // v3.0: Debug logging to diagnose filtering issues
+    console.log('=== 文献筛选调试信息 ===');
+    console.log('原始上传文献数:', uploadedData.length);
+    console.log('筛选结果:', {
+      identified_db: results.counts.identified_db,
+      identified_other: results.counts.identified_other,
+      duplicates: results.counts.duplicates,
+      after_dupes: results.counts.after_dupes,
+      screened: results.counts.screened,
+      excluded_ta: results.counts.excluded_ta,
+      fulltext: results.counts.fulltext,
+      included: results.counts.included
+    });
+    console.log('待人工审核文献数:', results.included.length);
+    console.log('======================');
+    
+    if (results.included.length === 0) {
+      showToast('⚠️ 警告：没有文献进入人工审核阶段！请检查筛选规则', 'warning');
+    }
+    
+    // v3.0: Go to Step 4 (Manual Review) instead of Step 3 directly
+    goToStep4();
+    showToast('文献筛选完成，请进行人工审核', 'success');
+  }, 1500);
+}
+
+function performScreening(data, rules) {
+  // v3.0: PRISMA identification stage - count BEFORE deduplication
+  // Track source distribution for identification (from original data)
+  const sourceDistribution = {};
+  let identified_db = 0;
+  let identified_other = 0;
+  
+  data.forEach(row => {
+    const source = row._source || 'Unknown';
+    if (!sourceDistribution[source]) {
+      sourceDistribution[source] = 0;
+    }
+    sourceDistribution[source]++;
+    
+    // Count actual DB vs Other sources (not estimated ratio)
+    if (source === 'Unknown' || source.includes('Gray') || source.includes('gray')) {
+      identified_other++;
+    } else {
+      identified_db++;
+    }
+  });
+
+  // v3.0: Improved deduplication with source tracking
+  // Normalize titles for deduplication
+  const normalized = data.map(row => ({
+    ...row,
+    _normalized_title: normalizeTitle(getValue(row, 'title')),
+    _lang: detectLanguage(getValue(row, 'title') + ' ' + getValue(row, 'abstract'))
+  }));
+
+  // v3.0: Enhanced deduplication - cross-source intelligent deduplication
+  const seen = new Set();
+  const deduped = [];
+  const duplicates = [];
+  const doiMap = {}; // Track DOI duplicates
+
+  normalized.forEach(row => {
+    const doi = getValue(row, 'doi');
+    const title = row._normalized_title;
+    
+    // Strategy 1: Exact DOI match (highest priority)
+    if (doi && doi.trim()) {
+      const doiKey = `doi:${doi.toLowerCase().trim()}`;
+      if (doiMap[doiKey]) {
+        duplicates.push(row);
+        return;
+      } else {
+        doiMap[doiKey] = true;
+        deduped.push(row);
+        seen.add(doiKey);
+        return;
+      }
+    }
+    
+    // Strategy 2: Normalized title match (Jaccard similarity for fuzzy matching)
+    const titleKey = `title:${title}`;
+    if (seen.has(titleKey)) {
+      duplicates.push(row);
+    } else {
+      seen.add(titleKey);
+      deduped.push(row);
+    }
+  });
+
+  // Apply time window - v3.0: keep records with missing/invalid year
+  const inTimeWindow = deduped.filter(row => {
+    const year = parseInt(getValue(row, 'year'));
+    // If year is missing or invalid, keep the record (don't filter out)
+    if (isNaN(year) || !year) return true;
+    return year >= rules.time_window.start_year && year <= rules.time_window.end_year;
+  });
+
+  // Apply include keywords - only filter if keywords are actually specified (not empty)
+  let withIncludeKW = inTimeWindow;
+  const validKeywords = (rules.include_any || []).filter(kw => kw && kw.trim());
+  console.log('🔍 Keyword filtering debug:');
+  console.log('  - Valid keywords:', validKeywords);
+  console.log('  - Keywords count:', validKeywords.length);
+  if (validKeywords.length > 0) {
+    withIncludeKW = inTimeWindow.filter(row => {
+      const text = (getValue(row, 'title') + ' ' + getValue(row, 'abstract') + ' ' + getValue(row, 'keywords')).toLowerCase();
+      const matched = validKeywords.some(kw => {
+        const normalized = kw.toLowerCase();
+        const found = text.includes(normalized);
+        if (found) {
+          console.log(`  ✓ Matched keyword "${kw}" in: ${getValue(row, 'title').substring(0, 50)}...`);
+        }
+        return found;
+      });
+      return matched;
+    });
+    console.log(`  - After keyword filter: ${withIncludeKW.length} records (was ${inTimeWindow.length})`);
+  }
+
+  // Apply required fields - v3.0: very lenient
+  // Only apply if fields are specified AND at least one field is mapped
+  let withRequiredFields = withIncludeKW;
+  const mappedRequiredFields = (rules.required_one_of || []).filter(field => columnMapping[field]);
+  
+  if (mappedRequiredFields.length > 0) {
+    withRequiredFields = withIncludeKW.filter(row => {
+      // At least one of the MAPPED required fields has a value
+      return mappedRequiredFields.some(field => {
+        const value = getValue(row, field);
+        return value && value.trim().length > 0;
+      });
+    });
+  } else {
+    // If no required fields are mapped, keep all records
+    console.log('💡 没有映射到必填字段，保留所有文献');
+  }
+
+  // Apply language filter - only filter if languages are actually selected
+  let withLanguage = withRequiredFields;
+  if (rules.language && rules.language.allow && rules.language.allow.length > 0) {
+    withLanguage = withRequiredFields.filter(row => {
+      return rules.language.allow.includes(row._lang);
+    });
+  }
+
+  // v3.0: Debug - log filtering stages
+  if (data.length > 50) {
+    console.log('📊 筛选阶段日志:', {
+      '原始': data.length,
+      '去重后': deduped.length,
+      '时间窗口': inTimeWindow.length,
+      '包含关键词': withIncludeKW.length,
+      '必填字段': withRequiredFields.length,
+      '语言筛选': withLanguage.length,
+      '规则.include_any': rules.include_any,
+      '规则.required_one_of': rules.required_one_of,
+      '规则.language.allow': rules.language.allow,
+      '前5条的语言': withRequiredFields.slice(0, 5).map(r => ({ 
+        title: r.title?.substring(0, 30), 
+        lang: r._lang 
+      }))
+    });
+    
+    // Check why required fields might be failing
+    if (withRequiredFields.length === 0 && withIncludeKW.length > 0) {
+      console.warn('⚠️ 所有文献被必填字段过滤掉了！');
+      console.log('检查前3条记录的字段:', withIncludeKW.slice(0, 3).map(r => ({
+        title: getValue(r, 'title'),
+        abstract: getValue(r, 'abstract'),
+        columnMapping
+      })));
+    }
+    
+    // Check why language filter might be failing
+    if (withLanguage.length === 0 && withRequiredFields.length > 0) {
+      console.warn('⚠️ 所有文献被语言筛选过滤掉了！');
+      console.log('检查前3条记录的语言:', withRequiredFields.slice(0, 3).map(r => ({
+        title: r.title?.substring(0, 30),
+        _lang: r._lang,
+        allowed: rules.language.allow
+      })));
+    }
+  }
+
+  // Apply exclude keywords (title/abstract screening)
+  const excluded_ta = [];
+  const afterTA = [];
+
+  withLanguage.forEach(row => {
+    const text = (getValue(row, 'title') + ' ' + getValue(row, 'abstract') + ' ' + getValue(row, 'keywords')).toLowerCase();
+    let excluded = false;
+    let reason = '';
+
+    for (const excl of rules.exclude) {
+      if (text.includes(excl.keyword.toLowerCase())) {
+        excluded = true;
+        reason = excl.reason;
+        break;
+      }
+    }
+
+    if (excluded) {
+      excluded_ta.push({ ...row, _exclude_reason: reason, _exclude_stage: 'title/abstract' });
+    } else {
+      afterTA.push(row);
+    }
+  });
+
+  // v3.0: Fulltext stage - replaced with manual review tracking structure
+  // This will be populated by user in Step 4
+  const excluded_ft = [];
+  const included = afterTA; // Default: all pass to fulltext stage for user review
+
+  return {
+    counts: {
+      identified_db,
+      identified_other,
+      duplicates: duplicates.length,
+      after_dupes: deduped.length,
+      screened: withLanguage.length,
+      excluded_ta: excluded_ta.length,
+      fulltext: afterTA.length,
+      excluded_ft: excluded_ft.length,
+      included: included.length
+    },
+    sourceDistribution, // v3.0: For accurate PRISMA identification display
+    included,
+    excluded: [...excluded_ta, ...excluded_ft],
+    duplicates,
+    rules
+  };
+}
+
+function getValue(row, field) {
+  const col = columnMapping[field];
+  return col ? String(row[col] || '') : '';
+}
+
+function normalizeTitle(title) {
+  return title.toLowerCase()
+    .replace(/[^\w\s\u4e00-\u9fa5]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function detectLanguage(text) {
+  // v3.0: Improved language detection with fallback
+  if (!text || text.trim().length === 0) {
+    return 'english'; // Default to english if no text
+  }
+  
+  // Simple CJK detection
+  const cjkPattern = /[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff]/;
+  return cjkPattern.test(text) ? 'chinese' : 'english';
+}
+
+// Display results
+function displayResults(results) {
+  if (!results || !results.counts) {
+    showToast('没有可显示的结果，请先完成文献筛选', 'warning');
+    return;
+  }
+  
+  const counts = results.counts;
+  
+  document.getElementById('stat-identified-db').textContent = counts.identified_db || 0;
+  document.getElementById('stat-identified-other').textContent = counts.identified_other || 0;
+  document.getElementById('stat-after-dupes').textContent = counts.after_dupes || 0;
+  document.getElementById('stat-screened').textContent = counts.screened || 0;
+  document.getElementById('stat-excluded-ta').textContent = counts.excluded_ta || 0;
+  document.getElementById('stat-fulltext').textContent = counts.fulltext || 0;
+  document.getElementById('stat-excluded-ft').textContent = counts.excluded_ft || 0;
+  document.getElementById('stat-included').textContent = counts.included || 0;
+
+  // Set default theme
+  currentTheme = 'subtle';
+  const svg = generatePRISMASVG(counts, currentTheme);
+  document.getElementById('svgPreview').innerHTML = svg;
+  
+  // Setup theme change listeners
+  document.querySelectorAll('input[name="theme"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      currentTheme = e.target.value;
+      updateCurrentThemeLabel();
+    });
+  });
+  
+  updateCurrentThemeLabel();
+}
+
+function updateThemePreview() {
+  if (!screeningResults) return;
+  
+  const selectedTheme = document.querySelector('input[name="theme"]:checked')?.value || 'subtle';
+  currentTheme = selectedTheme;
+  
+  const svg = generatePRISMASVG(screeningResults.counts, currentTheme);
+  document.getElementById('svgPreview').innerHTML = svg;
+  
+  updateCurrentThemeLabel();
+  showToast(`已切换到${colorThemes[currentTheme].name}主题`, 'success');
+}
+
+function updateCurrentThemeLabel() {
+  const label = document.getElementById('currentThemeLabel');
+  if (label) {
+    label.textContent = colorThemes[currentTheme].name;
+  }
+}
+
+function generatePRISMASVG(counts, theme = 'subtle') {
+  const width = 800;
+  const height = 1200; // v3.0: Extended height for additional exclusion details
+  const boxWidth = 200;
+  const boxHeight = 80;
+  const padding = 20;
+  
+  const colors = colorThemes[theme].colors;
+
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <polygon points="0 0, 10 3, 0 6" fill="${colors.border}" />
+        </marker>
+      </defs>
+      
+      <!-- Identification -->
+      <rect x="50" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="150" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 数据库</text>
+      <text x="150" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_db}</text>
+      
+      <rect x="300" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="400" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 其他来源</text>
+      <text x="400" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_other}</text>
+      
+      <!-- Duplicates removed -->
+      <rect x="550" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.duplicates}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="650" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去除重复</text>
+      <text x="650" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.duplicates}</text>
+      
+      <line x1="275" y1="100" x2="275" y2="140" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      <line x1="275" y1="140" x2="650" y2="140" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+      
+      <!-- After deduplication -->
+      <rect x="175" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="275" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去重后记录</text>
+      <text x="275" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.after_dupes}</text>
+      
+      <!-- Screening -->
+      <rect x="175" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="275" y="290" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">标题/摘要筛选</text>
+      <text x="275" y="310" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.screened}</text>
+      
+      <line x1="275" y1="220" x2="275" y2="260" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      
+      <!-- TA Excluded -->
+      <rect x="550" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="650" y="280" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">标题/摘要排除</text>
+      <text x="650" y="300" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ta}</text>
+      
+      <line x1="375" y1="300" x2="550" y2="300" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+      
+      <!-- Fulltext -->
+      <rect x="175" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="275" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文评估</text>
+      <text x="275" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.fulltext}</text>
+      
+      <line x1="275" y1="340" x2="275" y2="380" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      
+      <!-- FT Excluded -->
+      <rect x="550" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+      <text x="650" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文排除</text>
+      <text x="650" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ft}</text>
+      
+      <line x1="375" y1="420" x2="550" y2="420" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+      
+      <!-- Included -->
+      <rect x="175" y="500" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.included}" fill-opacity="0.4" stroke="${colors.border}" stroke-width="3"/>
+      <text x="275" y="530" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">✓ 最终纳入</text>
+      <text x="275" y="550" text-anchor="middle" font-size="20" font-weight="bold" fill="${colors.text}">${counts.included}</text>
+      
+      <line x1="275" y1="460" x2="275" y2="500" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      
+      <!-- v3.0: Exclusion reasons breakdown -->
+      <text x="50" y="620" font-size="12" font-weight="bold" fill="${colors.text}">排除原因统计 (全文阶段):</text>
+      <text x="50" y="645" font-size="11" fill="${colors.text}">• 人群不符: ${getExclusionCount('人群不符')} 篇</text>
+      <text x="50" y="665" font-size="11" fill="${colors.text}">• 干预不符: ${getExclusionCount('干预不符')} 篇</text>
+      <text x="50" y="685" font-size="11" fill="${colors.text}">• 对照不符: ${getExclusionCount('对照不符')} 篇</text>
+      <text x="50" y="705" font-size="11" fill="${colors.text}">• 缺乏结局: ${getExclusionCount('缺乏结局')} 篇</text>
+      <text x="50" y="725" font-size="11" fill="${colors.text}">• 数据不完整: ${getExclusionCount('数据不完整')} 篇</text>
+      
+      <!-- Title -->
+      <text x="400" y="760" text-anchor="middle" font-size="16" font-weight="bold" fill="${colors.text}">PRISMA 2020 文献筛选流程图</text>
+      <text x="400" y="785" text-anchor="middle" font-size="12" fill="${colors.text}" opacity="0.7">主题: ${colorThemes[theme].name} | 生成时间: ${new Date().toLocaleDateString('zh-CN')}</text>
+    </svg>
+  `;
+
+  return svg;
+}
+
+// v3.0: Helper function to get exclusion count from screening results
+function getExclusionCount(reason) {
+  if (!screeningResults || !screeningResults.excluded) return 0;
+  return screeningResults.excluded.filter(r => r._exclude_reason === reason).length;
+}
+
+// Download functions
+function downloadFile(type) {
+  if (!screeningResults) {
+    showToast('没有可下载的结果', 'error');
+    return;
+  }
+
+  let content = '';
+  let filename = '';
+  let mimeType = '';
+
+  switch (type) {
+    case 'included':
+      content = generateExcelUTF8BOM(screeningResults.included, 'included');
+      filename = 'included_studies.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'excluded':
+      // v3.0: Export all excluded records (both TA and FT stages)
+      // Debug: log the data before filtering
+      console.log('📥 下载排除文献调试：');
+      console.log('- screeningResults.excluded 长度:', screeningResults.excluded.length);
+      console.log('- 前3条数据:', screeningResults.excluded.slice(0, 3));
+      
+      const excludedData = screeningResults.excluded;
+      if (excludedData.length === 0) {
+        showToast('💡 当前没有被排除的文献。可在"第2步-配置筛选规则"中添加排除关键词，或在"第4步-人工审查"中手动排除文献。', 'info');
+        return;
+      }
+      
+      content = generateExcelUTF8BOM(excludedData, 'excluded');
+      filename = 'excluded_studies.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'svg-colorful':
+      content = generatePRISMASVG(screeningResults.counts, 'colorful');
+      filename = 'prisma_flow_colorful.svg';
+      mimeType = 'image/svg+xml';
+      break;
+    case 'svg-blackwhite':
+      content = generatePRISMASVG(screeningResults.counts, 'blackwhite');
+      filename = 'prisma_flow_blackwhite.svg';
+      mimeType = 'image/svg+xml';
+      break;
+    case 'svg-subtle':
+      content = generatePRISMASVG(screeningResults.counts, 'subtle');
+      filename = 'prisma_flow_subtle.svg';
+      mimeType = 'image/svg+xml';
+      break;
+    case 'report':
+      content = generateReport(screeningResults);
+      filename = 'screening_report.md';
+      mimeType = 'text/markdown';
+      break;
+  }
+
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showToast(`已下载 ${filename}`, 'success');
+}
+
+function downloadAllFiles() {
+  if (!screeningResults) {
+    showToast('没有可下载的结果', 'error');
+    return;
+  }
+  
+  showToast('正在下载所有文件...', 'success');
+  
+  const files = [
+    'included',
+    'excluded',
+    'svg-colorful',
+    'svg-blackwhite',
+    'svg-subtle',
+    'report'
+  ];
+  
+  files.forEach((fileType, index) => {
+    setTimeout(() => {
+      downloadFile(fileType);
+    }, index * 300);
+  });
+}
+
+function generateExcel(data, type) {
+  if (data.length === 0) return '';
+  
+  const columns = Object.keys(data[0]).filter(k => !k.startsWith('_'));
+  if (type === 'excluded') {
+    columns.push('_exclude_stage', '_exclude_reason');
+  }
+  
+  const header = columns.join(',');
+  const rows = data.map(row => 
+    columns.map(col => {
+      const val = String(row[col] || '');
+      return val.includes(',') ? `"${val}"` : val;
+    }).join(',')
+  );
+  
+  return [header, ...rows].join('\n');
+}
+
+// UTF-8 with BOM for Excel compatibility
+function generateExcelUTF8BOM(data, type) {
+  console.log('📝 生成Excel调试：');
+  console.log('- 数据长度:', data.length);
+  console.log('- 类型:', type);
+  
+  if (data.length === 0) {
+    console.warn('⚠️ 数据为空，只返回BOM');
+    return '\uFEFF'; // BOM only
+  }
+  
+  console.log('- 第一条记录的字段:', Object.keys(data[0]));
+  
+  const columns = Object.keys(data[0]).filter(k => !k.startsWith('_'));
+  if (type === 'excluded') {
+    columns.push('_exclude_stage', '_exclude_reason');
+  }
+  
+  console.log('- 输出列:', columns);
+  
+  // Escape values properly for CSV
+  const escapeCSV = (val) => {
+    val = String(val || '');
+    // If contains comma, quote, or newline, wrap in quotes and escape quotes
+    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  };
+  
+  const header = columns.map(escapeCSV).join(',');
+  const rows = data.map(row => 
+    columns.map(col => {
+      if (col === '_exclude_stage' || col === '_exclude_reason') {
+        // v3.0: Include detailed exclusion information
+        return escapeCSV(row[col] || '');
+      }
+      return escapeCSV(row[col]);
+    }).join(',')
+  );
+  
+  console.log('✅ 生成了', rows.length, '行数据');
+  
+  // Add UTF-8 BOM at the beginning
+  return '\uFEFF' + [header, ...rows].join('\n');
+}
+
+function generateReport(results) {
+  const timestamp = new Date().toLocaleString('zh-CN');
+  
+  // v3.0: Calculate exclusion reason statistics
+  const exclusionStats = {};
+  results.excluded.forEach(record => {
+    if (record._exclude_reason) {
+      exclusionStats[record._exclude_reason] = (exclusionStats[record._exclude_reason] || 0) + 1;
+    }
+  });
+
+  const exclusionDetails = Object.entries(exclusionStats)
+    .map(([reason, count]) => {
+      const rate = results.excluded.length > 0 ? Math.round((count / results.excluded.length) * 100) : 0;
+      return `- **${reason}**: ${count}篇 (${rate}%)`;
+    })
+    .join('\n');
+
+  // v3.0: Source distribution
+  const sourceStats = results.sourceDistribution || {};
+  const sourceDetails = Object.entries(sourceStats)
+    .map(([source, count]) => `- **${source}**: ${count}篇`)
+    .join('\n');
+
+  return `# 文献筛选报告
+
+**生成时间:** ${timestamp}
+
+## 1. 数据概况
+
+- **上传文件总数:** ${uploadedFiles.length}
+- **上传文献总数:** ${uploadedData.length}
+- **去重后文献数:** ${results.counts.after_dupes}
+- **最终纳入文献数:** ${results.counts.included}
+
+## 2. 数据来源分布
+
+${sourceDetails || '- 未记录源信息'}
+
+## 3. 列名映射
+
+${Object.entries(columnMapping).map(([std, col]) => `- **${std}** → ${col}`).join('\n')}
+
+## 4. 筛选规则
+
+### 时间窗口
+- 起始年份: ${results.rules.time_window.start_year}
+- 结束年份: ${results.rules.time_window.end_year}
+
+### 包含关键词
+${results.rules.include_any.map(kw => `- ${kw}`).join('\n')}
+
+### 排除关键词
+${results.rules.exclude.map(ex => `- **${ex.keyword}**: ${ex.reason}`).join('\n')}
+
+### 语言要求
+${results.rules.language.allow.map(lang => `- ${lang}`).join('\n')}
+
+### 必填字段
+${results.rules.required_one_of.map(f => `- ${f}`).join('\n')}
+
+## 5. PRISMA 统计
+
+| 阶段 | 数量 |
+|------|------|
+| 识别 (数据库) | ${results.counts.identified_db} |
+| 识别 (其他来源) | ${results.counts.identified_other} |
+| 总计识别 | ${results.counts.identified_db + results.counts.identified_other} |
+| 去除重复 | ${results.counts.duplicates} |
+| 去重后 | ${results.counts.after_dupes} |
+| 标题/摘要筛选 | ${results.counts.screened} |
+| 标题/摘要排除 | ${results.counts.excluded_ta} |
+| 全文评估 | ${results.counts.fulltext} |
+| 全文排除 | ${results.counts.excluded_ft} |
+| **最终纳入** | **${results.counts.included}** |
+
+## 6. v3.0 人工审核详情
+
+### 排除原因统计
+
+${exclusionDetails || '- 未排除任何文献'}
+
+### 排除率计算
+
+- 获取全文: ${results.counts.fulltext}篇
+- 全文排除: ${results.counts.excluded_ft}篇
+- **排除率**: ${results.counts.fulltext > 0 ? Math.round((results.counts.excluded_ft / results.counts.fulltext) * 100) : 0}%
+- **保留率**: ${results.counts.fulltext > 0 ? Math.round((results.counts.included / results.counts.fulltext) * 100) : 0}%
+
+## 7. 方法说明
+
+### 去重方法
+- 优先按 DOI 去重
+- 其次按标题规范化（转小写、去标点、合并空格）去重
+- v3.0 新增：跨源智能去重（同一文献若出现在多个数据库中，仅保留一条）
+
+### 筛选流程
+1. 时间窗口过滤
+2. 包含关键词匹配（title/abstract/keywords）
+3. 必填字段检查
+4. 语言过滤
+5. 排除关键词匹配（标题/摘要阶段）
+6. v3.0 新增：全文人工审核阶段（记录详细排除原因）
+
+### 注意事项
+- 数据库来源比例基于上传文件来源实际计算
+- 全文排除为人工审核结果，包含详细的排除原因
+
+---
+
+*本报告由文献快筛工具 v3.0 自动生成*
+`;
+}
+
+// Progress bar utilities
+function showProgress(message, percent) {
+  let progressDiv = document.getElementById('uploadProgress');
+  if (!progressDiv) {
+    progressDiv = document.createElement('div');
+    progressDiv.id = 'uploadProgress';
+    progressDiv.className = 'upload-progress';
+    document.getElementById('uploadArea').after(progressDiv);
+  }
+  
+  progressDiv.innerHTML = `
+    <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">${message}</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: ${percent}%"></div>
+    </div>
+    <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: var(--space-4); text-align: right;">${percent}%</div>
+  `;
+}
+
+function updateProgress(percent) {
+  const progressDiv = document.getElementById('uploadProgress');
+  if (progressDiv) {
+    const fill = progressDiv.querySelector('.progress-fill');
+    const percentText = progressDiv.querySelectorAll('div')[2];
+    if (fill) fill.style.width = percent + '%';
+    if (percentText) percentText.textContent = percent + '%';
+  }
+}
+
+function hideProgress() {
+  const progressDiv = document.getElementById('uploadProgress');
+  if (progressDiv) {
+    setTimeout(() => progressDiv.remove(), 500);
+  }
+}
+
+function addSuccessAnimation() {
+  const uploadInfo = document.getElementById('uploadInfo');
+  if (uploadInfo) {
+    uploadInfo.classList.add('success-animation');
+    setTimeout(() => uploadInfo.classList.remove('success-animation'), 600);
+  }
+}
+
+// YAML import/export
+function exportYAML() {
+  const yaml = document.getElementById('yamlEditor').value;
+  const blob = new Blob([yaml], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'screening_rules.yaml';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出YAML配置', 'success');
+}
+
+function importYAML() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.yaml,.yml';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('yamlEditor').value = e.target.result;
+        showToast('已导入YAML配置', 'success');
+        syncYAMLToForm();
+      };
+      reader.readAsText(file);
+    }
+  };
+  input.click();
+}
+
+// UI utilities
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
+
+function showLoading(message) {
+  const overlay = document.createElement('div');
+  overlay.className = 'loading-overlay';
+  overlay.innerHTML = `
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <div style="font-size: var(--font-size-lg); font-weight: var(--font-weight-medium);">${message}</div>
+    </div>
+  `;
+  overlay.id = 'loadingOverlay';
+  document.body.appendChild(overlay);
+}
+
+function hideLoading() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.remove();
+}
+
+function resetApp() {
+  uploadedData = [];
+  uploadedFiles = []; // v3.0
+  screeningResults = null;
+  columnMapping = {};
+  fileFormat = 'unknown';
+  formatSource = 'Unknown';
+  currentStep = 1;
+  exclusionReasons = {}; // v3.0
+  document.getElementById('uploadInfo').classList.add('hidden');
+  document.getElementById('fileInput').value = '';
+  hideProgress();
+  setStep(1);
+  showToast('已重置应用', 'success');
+}
+
+// v3.0: Display fulltext review UI
+function displayFulltextReviewUI() {
+  if (!screeningResults) return;
+
+  const fulltext = screeningResults.included;
+  document.getElementById('fulltext-total').textContent = fulltext.length;
+  document.getElementById('fulltext-obtained').textContent = fulltext.length;
+
+  // Create review table
+  const tableContainer = document.getElementById('fulltext-review-table');
+  const table = document.createElement('table');
+  
+  const thead = document.createElement('thead');
+  thead.innerHTML = `
+    <tr>
+      <th style="width: 5%;">序号</th>
+      <th style="width: 35%;">标题</th>
+      <th style="width: 35%;">摘要</th>
+      <th style="width: 15%;">排除原因</th>
+      <th style="width: 10%;">操作</th>
+    </tr>
+  `;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  fulltext.forEach((record, idx) => {
+    const tr = document.createElement('tr');
+    const excludeSelect = `
+      <select id="exclude-${idx}" class="form-input" onchange="updateExclusionStats()" style="width: 100%; padding: var(--space-8);">
+        <option value="">保留</option>
+        <option value="人群不符">人群不符</option>
+        <option value="干预不符">干预不符</option>
+        <option value="对照不符">对照不符</option>
+        <option value="缺乏结局">缺乏结局</option>
+        <option value="数据不完整">数据不完整</option>
+        <option value="其他">其他</option>
+      </select>
+    `;
+    
+    tr.innerHTML = `
+      <td>${idx + 1}</td>
+      <td>${truncate(getValue(record, 'title'), 60)}</td>
+      <td>${truncate(getValue(record, 'abstract'), 60)}</td>
+      <td>${excludeSelect}</td>
+      <td><a href="javascript:void(0)" onclick="viewFulltext(${idx})">查看</a></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  tableContainer.innerHTML = '';
+  tableContainer.appendChild(table);
+
+  updateExclusionStats();
+}
+
+// v3.0: Update exclusion statistics
+function updateExclusionStats() {
+  if (!screeningResults) return;
+
+  const fulltext = screeningResults.included;
+  const reasonCounts = {};
+  let excludedCount = 0;
+
+  // Collect all selected reasons
+  fulltext.forEach((record, idx) => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (select) {
+      const reason = select.value;
+      if (reason) {
+        excludedCount++;
+        reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+      }
+    }
+  });
+
+  const includedCount = fulltext.length - excludedCount;
+  const excludeRate = fulltext.length > 0 ? Math.round((excludedCount / fulltext.length) * 100) : 0;
+
+  document.getElementById('fulltext-excluded').textContent = excludedCount;
+  document.getElementById('fulltext-included').textContent = includedCount;
+  document.getElementById('fulltext-rate').textContent = excludeRate + '%';
+
+  // Display reason summary
+  const summaryDiv = document.getElementById('exclusion-reasons-summary');
+  if (excludedCount > 0) {
+    const reasons = Object.entries(reasonCounts)
+      .map(([reason, count]) => `<div style="margin-bottom: var(--space-8);"><strong>${reason}:</strong> ${count}篇 (${Math.round((count/excludedCount)*100)}%)</div>`)
+      .join('');
+    
+    summaryDiv.innerHTML = `
+      <div class="info-box" style="background: var(--color-bg-4);">
+        <h4 style="margin-bottom: var(--space-12);">排除原因详细统计</h4>
+        ${reasons}
+      </div>
+    `;
+  } else {
+    summaryDiv.innerHTML = '';
+  }
+}
+
+// v3.0: Finalize fulltext review and generate final results
+function finalizeFulltextReview() {
+  if (!screeningResults) return;
+
+  const fulltext = screeningResults.included;
+  const excluded_ft = [];
+  const included = [];
+
+  fulltext.forEach((record, idx) => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (select && select.value) {
+      excluded_ft.push({
+        ...record,
+        _exclude_reason: select.value,
+        _exclude_stage: 'fulltext'
+      });
+    } else {
+      included.push(record);
+    }
+  });
+
+  console.log('📋 完成人工审核调试：');
+  console.log('- 全文评估文献数:', fulltext.length);
+  console.log('- 人工排除文献数:', excluded_ft.length);
+  console.log('- 最终纳入文献数:', included.length);
+  console.log('- 原有TA排除文献数:', screeningResults.excluded.length);
+
+  // Update screening results with manual review data
+  screeningResults.included = included;
+  screeningResults.excluded = [...screeningResults.excluded, ...excluded_ft];
+  screeningResults.counts.excluded_ft = excluded_ft.length;
+  screeningResults.counts.included = included.length;
+
+  console.log('- 更新后总排除文献数:', screeningResults.excluded.length);
+
+  // Go to final results display (Step 3)
+  displayResults(screeningResults);
+  goToStep3();
+  showToast('人工审核完成，已生成最终结果', 'success');
+}
+
+// v3.0: View fulltext (placeholder - in real app would link to PDF or retrieve from API)
+function viewFulltext(idx) {
+  showToast(`打开第${idx + 1}篇文献全文`, 'info');
+  // In production: open PDF viewer, fetch fulltext from database, etc.
+}
+
+// v3.0: Add exclusion reason to UI
+function addExclusionReason(reasonName, description) {
+  const fulltext = screeningResults.included;
+  const firstEmpty = Array.from(document.querySelectorAll('select[id^="exclude-"]'))
+    .findIndex(select => !select.value);
+  
+  if (firstEmpty >= 0) {
+    document.getElementById(`exclude-${firstEmpty}`).value = reasonName;
+    updateExclusionStats();
+    showToast(`已为第${firstEmpty + 1}篇添加排除原因: ${reasonName}`, 'success');
+  } else {
+    showToast('未找到可用的记录位置', 'warning');
+  }
+}
+
+// Initialize app
+init();
