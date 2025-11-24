@@ -146,6 +146,6 @@ MIT License
 
 ---
 
-**开发者**: [Your Name]  
-**问题反馈**: [GitHub Issues](https://github.com/[your-username]/literature-screening-v30/issues)  
-**最后更新**: 2025-01-24
+**开发者**: [quzhiii]  
+**问题反馈**: [GitHub Issues](https://github.com/[quzhiii]/literature-screening-v30/issues)  
+**最后更新**: 2025-11-24
