@@ -9,12 +9,14 @@ let formatSource = 'Unknown';
 let currentTheme = 'subtle';
 let exclusionReasons = {}; // v3.0: Track exclusion reasons for fulltext stage
 
-// v5.0: Dual-reviewer mode variables
-let isDualReviewMode = false;
-let currentReviewer = 'A'; // 'A' or 'B'
-let reviewerNames = { A: '审查员A', B: '审查员B' };
-let dualReviewResults = { A: {}, B: {} }; // Store decisions for each reviewer
-let kappaCalculation = null;
+// v5.0: Multi-user collaboration variables
+let projectCollaboration = {
+  reviewers: {},
+  decisions: {},
+  status: 'active',
+  createdAt: null,
+  lastSync: null
+};
 
 // Color themes
 const colorThemes = {
@@ -2640,12 +2642,44 @@ function updateFulltextStats() {
   const fulltext = screeningResults.included;
   let excludedCount = 0;
   
-  fulltext.forEach((record, idx) => {
-    const select = document.getElementById(`exclude-${idx}`);
-    if (select && select.value) {
-      excludedCount++;
+  // Store current user's decisions
+  if (currentUserSession && projectData) {
+    if (!projectData.reviewDecisions[currentUserSession.role]) {
+      projectData.reviewDecisions[currentUserSession.role] = {};
     }
-  });
+    
+    fulltext.forEach((record, idx) => {
+      const select = document.getElementById(`exclude-${idx}`);
+      if (select) {
+        projectData.reviewDecisions[currentUserSession.role][idx] = {
+          decision: select.value || '',
+          timestamp: new Date().toISOString(),
+          reviewer: currentUserSession.username
+        };
+        
+        if (select.value) {
+          excludedCount++;
+        }
+      }
+    });
+    
+    // Auto-save decisions
+    saveProjectData();
+    
+    // Update collaboration status
+    updateCollaborationStatus();
+    
+    // Check if both reviewers have completed and calculate kappa
+    checkAndCalculateKappa();
+  } else {
+    // Fallback for non-collaborative mode
+    fulltext.forEach((record, idx) => {
+      const select = document.getElementById(`exclude-${idx}`);
+      if (select && select.value) {
+        excludedCount++;
+      }
+    });
+  }
   
   const includedCount = fulltext.length - excludedCount;
   const rate = fulltext.length > 0 ? Math.round((excludedCount / fulltext.length) * 100) : 0;
@@ -2653,6 +2687,82 @@ function updateFulltextStats() {
   document.getElementById('fulltext-excluded').textContent = excludedCount;
   document.getElementById('fulltext-included').textContent = includedCount;
   document.getElementById('fulltext-rate').textContent = rate + '%';
+}
+
+// Update collaboration status in UI
+function updateCollaborationStatus() {
+  if (!projectData || !currentUserSession) return;
+  
+  const reviewerAStatus = document.getElementById('reviewer-a-status');
+  const reviewerBStatus = document.getElementById('reviewer-b-status');
+  
+  if (!reviewerAStatus || !reviewerBStatus) return;
+  
+  const reviewerA = projectData.reviewers['reviewer-a'];
+  const reviewerB = projectData.reviewers['reviewer-b'];
+  const decisionsA = projectData.reviewDecisions['reviewer-a'] || {};
+  const decisionsB = projectData.reviewDecisions['reviewer-b'] || {};
+  
+  const totalRecords = screeningResults ? screeningResults.included.length : 0;
+  const completedA = Object.keys(decisionsA).length;
+  const completedB = Object.keys(decisionsB).length;
+  
+  // Update reviewer A status
+  if (reviewerA) {
+    reviewerAStatus.innerHTML = `
+      <strong>${reviewerA.username}</strong><br>
+      <small>进度: ${completedA}/${totalRecords} (${Math.round((completedA/totalRecords)*100) || 0}%)</small>
+    `;
+  } else {
+    reviewerAStatus.innerHTML = '<span style="opacity: 0.7;">等待加入...</span>';
+  }
+  
+  // Update reviewer B status  
+  if (reviewerB) {
+    reviewerBStatus.innerHTML = `
+      <strong>${reviewerB.username}</strong><br>
+      <small>进度: ${completedB}/${totalRecords} (${Math.round((completedB/totalRecords)*100) || 0}%)</small>
+    `;
+  } else {
+    reviewerBStatus.innerHTML = '<span style="opacity: 0.7;">等待加入...</span>';
+  }
+}
+
+// Check if both reviewers completed and calculate kappa
+function checkAndCalculateKappa() {
+  if (!projectData || !screeningResults) return;
+  
+  const decisionsA = projectData.reviewDecisions['reviewer-a'] || {};
+  const decisionsB = projectData.reviewDecisions['reviewer-b'] || {};
+  const totalRecords = screeningResults.included.length;
+  
+  const completedA = Object.keys(decisionsA).length === totalRecords;
+  const completedB = Object.keys(decisionsB).length === totalRecords;
+  
+  if (completedA && completedB) {
+    // Both reviewers completed, calculate kappa
+    const reviewerADecisions = [];
+    const reviewerBDecisions = [];
+    
+    for (let i = 0; i < totalRecords; i++) {
+      const decisionA = decisionsA[i] ? decisionsA[i].decision : '';
+      const decisionB = decisionsB[i] ? decisionsB[i].decision : '';
+      reviewerADecisions.push(decisionA);
+      reviewerBDecisions.push(decisionB);
+    }
+    
+    try {
+      const stats = calculateReliabilityStats(reviewerADecisions, reviewerBDecisions);
+      displayKappaResults(stats);
+      document.getElementById('kappa-analysis').classList.remove('hidden');
+      
+      // Show notification
+      showToast('🎉 双人审查已完成！一致性分析已生成。', 'success');
+    } catch (error) {
+      console.error('Kappa calculation error:', error);
+      showToast('⚠️ 一致性计算出现错误，请检查数据完整性。', 'warning');
+    }
+  }
 }
 
 // v3.0: Update exclusion statistics
@@ -3296,6 +3406,197 @@ function updateFulltextStats() {
     updateExclusionStatsWithDualReview();
   }
 }
+
+// Load project data from shared storage
+function loadProjectData() {
+  if (!currentUserSession) return;
+  
+  const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+  projectData = projects[currentUserSession.projectId];
+  
+  if (!projectData) {
+    // First time - create new project structure
+    projectData = {
+      id: currentUserSession.projectId,
+      name: '未命名项目',
+      creator: currentUserSession.username,
+      createdAt: new Date().toISOString(),
+      reviewers: {},
+      uploadedData: null,
+      screeningResults: null,
+      reviewDecisions: {}
+    };
+    
+    // Register current user
+    projectData.reviewers[currentUserSession.role] = {
+      username: currentUserSession.username,
+      joinedAt: new Date().toISOString(),
+      status: 'active'
+    };
+    
+    saveProjectData();
+  } else {
+    // Existing project - register current user
+    if (!projectData.reviewers[currentUserSession.role]) {
+      projectData.reviewers[currentUserSession.role] = {
+        username: currentUserSession.username,
+        joinedAt: new Date().toISOString(),
+        status: 'active'
+      };
+      saveProjectData();
+    }
+    
+    // Load existing data into global variables
+    if (projectData.uploadedData) {
+      uploadedData = projectData.uploadedData;
+    }
+    if (projectData.screeningResults) {
+      screeningResults = projectData.screeningResults;
+    }
+  }
+}
+
+// Save project data to shared storage
+function saveProjectData() {
+  if (!currentUserSession || !projectData) return;
+  
+  // Update project data with current global state
+  projectData.uploadedData = uploadedData;
+  projectData.screeningResults = screeningResults;
+  projectData.lastSync = new Date().toISOString();
+  
+  // Save to shared storage
+  const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+  projects[currentUserSession.projectId] = projectData;
+  localStorage.setItem('prisma_projects', JSON.stringify(projects));
+}
+
+// Logout function
+function logout() {
+  if (confirm('确定要退出登录吗？未保存的更改可能会丢失。')) {
+    // Save current work
+    saveProjectData();
+    
+    // Clear session
+    sessionStorage.removeItem('prisma_user_session');
+    
+    // Redirect to login
+    window.location.href = 'login.html';
+  }
+}
+
+// Show project status
+function showProjectStatus() {
+  if (!projectData) return;
+  
+  const reviewerA = projectData.reviewers['reviewer-a'];
+  const reviewerB = projectData.reviewers['reviewer-b'];
+  
+  const statusHTML = `
+    <div style="padding: var(--space-20); background: white; border-radius: 8px; max-width: 500px; margin: 20px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">📊 项目协作状态</h3>
+      
+      <div style="margin-bottom: var(--space-16);">
+        <h4>项目信息</h4>
+        <p><strong>项目ID:</strong> ${projectData.id}</p>
+        <p><strong>创建时间:</strong> ${new Date(projectData.createdAt).toLocaleString('zh-CN')}</p>
+        <p><strong>最后同步:</strong> ${projectData.lastSync ? new Date(projectData.lastSync).toLocaleString('zh-CN') : '从未同步'}</p>
+      </div>
+      
+      <div style="margin-bottom: var(--space-16);">
+        <h4>审查员状态</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12);">
+          <div style="padding: var(--space-12); border: 1px solid var(--color-border); border-radius: 6px; ${reviewerA ? 'background: rgba(34, 197, 94, 0.05)' : 'background: rgba(239, 68, 68, 0.05)'};">
+            <div><strong>👨‍🔬 主审查员</strong></div>
+            <div>${reviewerA ? reviewerA.username : '未加入'}</div>
+            <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+              ${reviewerA ? `加入于 ${new Date(reviewerA.joinedAt).toLocaleDateString('zh-CN')}` : '等待加入'}
+            </div>
+          </div>
+          <div style="padding: var(--space-12); border: 1px solid var(--color-border); border-radius: 6px; ${reviewerB ? 'background: rgba(34, 197, 94, 0.05)' : 'background: rgba(239, 68, 68, 0.05)'};">
+            <div><strong>👩‍🔬 副审查员</strong></div>
+            <div>${reviewerB ? reviewerB.username : '未加入'}</div>
+            <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+              ${reviewerB ? `加入于 ${new Date(reviewerB.joinedAt).toLocaleDateString('zh-CN')}` : '等待加入'}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="text-align: center;">
+        <button onclick="closeModal()" class="btn btn-primary">关闭</button>
+      </div>
+    </div>
+  `;
+  
+  showModal(statusHTML);
+}
+
+// Show modal helper
+function showModal(htmlContent) {
+  const modal = document.createElement('div');
+  modal.id = 'status-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  modal.innerHTML = htmlContent;
+  document.body.appendChild(modal);
+}
+
+// Close modal helper
+function closeModal() {
+  const modal = document.getElementById('status-modal');
+  if (modal) modal.remove();
+}
+
+// Enhanced save/load functions for multi-user projects
+function saveProjectFile() {
+  saveProjectData();
+  
+  const projectExport = {
+    ...projectData,
+    exportedBy: currentUserSession.username,
+    exportedAt: new Date().toISOString(),
+    version: '5.0'
+  };
+  
+  const blob = new Blob([JSON.stringify(projectExport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `PRISMA-Project-${projectData.id}-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(url);
+  showToast('✅ 项目已导出到本地文件', 'success');
+}
+
+// Override existing data saving to use project-based storage
+const originalProcessFiles = processFiles;
+window.processFiles = function(files) {
+  const result = originalProcessFiles(files);
+  // Auto-save after file processing
+  setTimeout(() => {
+    if (projectData) {
+      projectData.name = `文献筛选项目 (${uploadedData ? uploadedData.length : 0}篇)`;
+      projectData.literatureCount = uploadedData ? uploadedData.length : 0;
+      saveProjectData();
+    }
+  }, 1000);
+  return result;
+};
 
 // Initialize app
 init();

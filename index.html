@@ -851,8 +851,25 @@ input[type="range"]::-moz-range-thumb {
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>📚 文献快筛 + PRISMA 流程图生成工具</h1>
-      <p>自动化文献筛选，一键生成 PRISMA 2020 标准流程图</p>
+      <h1>📚 PRISMA 文献筛选助手 v5.0 - 专业版</h1>
+      <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
+      
+      <!-- v5.0: Quick access to dual-review mode -->
+      <div style="margin-top: var(--space-16); text-align: center;">
+        <a href="login.html" style="
+          display: inline-block;
+          padding: var(--space-8) var(--space-16);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-decoration: none;
+          border-radius: var(--radius-lg);
+          font-weight: var(--font-weight-semibold);
+          font-size: var(--font-size-sm);
+          transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+          👥 双人协作审查模式
+        </a>
+      </div>
     </div>
 
     <div class="steps-indicator">
@@ -1441,49 +1458,30 @@ input[type="range"]::-moz-range-thumb {
     <div id="step4" class="card hidden">
       <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 4: 全文人工审核</h2>
       
-      <!-- v5.0: 审查模式选择 -->
+      <!-- v5.0: 多用户协作信息 -->
       <div class="info-box" style="margin-bottom: var(--space-24); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg); color: white;">🎓 审查模式选择</h3>
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg); color: white;">👥 多用户协作审查</h3>
+        <div id="collaboration-status" class="grid grid-2" style="margin-bottom: var(--space-16);">
+          <div style="background: rgba(255,255,255,0.1); padding: var(--space-12); border-radius: 8px;">
+            <div style="font-weight: bold; margin-bottom: 4px;">👨‍🔬 主审查员</div>
+            <div id="reviewer-a-status">加载中...</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.1); padding: var(--space-12); border-radius: 8px;">
+            <div style="font-weight: bold; margin-bottom: 4px;">👩‍🔬 副审查员</div>
+            <div id="reviewer-b-status">加载中...</div>
+          </div>
+        </div>
         <div class="button-group">
-          <button class="btn btn-secondary" onclick="setReviewMode('single')" id="single-mode-btn" style="background: white; color: #667eea; font-weight: bold;">
-            👤 单人审查模式
+          <button class="btn" onclick="saveProjectFile()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+            💾 导出协作项目
           </button>
-          <button class="btn btn-primary" onclick="setReviewMode('dual')" id="dual-mode-btn" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white;">
-            👥 双人审查模式 (专业版)
+          <button class="btn" onclick="showProjectStatus()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+            📊 查看详细状态
           </button>
         </div>
         <p style="margin: var(--space-12) 0 0; font-size: var(--font-size-sm); color: rgba(255,255,255,0.9);">
-          💡 双人审查模式支持：独立审查、Kappa一致性分析、分歧协商解决
+          💡 每位审查员在独立的浏览器会话中进行审查，系统会自动同步数据并计算一致性指标
         </p>
-      </div>
-
-      <!-- v5.0: 双人审查设置面板 -->
-      <div id="dual-review-setup" class="info-box hidden" style="margin-bottom: var(--space-24);">
-        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">👥 双人审查设置</h3>
-        <div class="grid grid-2" style="margin-bottom: var(--space-16);">
-          <div>
-            <label class="form-label">审查员A姓名：</label>
-            <input type="text" id="reviewer-a-name" class="form-input" value="审查员A" placeholder="请输入审查员A姓名">
-          </div>
-          <div>
-            <label class="form-label">审查员B姓名：</label>
-            <input type="text" id="reviewer-b-name" class="form-input" value="审查员B" placeholder="请输入审查员B姓名">
-          </div>
-        </div>
-        <div style="margin-bottom: var(--space-16);">
-          <label class="form-label">当前审查员身份：</label>
-          <div class="button-group">
-            <button class="btn btn-primary" onclick="switchReviewer('A')" id="reviewer-a-btn">
-              🔵 审查员A
-            </button>
-            <button class="btn btn-secondary" onclick="switchReviewer('B')" id="reviewer-b-btn">
-              ⚪ 审查员B
-            </button>
-          </div>
-        </div>
-        <div class="alert alert-info">
-          <strong>使用说明：</strong> 请审查员A和审查员B分别登录此界面进行独立审查。系统会自动记录两人的决策，并在审查完成后计算一致性指标。
-        </div>
       </div>
 
       <!-- v5.0: 一致性分析面板 -->
