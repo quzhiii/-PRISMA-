@@ -212,7 +212,11 @@ function handleMultipleFiles(files) {
   });
 
   if (validFiles.length === 0) {
-    showToast('没有有效的文件格式。支持 CSV, TSV, RIS, BibTeX, TXT, ENW, RDF', 'error');
+    // v4.0: Enhanced error message
+    showDetailedError('invalid_format', {
+      fileName: files[0].name,
+      supportedFormats: validExts
+    });
     return;
   }
 
@@ -230,6 +234,13 @@ function handleMultipleFiles(files) {
   const processFile = (index) => {
     if (index >= validFiles.length) {
       // All files processed
+      if (allRecords.length === 0) {
+        hideProgress();
+        hideLoading();
+        showDetailedError('empty_file', { fileCount: validFiles.length });
+        return;
+      }
+      
       uploadedData = allRecords;
       uploadedFiles = uploadedFilesInfo;
       hideProgress();
@@ -237,7 +248,7 @@ function handleMultipleFiles(files) {
         detectColumns();
         displayUploadInfo();
         hideLoading();
-        showToast(`成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
+        showToast(`✅ 成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
         addSuccessAnimation();
       }, 500);
       return;
@@ -250,26 +261,32 @@ function handleMultipleFiles(files) {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target.result;
-      const fileData = {
-        name: file.name,
-        format: ext,
-        recordCount: 0,
-        source: 'Unknown'
-      };
+      try {
+        const text = e.target.result;
+        const fileData = {
+          name: file.name,
+          format: ext,
+          recordCount: 0,
+          source: 'Unknown'
+        };
 
-      // Parse file and get records
-      const records = parseFileContent(text, ext);
-      fileData.recordCount = records.length;
-      
-      // Detect source from format
-      switch (ext) {
-        case '.ris':
-          fileData.source = 'PubMed/Scopus/Endnote';
-          break;
-        case '.enw':
-          fileData.source = 'CNKI';
-          break;
+        // Parse file and get records
+        const records = parseFileContent(text, ext);
+        
+        if (!records || records.length === 0) {
+          console.warn(`文件 ${file.name} 解析结果为空`);
+        }
+        
+        fileData.recordCount = records.length;
+        
+        // Detect source from format
+        switch (ext) {
+          case '.ris':
+            fileData.source = 'PubMed/Scopus/Endnote';
+            break;
+          case '.enw':
+            fileData.source = 'CNKI';
+            break;
         case '.rdf':
           fileData.source = 'Zotero';
           break;
@@ -295,12 +312,27 @@ function handleMultipleFiles(files) {
 
       allRecords = allRecords.concat(records);
       processFile(index + 1);
+      
+      } catch (error) {
+        hideProgress();
+        hideLoading();
+        showDetailedError('parsing_error', {
+          fileName: file.name,
+          message: error.message,
+          line: error.line || '未知',
+          content: error.content || '未知'
+        });
+        console.error(`解析文件 ${file.name} 时出错:`, error);
+      }
     };
 
     reader.onerror = () => {
       hideProgress();
       hideLoading();
-      showToast(`文件 ${file.name} 读取失败`, 'error');
+      showDetailedError('invalid_format', {
+        fileName: file.name,
+        message: '文件读取失败，可能是文件已损坏或编码不正确'
+      });
     };
 
     reader.readAsText(file);
@@ -2231,6 +2263,162 @@ function resetApp() {
   hideProgress();
   setStep(1);
   showToast('已重置应用', 'success');
+}
+
+// v4.0: Load sample data for new users
+function loadSampleData() {
+  showLoading('正在加载示例数据...');
+  
+  fetch('sample-data.json')
+    .then(response => {
+      if (!response.ok) throw new Error('无法加载示例数据');
+      return response.json();
+    })
+    .then(sampleData => {
+      uploadedData = sampleData.data;
+      uploadedFiles = [{ name: '示例数据.json', source: '系统内置' }];
+      fileFormat = 'JSON';
+      formatSource = '示例数据（中医治疗高血压）';
+      
+      detectColumns();
+      displayUploadInfo();
+      hideLoading();
+      
+      showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
+      
+      // Auto scroll to preview
+      setTimeout(() => {
+        document.getElementById('uploadInfo').scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    })
+    .catch(error => {
+      hideLoading();
+      showToast('❌ 加载示例数据失败：' + error.message, 'error');
+      console.error(error);
+    });
+}
+
+// v4.0: Toggle database export guide
+function toggleDatabaseGuide() {
+  const guide = document.getElementById('databaseGuide');
+  if (guide.classList.contains('hidden')) {
+    guide.classList.remove('hidden');
+    guide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    guide.classList.add('hidden');
+  }
+}
+
+// v4.0: Show video tutorial
+function showVideoTutorial() {
+  const videoUrl = 'https://www.bilibili.com/video/BV1example'; // 待替换为实际视频链接
+  showToast('🎬 视频教程功能即将上线，敬请期待！', 'info');
+  // window.open(videoUrl, '_blank');
+}
+
+// v4.0: Enhanced error handling with detailed messages
+function showDetailedError(errorType, details) {
+  let message = '';
+  let suggestions = '';
+  
+  switch(errorType) {
+    case 'invalid_format':
+      message = `❌ 文件格式错误：${details.fileName}`;
+      suggestions = `
+        <div style="margin-top: var(--space-12);">
+          <strong>可能的原因：</strong>
+          <ul style="padding-left: var(--space-20); margin-top: var(--space-8);">
+            <li>文件不是支持的格式（RIS, CSV, BibTeX等）</li>
+            <li>文件已损坏或不完整</li>
+            <li>文件编码不正确</li>
+          </ul>
+          <strong>解决建议：</strong>
+          <ul style="padding-left: var(--space-20); margin-top: var(--space-8);">
+            <li>重新从数据库导出文件，推荐使用<strong>RIS格式</strong></li>
+            <li>确保选择"完整记录"而非"仅标题"</li>
+            <li>尝试使用Zotero等文献管理软件导出</li>
+            <li>点击上方"📚 数据库导出教程"查看详细步骤</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'parsing_error':
+      message = `❌ 解析错误：${details.message}`;
+      suggestions = `
+        <div style="margin-top: var(--space-12);">
+          <strong>错误位置：</strong>第 ${details.line || '?'} 行
+          <br><strong>错误内容：</strong>${details.content || '未知'}
+          <br><br>
+          <strong>解决建议：</strong>
+          <ul style="padding-left: var(--space-20); margin-top: var(--space-8);">
+            <li>检查文件是否完整（文件末尾是否有ER标记）</li>
+            <li>尝试用文本编辑器打开，检查文件编码（应为UTF-8）</li>
+            <li>重新导出文件</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'empty_file':
+      message = '❌ 文件为空或无有效记录';
+      suggestions = `
+        <div style="margin-top: var(--space-12);">
+          <strong>解决建议：</strong>
+          <ul style="padding-left: var(--space-20); margin-top: var(--space-8);">
+            <li>确认文件中包含文献记录</li>
+            <li>导出时选择"完整记录"而非"仅引用"</li>
+            <li>如果是CSV文件，确保包含表头行</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'missing_fields':
+      message = '⚠️ 部分记录缺少重要字段';
+      suggestions = `
+        <div style="margin-top: var(--space-12);">
+          <strong>缺失字段：</strong>${details.fields.join(', ')}
+          <br><br>
+          <strong>影响：</strong>这些记录可能在筛选时被过滤掉
+          <br><br>
+          <strong>解决建议：</strong>
+          <ul style="padding-left: var(--space-20); margin-top: var(--space-8);">
+            <li>在数据库导出时选择"包含摘要"</li>
+            <li>或在第2步取消勾选"必填字段"</li>
+            <li>您可以继续使用，但建议重新导出完整数据</li>
+          </ul>
+        </div>
+      `;
+      break;
+  }
+  
+  const errorPanel = document.createElement('div');
+  errorPanel.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--color-surface);
+    padding: var(--space-32);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 600px;
+    z-index: 1001;
+    border: 3px solid var(--color-error);
+  `;
+  
+  errorPanel.innerHTML = `
+    <h3 style="color: var(--color-error); margin-bottom: var(--space-16);">${message}</h3>
+    ${suggestions}
+    <div style="margin-top: var(--space-24); display: flex; gap: var(--space-12);">
+      <button class="btn btn-primary" onclick="this.parentElement.parentElement.remove()">我知道了</button>
+      <button class="btn btn-secondary" onclick="toggleDatabaseGuide(); this.parentElement.parentElement.remove();">查看教程</button>
+      <button class="btn btn-secondary" onclick="loadSampleData(); this.parentElement.parentElement.remove();">加载示例</button>
+    </div>
+  `;
+  
+  document.body.appendChild(errorPanel);
 }
 
 // v3.0: Display fulltext review UI
