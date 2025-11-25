@@ -1143,16 +1143,21 @@ function displayUploadInfo() {
   
   // v3.0: Display file sources
   if (uploadedFiles.length > 0) {
-    fileFormat = uploadedFiles.map(f => f.format.substring(1).toUpperCase()).join(' + ');
-    formatSource = uploadedFiles.map(f => `${f.name} (${f.recordCount})`).join('; ');
+    // v4.0: Fixed format display for JSON and other formats
+    fileFormat = uploadedFiles.map(f => {
+      const fmt = f.format || 'unknown';
+      return fmt.startsWith('.') ? fmt.substring(1).toUpperCase() : fmt.toUpperCase();
+    }).join(' + ');
+    formatSource = uploadedFiles.map(f => `${f.name} (${f.recordCount}条)`).join('; ');
     document.getElementById('fileFormat').textContent = fileFormat;
     document.getElementById('formatSource').textContent = formatSource;
   } else {
-    document.getElementById('fileFormat').textContent = fileFormat;
-    document.getElementById('formatSource').textContent = formatSource;
+    document.getElementById('fileFormat').textContent = fileFormat || 'unknown';
+    document.getElementById('formatSource').textContent = formatSource || 'Unknown';
   }
   
   const columns = Object.keys(uploadedData[0] || {});
+  document.getElementById('columnList').textContent = columns.join(', ');
   document.getElementById('columnList').textContent = columns.join(', ');
 
   const mappingDiv = document.getElementById('columnMapping');
@@ -2276,7 +2281,12 @@ function loadSampleData() {
     })
     .then(sampleData => {
       uploadedData = sampleData.data;
-      uploadedFiles = [{ name: '示例数据.json', source: '系统内置' }];
+      uploadedFiles = [{
+        name: '示例数据.json',
+        format: 'JSON',
+        recordCount: sampleData.data.length,
+        source: '系统内置'
+      }];
       fileFormat = 'JSON';
       formatSource = '示例数据（中医治疗高血压）';
       
