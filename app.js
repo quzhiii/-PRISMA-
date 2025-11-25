@@ -9,6 +9,13 @@ let formatSource = 'Unknown';
 let currentTheme = 'subtle';
 let exclusionReasons = {}; // v3.0: Track exclusion reasons for fulltext stage
 
+// v5.0: Dual-reviewer mode variables
+let isDualReviewMode = false;
+let currentReviewer = 'A'; // 'A' or 'B'
+let reviewerNames = { A: '审查员A', B: '审查员B' };
+let dualReviewResults = { A: {}, B: {} }; // Store decisions for each reviewer
+let kappaCalculation = null;
+
 // Color themes
 const colorThemes = {
   colorful: {
@@ -2446,10 +2453,13 @@ function displayFulltextReviewUI() {
   const thead = document.createElement('thead');
   thead.innerHTML = `
     <tr>
+      <th style="width: 3%;">
+        <input type="checkbox" onchange="if(this.checked) selectAllRecords(); else deselectAllRecords();">
+      </th>
       <th style="width: 5%;">序号</th>
-      <th style="width: 35%;">标题</th>
-      <th style="width: 35%;">摘要</th>
-      <th style="width: 15%;">排除原因</th>
+      <th style="width: 32%;">标题</th>
+      <th style="width: 32%;">摘要</th>
+      <th style="width: 18%;">排除原因</th>
       <th style="width: 10%;">操作</th>
     </tr>
   `;
@@ -2459,18 +2469,20 @@ function displayFulltextReviewUI() {
   fulltext.forEach((record, idx) => {
     const tr = document.createElement('tr');
     const excludeSelect = `
-      <select id="exclude-${idx}" class="form-input" onchange="updateExclusionStats()" style="width: 100%; padding: var(--space-8);">
+      <select id="exclude-${idx}" class="form-input" onchange="updateFulltextStats()" style="width: 100%; padding: var(--space-8);">
         <option value="">保留</option>
         <option value="人群不符">人群不符</option>
         <option value="干预不符">干预不符</option>
         <option value="对照不符">对照不符</option>
         <option value="缺乏结局">缺乏结局</option>
         <option value="数据不完整">数据不完整</option>
+        <option value="研究设计不合适">研究设计不合适</option>
         <option value="其他">其他</option>
       </select>
     `;
     
     tr.innerHTML = `
+      <td><input type="checkbox" class="review-checkbox" data-index="${idx}" onchange="if(this.checked) selectedRecords.add(${idx}); else selectedRecords.delete(${idx});"></td>
       <td>${idx + 1}</td>
       <td>${truncate(getValue(record, 'title'), 60)}</td>
       <td>${truncate(getValue(record, 'abstract'), 60)}</td>
@@ -2484,7 +2496,163 @@ function displayFulltextReviewUI() {
   tableContainer.innerHTML = '';
   tableContainer.appendChild(table);
 
+  // Clear selection
+  selectedRecords.clear();
+  currentDefaultExclusion = '';
+
   updateExclusionStats();
+  
+  // v4.1: Add keyboard event listener for Step 4
+  addKeyboardShortcuts();
+}
+
+// v5.0: Cohen's Kappa Calculation
+function calculateKappa(decisions1, decisions2) {
+  if (!decisions1 || !decisions2 || decisions1.length !== decisions2.length) {
+    throw new Error('决策数组必须存在且长度相等');
+  }
+
+  const n = decisions1.length;
+  if (n === 0) return { kappa: 0, interpretation: '无数据', confusionMatrix: {} };
+
+  // Create confusion matrix
+  const categories = [...new Set([...decisions1, ...decisions2])];
+  const matrix = {};
+  categories.forEach(cat => {
+    matrix[cat] = {};
+    categories.forEach(cat2 => matrix[cat][cat2] = 0);
+  });
+
+  // Fill confusion matrix
+  for (let i = 0; i < n; i++) {
+    matrix[decisions1[i]][decisions2[i]]++;
+  }
+
+  // Calculate observed agreement (Po)
+  let observed = 0;
+  categories.forEach(cat => {
+    observed += matrix[cat][cat] || 0;
+  });
+  const Po = observed / n;
+
+  // Calculate expected agreement (Pe)
+  let Pe = 0;
+  categories.forEach(cat => {
+    const row_sum = categories.reduce((sum, cat2) => sum + (matrix[cat][cat2] || 0), 0);
+    const col_sum = categories.reduce((sum, cat1) => sum + (matrix[cat1][cat] || 0), 0);
+    Pe += (row_sum * col_sum) / (n * n);
+  });
+
+  // Calculate Cohen's kappa
+  const kappa = Pe === 1 ? 1 : (Po - Pe) / (1 - Pe);
+  
+  // Interpret kappa value
+  let interpretation;
+  if (kappa < 0) interpretation = '一致性极差';
+  else if (kappa < 0.20) interpretation = '一致性轻微';
+  else if (kappa < 0.40) interpretation = '一致性一般';
+  else if (kappa < 0.60) interpretation = '一致性中等';
+  else if (kappa < 0.80) interpretation = '一致性良好';
+  else interpretation = '一致性极佳';
+
+  return {
+    kappa: Math.round(kappa * 1000) / 1000,
+    observedAgreement: Math.round(Po * 1000) / 1000,
+    expectedAgreement: Math.round(Pe * 1000) / 1000,
+    interpretation,
+    confusionMatrix: matrix,
+    sampleSize: n,
+    categories
+  };
+}
+
+// v5.0: Calculate inter-reviewer reliability for different classification types
+function calculateReliabilityStats(reviewerADecisions, reviewerBDecisions) {
+  // Binary classification (Include/Exclude)
+  const binaryA = reviewerADecisions.map(d => d === '' ? 'include' : 'exclude');
+  const binaryB = reviewerBDecisions.map(d => d === '' ? 'include' : 'exclude');
+  const binaryKappa = calculateKappa(binaryA, binaryB);
+
+  // Multi-class classification (Specific exclusion reasons)
+  const multiA = reviewerADecisions.map(d => d === '' ? 'include' : d);
+  const multiB = reviewerBDecisions.map(d => d === '' ? 'include' : d);
+  const multiKappa = calculateKappa(multiA, multiB);
+
+  return {
+    binary: binaryKappa,
+    multiClass: multiKappa,
+    totalRecords: reviewerADecisions.length,
+    agreements: reviewerADecisions.filter((d, i) => d === reviewerBDecisions[i]).length,
+    disagreements: reviewerADecisions.filter((d, i) => d !== reviewerBDecisions[i]).length
+  };
+}
+
+// v4.1: Keyboard shortcuts handler
+function addKeyboardShortcuts() {
+  document.addEventListener('keydown', handleKeyboardShortcut);
+}
+
+function handleKeyboardShortcut(e) {
+  if (currentStep !== 4) return;
+
+  const key = e.key;
+  
+  // Number keys 1-6 for exclusion reasons
+  if (key >= '1' && key <= '6') {
+    const reasons = ['人群不符', '干预不符', '对照不符', '缺乏结局', '数据不完整', '研究设计不合适'];
+    const reason = reasons[parseInt(key) - 1];
+    setDefaultExclusion(reason);
+    e.preventDefault();
+  }
+  
+  // Space to skip
+  if (key === ' ') {
+    const selects = document.querySelectorAll('select[id^="exclude-"]');
+    for (let select of selects) {
+      if (!select.value) {
+        select.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      }
+    }
+    e.preventDefault();
+  }
+  
+  // Arrow keys for navigation
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    const selects = Array.from(document.querySelectorAll('select[id^="exclude-"]'));
+    const focused = document.activeElement;
+    const currentIndex = selects.indexOf(focused);
+    
+    if (currentIndex !== -1) {
+      const nextIndex = key === 'ArrowDown' ? currentIndex + 1 : currentIndex - 1;
+      if (nextIndex >= 0 && nextIndex < selects.length) {
+        selects[nextIndex].focus();
+        selects[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    e.preventDefault();
+  }
+}
+
+function updateFulltextStats() {
+  if (!screeningResults) return;
+  
+  const fulltext = screeningResults.included;
+  let excludedCount = 0;
+  
+  fulltext.forEach((record, idx) => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (select && select.value) {
+      excludedCount++;
+    }
+  });
+  
+  const includedCount = fulltext.length - excludedCount;
+  const rate = fulltext.length > 0 ? Math.round((excludedCount / fulltext.length) * 100) : 0;
+  
+  document.getElementById('fulltext-excluded').textContent = excludedCount;
+  document.getElementById('fulltext-included').textContent = includedCount;
+  document.getElementById('fulltext-rate').textContent = rate + '%';
 }
 
 // v3.0: Update exclusion statistics
@@ -2591,6 +2759,541 @@ function addExclusionReason(reasonName, description) {
     showToast(`已为第${firstEmpty + 1}篇添加排除原因: ${reasonName}`, 'success');
   } else {
     showToast('未找到可用的记录位置', 'warning');
+  }
+}
+
+// v4.1: Project Save/Load Functions
+let autoSaveEnabled = false;
+let autoSaveInterval = null;
+
+function saveProject() {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('没有可保存的数据', 'warning');
+    return;
+  }
+
+  const project = {
+    version: '4.1',
+    timestamp: new Date().toISOString(),
+    uploadedData: uploadedData,
+    uploadedFiles: uploadedFiles,
+    screeningResults: screeningResults,
+    columnMapping: columnMapping,
+    fileFormat: fileFormat,
+    formatSource: formatSource,
+    currentStep: currentStep,
+    exclusionReasons: exclusionReasons
+  };
+
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `PRISMA-Project-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  const now = new Date().toLocaleString('zh-CN');
+  document.getElementById('lastSaveTime').textContent = `上次保存：${now}`;
+  localStorage.setItem('lastSaveTime', now);
+  
+  showToast('✅ 项目已保存', 'success');
+}
+
+function loadProject() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const project = JSON.parse(event.target.result);
+        
+        if (!project.version) {
+          showToast('⚠️ 这不是有效的项目文件', 'warning');
+          return;
+        }
+
+        uploadedData = project.uploadedData || [];
+        uploadedFiles = project.uploadedFiles || [];
+        screeningResults = project.screeningResults || null;
+        columnMapping = project.columnMapping || {};
+        fileFormat = project.fileFormat || 'unknown';
+        formatSource = project.formatSource || 'Unknown';
+        currentStep = project.currentStep || 1;
+        exclusionReasons = project.exclusionReasons || {};
+
+        if (screeningResults) {
+          displayResults(screeningResults);
+          setStep(3);
+        } else if (uploadedData.length > 0) {
+          displayUploadInfo();
+          setStep(2);
+        }
+
+        const savedTime = new Date(project.timestamp).toLocaleString('zh-CN');
+        document.getElementById('lastSaveTime').textContent = `上次保存：${savedTime}`;
+        
+        showToast(`✅ 项目已加载（保存于 ${savedTime}）`, 'success');
+      } catch (error) {
+        showToast('❌ 项目文件格式错误', 'error');
+        console.error(error);
+      }
+    };
+    
+    reader.readAsText(file);
+  };
+  
+  input.click();
+}
+
+function autoSaveToggle() {
+  autoSaveEnabled = !autoSaveEnabled;
+  const statusEl = document.getElementById('autoSaveStatus');
+  
+  if (autoSaveEnabled) {
+    statusEl.textContent = '开启';
+    statusEl.style.color = 'var(--color-success)';
+    
+    autoSaveInterval = setInterval(() => {
+      if (uploadedData && uploadedData.length > 0) {
+        localStorage.setItem('prisma_autosave', JSON.stringify({
+          version: '4.1',
+          timestamp: new Date().toISOString(),
+          uploadedData: uploadedData,
+          uploadedFiles: uploadedFiles,
+          screeningResults: screeningResults,
+          columnMapping: columnMapping,
+          fileFormat: fileFormat,
+          formatSource: formatSource,
+          currentStep: currentStep,
+          exclusionReasons: exclusionReasons
+        }));
+        
+        const now = new Date().toLocaleString('zh-CN');
+        document.getElementById('lastSaveTime').textContent = `自动保存于：${now}`;
+        console.log('🔄 自动保存完成');
+      }
+    }, 300000);
+    
+    showToast('✅ 自动保存已开启（每5分钟）', 'success');
+  } else {
+    statusEl.textContent = '关闭';
+    statusEl.style.color = 'var(--color-text-secondary)';
+    
+    if (autoSaveInterval) {
+      clearInterval(autoSaveInterval);
+      autoSaveInterval = null;
+    }
+    
+    showToast('自动保存已关闭', 'info');
+  }
+}
+
+// v4.1: Batch Operations for Step 4
+let selectedRecords = new Set();
+let currentDefaultExclusion = '';
+
+function selectAllRecords() {
+  const checkboxes = document.querySelectorAll('.review-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = true;
+    selectedRecords.add(parseInt(cb.dataset.index));
+  });
+  showToast(`已选中 ${selectedRecords.size} 条记录`, 'info');
+}
+
+function deselectAllRecords() {
+  const checkboxes = document.querySelectorAll('.review-checkbox');
+  checkboxes.forEach(cb => cb.checked = false);
+  selectedRecords.clear();
+  showToast('已取消全选', 'info');
+}
+
+function batchExclude() {
+  if (selectedRecords.size === 0) {
+    showToast('请先选择要排除的文献', 'warning');
+    return;
+  }
+
+  if (!currentDefaultExclusion) {
+    showToast('请先点击排除理由按钮（1-6）', 'warning');
+    return;
+  }
+
+  let count = 0;
+  selectedRecords.forEach(idx => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (select && !select.value) {
+      select.value = currentDefaultExclusion;
+      count++;
+    }
+  });
+
+  selectedRecords.clear();
+  const checkboxes = document.querySelectorAll('.review-checkbox');
+  checkboxes.forEach(cb => cb.checked = false);
+
+  showToast(`✅ 已批量设置 ${count} 条排除理由为"${currentDefaultExclusion}"`, 'success');
+  updateFulltextStats();
+}
+
+function setDefaultExclusion(reason) {
+  currentDefaultExclusion = reason;
+  
+  const buttons = document.querySelectorAll('[data-key]');
+  buttons.forEach(btn => {
+    btn.style.borderColor = '';
+    btn.style.borderWidth = '';
+  });
+  
+  const activeBtn = Array.from(buttons).find(btn => btn.textContent.includes(reason));
+  if (activeBtn) {
+    activeBtn.style.borderColor = 'var(--color-primary)';
+    activeBtn.style.borderWidth = '3px';
+  }
+  
+  showToast(`✅ 当前排除理由：${reason}`, 'info');
+}
+
+// v5.0: Dual-reviewer mode functions
+function setReviewMode(mode) {
+  isDualReviewMode = (mode === 'dual');
+  
+  // Update button styles
+  const singleBtn = document.getElementById('single-mode-btn');
+  const dualBtn = document.getElementById('dual-mode-btn');
+  
+  if (isDualReviewMode) {
+    singleBtn.style.background = 'rgba(255,255,255,0.2)';
+    singleBtn.style.color = 'white';
+    singleBtn.style.border = '2px solid white';
+    singleBtn.style.fontWeight = 'normal';
+    
+    dualBtn.style.background = 'white';
+    dualBtn.style.color = '#667eea';
+    dualBtn.style.border = 'none';
+    dualBtn.style.fontWeight = 'bold';
+    
+    document.getElementById('dual-review-setup').classList.remove('hidden');
+  } else {
+    singleBtn.style.background = 'white';
+    singleBtn.style.color = '#667eea';
+    singleBtn.style.border = 'none';
+    singleBtn.style.fontWeight = 'bold';
+    
+    dualBtn.style.background = 'rgba(255,255,255,0.2)';
+    dualBtn.style.color = 'white';
+    dualBtn.style.border = '2px solid white';
+    dualBtn.style.fontWeight = 'normal';
+    
+    document.getElementById('dual-review-setup').classList.add('hidden');
+    document.getElementById('kappa-analysis').classList.add('hidden');
+  }
+  
+  // Refresh review UI if already displayed
+  if (screeningResults) {
+    displayFulltextReviewUI();
+  }
+}
+
+function switchReviewer(reviewer) {
+  currentReviewer = reviewer;
+  
+  // Update reviewer names from input
+  const aName = document.getElementById('reviewer-a-name').value || '审查员A';
+  const bName = document.getElementById('reviewer-b-name').value || '审查员B';
+  reviewerNames.A = aName;
+  reviewerNames.B = bName;
+  
+  // Update button styles
+  const aBtn = document.getElementById('reviewer-a-btn');
+  const bBtn = document.getElementById('reviewer-b-btn');
+  
+  if (reviewer === 'A') {
+    aBtn.classList.remove('btn-secondary');
+    aBtn.classList.add('btn-primary');
+    aBtn.innerHTML = '🔵 ' + aName;
+    
+    bBtn.classList.remove('btn-primary');
+    bBtn.classList.add('btn-secondary');
+    bBtn.innerHTML = '⚪ ' + bName;
+  } else {
+    bBtn.classList.remove('btn-secondary');
+    bBtn.classList.add('btn-primary');
+    bBtn.innerHTML = '🔵 ' + bName;
+    
+    aBtn.classList.remove('btn-primary');
+    aBtn.classList.add('btn-secondary');
+    aBtn.innerHTML = '⚪ ' + aName;
+  }
+  
+  // Load reviewer's previous decisions
+  loadReviewerDecisions();
+  
+  // Update title to show current reviewer
+  const currentReviewerName = reviewerNames[reviewer];
+  showToast(`已切换到${currentReviewerName}的审查界面`, 'info');
+}
+
+function loadReviewerDecisions() {
+  if (!screeningResults || !isDualReviewMode) return;
+  
+  const fulltext = screeningResults.included;
+  fulltext.forEach((record, idx) => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (select && dualReviewResults[currentReviewer][idx]) {
+      select.value = dualReviewResults[currentReviewer][idx].decision || '';
+    }
+  });
+}
+
+function updateDualReviewStats() {
+  if (!isDualReviewMode) return;
+  
+  const fulltext = screeningResults.included;
+  const reviewerADecisions = [];
+  const reviewerBDecisions = [];
+  
+  // Collect decisions from both reviewers
+  fulltext.forEach((record, idx) => {
+    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].decision || '') : null;
+    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].decision || '') : null;
+    reviewerADecisions.push(aDecision);
+    reviewerBDecisions.push(bDecision);
+  });
+  
+  // Check if both reviewers have made decisions for all records
+  const aCompleted = reviewerADecisions.every(d => d !== null);
+  const bCompleted = reviewerBDecisions.every(d => d !== null);
+  
+  if (aCompleted && bCompleted) {
+    // Calculate reliability statistics
+    const stats = calculateReliabilityStats(reviewerADecisions, reviewerBDecisions);
+    displayKappaResults(stats);
+    document.getElementById('kappa-analysis').classList.remove('hidden');
+  }
+}
+
+function displayKappaResults(stats) {
+  const resultsDiv = document.getElementById('kappa-results');
+  const disagreementCount = document.getElementById('disagreement-count');
+  
+  resultsDiv.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">二分类Kappa值</div>
+      <div class="stat-value">${stats.binary.kappa}</div>
+      <div class="stat-sublabel">${stats.binary.interpretation}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">多分类Kappa值</div>
+      <div class="stat-value">${stats.multiClass.kappa}</div>
+      <div class="stat-sublabel">${stats.multiClass.interpretation}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">总体一致性</div>
+      <div class="stat-value">${Math.round((stats.agreements / stats.totalRecords) * 100)}%</div>
+      <div class="stat-sublabel">${stats.agreements}/${stats.totalRecords}篇</div>
+    </div>
+  `;
+  
+  disagreementCount.textContent = stats.disagreements;
+}
+
+function showDisagreements() {
+  if (!isDualReviewMode || !screeningResults) return;
+  
+  const fulltext = screeningResults.included;
+  const disagreements = [];
+  
+  fulltext.forEach((record, idx) => {
+    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].decision || '') : '';
+    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].decision || '') : '';
+    
+    if (aDecision !== bDecision) {
+      disagreements.push({
+        index: idx,
+        record: record,
+        reviewerA: aDecision,
+        reviewerB: bDecision
+      });
+    }
+  });
+  
+  displayDisagreementResolution(disagreements);
+}
+
+function displayDisagreementResolution(disagreements) {
+  if (disagreements.length === 0) {
+    showToast('🎉 恭喜！所有文献审查结果一致，无需协商！', 'success');
+    return;
+  }
+  
+  // Create disagreement resolution modal
+  const modalHTML = `
+    <div id="disagreement-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div style="background: white; border-radius: 12px; padding: var(--space-24); max-width: 95%; max-height: 90%; overflow-y: auto; width: 900px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">🤝 分歧协商解决 (${disagreements.length}篇需要讨论)</h3>
+        <div id="disagreement-list">
+          ${disagreements.map((item, idx) => `
+            <div class="info-box" style="margin-bottom: var(--space-16); border-left: 4px solid var(--color-warning);">
+              <h4 style="margin-bottom: var(--space-8); color: var(--color-text-primary);">文献 ${item.index + 1}: ${getValue(item.record, 'title').substring(0, 100)}...</h4>
+              <div class="grid grid-2" style="margin-bottom: var(--space-12);">
+                <div style="padding: var(--space-8); background: #f8f9fa; border-radius: 6px;">
+                  <strong>${reviewerNames.A}的决定:</strong><br>
+                  <span style="color: ${item.reviewerA === '' ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: bold;">
+                    ${item.reviewerA === '' ? '✅ 纳入' : '❌ ' + item.reviewerA}
+                  </span>
+                </div>
+                <div style="padding: var(--space-8); background: #f8f9fa; border-radius: 6px;">
+                  <strong>${reviewerNames.B}的决定:</strong><br>
+                  <span style="color: ${item.reviewerB === '' ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: bold;">
+                    ${item.reviewerB === '' ? '✅ 纳入' : '❌ ' + item.reviewerB}
+                  </span>
+                </div>
+              </div>
+              <label class="form-label" style="font-weight: bold;">协商后的最终决定:</label>
+              <select id="final-decision-${item.index}" class="form-input" style="margin-bottom: var(--space-8);">
+                <option value="">纳入</option>
+                <option value="人群不符">人群不符</option>
+                <option value="干预不符">干预不符</option>
+                <option value="对照不符">对照不符</option>
+                <option value="缺乏结局">缺乏结局</option>
+                <option value="数据不完整">数据不完整</option>
+                <option value="研究设计不合适">研究设计不合适</option>
+                <option value="其他">其他</option>
+              </select>
+              <label class="form-label">讨论记录（建议记录分歧原因和协商过程）:</label>
+              <textarea id="discussion-${item.index}" class="form-input" placeholder="例如：审查员A认为人群不符合纳入标准，审查员B认为符合。经讨论后认为..." rows="3" style="resize: vertical;"></textarea>
+            </div>
+          `).join('')}
+        </div>
+        <div class="alert alert-info" style="margin: var(--space-16) 0;">
+          <strong>提示:</strong> 请仔细讨论每个分歧，确保最终决定基于充分的证据和一致的标准。讨论记录有助于提高审查的透明度和可重复性。
+        </div>
+        <div style="text-align: right; margin-top: var(--space-16);">
+          <button class="btn btn-secondary" onclick="closeDisagreementModal()" style="margin-right: var(--space-8);">取消</button>
+          <button class="btn btn-primary" onclick="applyFinalDecisions()">✅ 应用最终决定</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  // Store disagreements in a global variable for applyFinalDecisions
+  window.currentDisagreements = disagreements;
+}
+
+function closeDisagreementModal() {
+  const modal = document.getElementById('disagreement-modal');
+  if (modal) {
+    modal.remove();
+  }
+  window.currentDisagreements = null;
+}
+
+function applyFinalDecisions() {
+  const disagreements = window.currentDisagreements;
+  if (!disagreements) return;
+  
+  let resolvedCount = 0;
+  disagreements.forEach(item => {
+    const finalDecision = document.getElementById(`final-decision-${item.index}`).value;
+    const discussion = document.getElementById(`discussion-${item.index}`).value;
+    
+    // Apply final decision to the select element
+    const select = document.getElementById(`exclude-${item.index}`);
+    if (select) {
+      select.value = finalDecision;
+      resolvedCount++;
+    }
+    
+    // Store discussion notes
+    if (!dualReviewResults.final) {
+      dualReviewResults.final = {};
+    }
+    dualReviewResults.final[item.index] = {
+      finalDecision: finalDecision,
+      discussion: discussion,
+      reviewerAOriginal: item.reviewerA,
+      reviewerBOriginal: item.reviewerB,
+      resolvedBy: 'consensus',
+      timestamp: new Date().toISOString()
+    };
+  });
+  
+  updateFulltextStats();
+  closeDisagreementModal();
+  
+  showToast(`✅ 已成功解决 ${resolvedCount} 个分歧！最终决定已应用。`, 'success');
+  
+  // Update kappa analysis after resolution
+  setTimeout(() => {
+    const stats = calculatePostResolutionStats();
+    if (stats) {
+      showToast(`📊 解决分歧后，总体一致性提升至 ${Math.round(stats.finalAgreementRate * 100)}%`, 'info');
+    }
+  }, 1000);
+}
+
+function calculatePostResolutionStats() {
+  if (!isDualReviewMode || !screeningResults) return null;
+  
+  const fulltext = screeningResults.included;
+  let totalAgreements = 0;
+  let totalRecords = fulltext.length;
+  
+  fulltext.forEach((record, idx) => {
+    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].decision || '') : '';
+    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].decision || '') : '';
+    const finalDecision = dualReviewResults.final && dualReviewResults.final[idx] ? 
+      dualReviewResults.final[idx].finalDecision : null;
+    
+    // If there was a final decision (disagreement resolved), count as agreement
+    // If no final decision needed (original agreement), count as agreement
+    if (finalDecision !== null || aDecision === bDecision) {
+      totalAgreements++;
+    }
+  });
+  
+  return {
+    finalAgreementRate: totalAgreements / totalRecords,
+    resolvedDisagreements: Object.keys(dualReviewResults.final || {}).length
+  };
+}
+
+// Enhanced exclusion stats update to handle dual-reviewer mode
+function updateExclusionStatsWithDualReview() {
+  if (isDualReviewMode) {
+    // Store current reviewer's decision
+    const fulltext = screeningResults.included;
+    fulltext.forEach((record, idx) => {
+      const select = document.getElementById(`exclude-${idx}`);
+      if (select) {
+        if (!dualReviewResults[currentReviewer][idx]) {
+          dualReviewResults[currentReviewer][idx] = {};
+        }
+        dualReviewResults[currentReviewer][idx].decision = select.value;
+      }
+    });
+    
+    // Update dual review statistics
+    updateDualReviewStats();
+  }
+}
+
+// Override the original updateExclusionStats in dual-review mode
+const originalUpdateExclusionStats = updateFulltextStats;
+function updateFulltextStats() {
+  originalUpdateExclusionStats();
+  if (isDualReviewMode) {
+    updateExclusionStatsWithDualReview();
   }
 }
 

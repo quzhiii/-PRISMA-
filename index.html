@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="文献筛选和PRISMA 2020流程图生成工具 - 支持多格式导入、智能去重、灵活筛选规则">
   <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析">
-  <title>文献快筛 + PRISMA 流程图生成工具 v4.0</title>
+  <title>PRISMA文献筛选助手 v5.0 - 专业版</title>
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <style>
     :root {
@@ -1291,6 +1291,18 @@ input[type="range"]::-moz-range-thumb {
     <div id="step3" class="card hidden">
       <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 3: 筛选结果</h2>
 
+      <!-- v4.1: 项目保存/加载功能 -->
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-5); border-left: 4px solid var(--color-primary);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">💾 项目管理</h3>
+        <p style="margin-bottom: var(--space-12);">保存当前项目进度，防止意外丢失数据。下次可直接加载继续工作。</p>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="saveProject()" style="background: var(--color-success);">💾 保存项目</button>
+          <button class="btn btn-secondary" onclick="loadProject()">📂 加载项目</button>
+          <button class="btn btn-secondary" onclick="autoSaveToggle()">⚙️ 自动保存：<span id="autoSaveStatus">关闭</span></button>
+        </div>
+        <p id="lastSaveTime" style="margin-top: var(--space-8); font-size: var(--font-size-sm); color: var(--color-text-secondary);"></p>
+      </div>
+
       <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">PRISMA 统计</h3>
       <div class="grid grid-4" id="statsGrid">
         <div class="stat-card bg-1">
@@ -1425,22 +1437,101 @@ input[type="range"]::-moz-range-thumb {
       </div>
     </div>
 
-    <!-- Step 4: Fulltext Manual Review (v3.0) -->
+    <!-- Step 4: Fulltext Manual Review (v5.0) -->
     <div id="step4" class="card hidden">
       <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 4: 全文人工审核</h2>
+      
+      <!-- v5.0: 审查模式选择 -->
+      <div class="info-box" style="margin-bottom: var(--space-24); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg); color: white;">🎓 审查模式选择</h3>
+        <div class="button-group">
+          <button class="btn btn-secondary" onclick="setReviewMode('single')" id="single-mode-btn" style="background: white; color: #667eea; font-weight: bold;">
+            👤 单人审查模式
+          </button>
+          <button class="btn btn-primary" onclick="setReviewMode('dual')" id="dual-mode-btn" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white;">
+            👥 双人审查模式 (专业版)
+          </button>
+        </div>
+        <p style="margin: var(--space-12) 0 0; font-size: var(--font-size-sm); color: rgba(255,255,255,0.9);">
+          💡 双人审查模式支持：独立审查、Kappa一致性分析、分歧协商解决
+        </p>
+      </div>
+
+      <!-- v5.0: 双人审查设置面板 -->
+      <div id="dual-review-setup" class="info-box hidden" style="margin-bottom: var(--space-24);">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">👥 双人审查设置</h3>
+        <div class="grid grid-2" style="margin-bottom: var(--space-16);">
+          <div>
+            <label class="form-label">审查员A姓名：</label>
+            <input type="text" id="reviewer-a-name" class="form-input" value="审查员A" placeholder="请输入审查员A姓名">
+          </div>
+          <div>
+            <label class="form-label">审查员B姓名：</label>
+            <input type="text" id="reviewer-b-name" class="form-input" value="审查员B" placeholder="请输入审查员B姓名">
+          </div>
+        </div>
+        <div style="margin-bottom: var(--space-16);">
+          <label class="form-label">当前审查员身份：</label>
+          <div class="button-group">
+            <button class="btn btn-primary" onclick="switchReviewer('A')" id="reviewer-a-btn">
+              🔵 审查员A
+            </button>
+            <button class="btn btn-secondary" onclick="switchReviewer('B')" id="reviewer-b-btn">
+              ⚪ 审查员B
+            </button>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <strong>使用说明：</strong> 请审查员A和审查员B分别登录此界面进行独立审查。系统会自动记录两人的决策，并在审查完成后计算一致性指标。
+        </div>
+      </div>
+
+      <!-- v5.0: 一致性分析面板 -->
+      <div id="kappa-analysis" class="info-box hidden" style="margin-bottom: var(--space-24);">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">📊 审查员间一致性分析</h3>
+        <div id="kappa-results" class="grid grid-3"></div>
+        <button class="btn btn-primary" onclick="showDisagreements()" style="margin-top: var(--space-12);">
+          🔍 查看意见分歧文献 (<span id="disagreement-count">0</span>篇)
+        </button>
+      </div>
       
       <div class="info-box">
         <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">审核说明</h3>
         <p>共<strong id="fulltext-total">0</strong>篇文献需要人工审核。请逐篇查阅全文，记录排除原因（如有）。</p>
       </div>
 
+      <!-- v4.1: 批量操作和快捷键 -->
+      <div class="info-box" style="margin: var(--space-24) 0; background: var(--color-bg-6); border-left: 4px solid var(--color-warning);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">⚡ 快捷操作</h3>
+        <div class="grid grid-2" style="margin-bottom: var(--space-12);">
+          <div>
+            <h4 style="margin-bottom: var(--space-8); font-size: var(--font-size-base);">批量操作：</h4>
+            <div class="button-group">
+              <button class="btn btn-secondary" onclick="selectAllRecords()">☑️ 全选</button>
+              <button class="btn btn-secondary" onclick="deselectAllRecords()">⬜ 取消全选</button>
+              <button class="btn btn-primary" onclick="batchExclude()" style="background: var(--color-warning);">🗑️ 批量排除已选</button>
+            </div>
+          </div>
+          <div>
+            <h4 style="margin-bottom: var(--space-8); font-size: var(--font-size-base);">键盘快捷键：</h4>
+            <div style="font-size: var(--font-size-sm); line-height: 1.8;">
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">1-6</kbd> 快速选择排除理由</div>
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">Space</kbd> 跳过当前（保留）</div>
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">↑/↓</kbd> 上下切换文献</div>
+            </div>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary);">💡 提示：使用快捷键可大幅提高审查效率</p>
+      </div>
+
       <h3 style="margin: var(--space-24) 0 var(--space-12); font-size: var(--font-size-lg);">排除原因模板</h3>
       <div class="button-group" style="margin-bottom: var(--space-24);">
-        <button class="btn btn-secondary" onclick="addExclusionReason('人群不符', '研究人群不符合纳入标准')">+ 人群不符</button>
-        <button class="btn btn-secondary" onclick="addExclusionReason('干预不符', '干预方案不符合研究对象')">+ 干预不符</button>
-        <button class="btn btn-secondary" onclick="addExclusionReason('对照不符', '对照组设置不符合要求')">+ 对照不符</button>
-        <button class="btn btn-secondary" onclick="addExclusionReason('缺乏结局', '缺乏主要结局指标')">+ 缺乏结局</button>
-        <button class="btn btn-secondary" onclick="addExclusionReason('数据不完整', '数据报告不完整')">+ 数据不完整</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('人群不符')" data-key="1">1️⃣ 人群不符</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('干预不符')" data-key="2">2️⃣ 干预不符</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('对照不符')" data-key="3">3️⃣ 对照不符</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('缺乏结局')" data-key="4">4️⃣ 缺乏结局</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('数据不完整')" data-key="5">5️⃣ 数据不完整</button>
+        <button class="btn btn-secondary" onclick="setDefaultExclusion('研究设计不合适')" data-key="6">6️⃣ 研究设计不合适</button>
       </div>
 
       <div id="fulltext-review-table" class="table-container" style="max-height: 600px; overflow-y: auto;"></div>
