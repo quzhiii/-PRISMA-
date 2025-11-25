@@ -9,7 +9,7 @@ let formatSource = 'Unknown';
 let currentTheme = 'subtle';
 let exclusionReasons = {}; // v3.0: Track exclusion reasons for fulltext stage
 
-// v5.0: Multi-user collaboration variables
+// v1.1: Multi-user collaboration variables
 let projectCollaboration = {
   reviewers: {},
   decisions: {},
@@ -2508,7 +2508,7 @@ function displayFulltextReviewUI() {
   addKeyboardShortcuts();
 }
 
-// v5.0: Cohen's Kappa Calculation
+// v1.1: Cohen's Kappa Calculation
 function calculateKappa(decisions1, decisions2) {
   if (!decisions1 || !decisions2 || decisions1.length !== decisions2.length) {
     throw new Error('决策数组必须存在且长度相等');
@@ -3071,7 +3071,7 @@ function setDefaultExclusion(reason) {
   showToast(`✅ 当前排除理由：${reason}`, 'info');
 }
 
-// v5.0: Dual-reviewer mode functions
+// v1.1: Dual-reviewer mode functions
 function setReviewMode(mode) {
   isDualReviewMode = (mode === 'dual');
   
@@ -3415,7 +3415,14 @@ function loadProjectData() {
   projectData = projects[currentUserSession.projectId];
   
   if (!projectData) {
-    // First time - create new project structure
+    // Check if this is a valid scenario
+    if (currentUserSession.role === 'reviewer-b') {
+      // Deputy reviewer joining non-existent project - show waiting message
+      showProjectWaitingMessage();
+      return;
+    }
+    
+    // Main reviewer creating new project
     projectData = {
       id: currentUserSession.projectId,
       name: '未命名项目',
@@ -3453,6 +3460,80 @@ function loadProjectData() {
     if (projectData.screeningResults) {
       screeningResults = projectData.screeningResults;
     }
+  }
+}
+
+// Show waiting message for deputy reviewer when project doesn't exist
+function showProjectWaitingMessage() {
+  const waitingHTML = `
+    <div id="project-waiting" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      color: white;
+      text-align: center;
+    ">
+      <div style="max-width: 500px; padding: var(--space-32);">
+        <div style="font-size: 4rem; margin-bottom: var(--space-24);">⏳</div>
+        <h2 style="margin-bottom: var(--space-16);">等待项目创建</h2>
+        <p style="margin-bottom: var(--space-24); opacity: 0.9;">
+          项目 <strong>${currentUserSession.projectId}</strong> 尚未创建。<br>
+          请联系主审查员确认项目已创建，然后刷新此页面。
+        </p>
+        <div style="margin-bottom: var(--space-24);">
+          <button onclick="refreshProjectCheck()" style="
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: var(--space-12) var(--space-24);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin-right: var(--space-12);
+            font-weight: bold;
+          ">🔄 刷新检查</button>
+          <button onclick="logout()" style="
+            background: rgba(255,255,255,0.9);
+            border: none;
+            color: #667eea;
+            padding: var(--space-12) var(--space-24);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            font-weight: bold;
+          ">🚪 重新登录</button>
+        </div>
+        <p style="font-size: var(--font-size-sm); opacity: 0.7;">
+          💡 提示：主审查员需要先创建项目并上传数据，副审查员才能加入进行协作审查。
+        </p>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', waitingHTML);
+}
+
+// Refresh project check
+function refreshProjectCheck() {
+  const waitingDiv = document.getElementById('project-waiting');
+  if (waitingDiv) {
+    waitingDiv.remove();
+  }
+  
+  // Reload project data
+  loadProjectData();
+  
+  if (!projectData) {
+    // Still not found, show waiting message again
+    showProjectWaitingMessage();
+  } else {
+    // Project found, initialize normally
+    showToast('✅ 项目已找到！欢迎加入协作审查。', 'success');
   }
 }
 
@@ -3566,7 +3647,7 @@ function saveProjectFile() {
     ...projectData,
     exportedBy: currentUserSession.username,
     exportedAt: new Date().toISOString(),
-    version: '5.0'
+    version: '1.1'
   };
   
   const blob = new Blob([JSON.stringify(projectExport, null, 2)], { type: 'application/json' });

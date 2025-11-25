@@ -1578,7 +1578,7 @@ input[type="range"]::-moz-range-thumb {
   margin-left: var(--space-8);
 }
 
-/* v5.0: Dual-reviewer mode styles */
+/* v1.1: Dual-reviewer mode styles */
 .alert {
   padding: var(--space-12);
   border-radius: var(--radius-lg);

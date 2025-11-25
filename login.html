@@ -234,7 +234,7 @@
                            placeholder="输入或生成项目ID" required>
                     <small id="project-id-help" style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
                         主审查员：系统会自动生成项目ID<br>
-                        副审查员：请输入主审查员提供的项目ID
+                        副审查员：请输入主审查员提供的项目ID（如果项目不存在，可继续登录等待项目创建）
                     </small>
                 </div>
                 
@@ -319,12 +319,15 @@
             // 存储到sessionStorage（会话级别，关闭浏览器即清除）
             sessionStorage.setItem('prisma_user_session', JSON.stringify(userSession));
             
-            // 如果是副审查员，验证项目是否存在
+            // 如果是副审查员，提示用户项目状态但不阻止登录
             if (role === 'reviewer-b') {
                 const projectExists = checkProjectExists(projectId);
                 if (!projectExists) {
-                    alert('项目ID不存在，请检查是否输入正确，或联系主审查员确认项目已创建。');
-                    return;
+                    // 不阻止登录，但给出提示
+                    const proceed = confirm('项目ID不存在或尚未创建。\n\n您可以：\n1. 继续登录（系统会在主应用中再次检查）\n2. 返回检查项目ID\n\n是否继续登录？');
+                    if (!proceed) {
+                        return;
+                    }
                 }
             }
             
@@ -342,17 +345,30 @@
         // 监听项目ID输入，实时验证
         document.getElementById('project-id').addEventListener('input', function() {
             const role = document.querySelector('input[name="role"]:checked').value;
+            const loginBtn = document.getElementById('login-btn');
+            
             if (role === 'reviewer-b' && this.value.trim()) {
                 const projectExists = checkProjectExists(this.value.trim());
                 if (projectExists) {
-                    this.style.borderColor = 'var(--color-success)';
+                    this.style.borderColor = '#10b981';
                     this.style.background = 'rgba(34, 197, 94, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    loginBtn.innerHTML = '✅ 项目已找到 - 加入审查';
                     loadProjectInfo(this.value.trim());
                 } else {
-                    this.style.borderColor = 'var(--color-danger)';
-                    this.style.background = 'rgba(239, 68, 68, 0.05)';
+                    this.style.borderColor = '#f59e0b';
+                    this.style.background = 'rgba(245, 158, 11, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    loginBtn.innerHTML = '⚠️ 项目未找到 - 尝试加入';
                     hideProjectInfo();
                 }
+            } else if (role === 'reviewer-b') {
+                // 重置样式
+                this.style.borderColor = '';
+                this.style.background = '';
+                loginBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                loginBtn.innerHTML = '🚀 加入项目并开始审查';
+                hideProjectInfo();
             }
         });
         
