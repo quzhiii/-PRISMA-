@@ -931,6 +931,14 @@ body {
   align-items: center;
   gap: var(--space-16);
   margin-bottom: var(--space-32);
+  /* v1.2: 吸顶导航效果 */
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-surface);
+  padding: var(--space-16) 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .step {

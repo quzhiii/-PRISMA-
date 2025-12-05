@@ -3639,6 +3639,41 @@ function closeModal() {
   if (modal) modal.remove();
 }
 
+// v1.2: Show deduplication settings
+function showDeduplicationSettings() {
+  const modalHTML = `
+    <div id="status-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: flex; align-items: center; justify-content: center;">
+      <div style="background: white; border-radius: 12px; padding: var(--space-24); max-width: 600px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">⚙️ 去重功能说明</h3>
+        
+        <div style="margin-bottom: var(--space-16); padding: var(--space-12); background: #f8f9fa; border-radius: 6px;">
+          <h4 style="margin-bottom: var(--space-8);">当前去重方式：</h4>
+          <ul style="padding-left: var(--space-20); line-height: 1.8;">
+            <li><strong>严格匹配</strong>：根据标题精确匹配</li>
+            <li><strong>格式标准化</strong>：忽略大小写和标点符号</li>
+            <li><strong>年份差异</strong>：默认忽略（可能是预印本vs正式发表）</li>
+          </ul>
+        </div>
+        
+        <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
+          <p style="margin: 0;"><strong>💡 提示：</strong> 如果需要手动查看并选择保留哪些重复文献，您可以：</p>
+          <ol style="padding-left: var(--space-20); margin: var(--space-8) 0 0 0; line-height: 1.6;">
+            <li>导出"去重后"的数据</li>
+            <li>在Excel中使用"条件格式"标记可疑重复项</li>
+            <li>手动筛选后重新导入</li>
+          </ol>
+        </div>
+        
+        <div style="text-align: right; margin-top: var(--space-16);">
+          <button class="btn btn-primary" onclick="closeModal()">知道了</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  showModal(modalHTML);
+}
+
 // Enhanced save/load functions for multi-user projects
 function saveProjectFile() {
   saveProjectData();

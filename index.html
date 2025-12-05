@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="文献筛选和PRISMA 2020流程图生成工具 - 支持多格式导入、智能去重、灵活筛选规则">
   <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析">
-  <title>PRISMA文献筛选助手 v1.1 - 专业版</title>
+  <title>PRISMA文献筛选助手 v1.2 - 专业版</title>
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <style>
     :root {
@@ -851,7 +851,7 @@ input[type="range"]::-moz-range-thumb {
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>📚 PRISMA 文献筛选助手 v1.1 - 双人协作版</h1>
+      <h1>📚 PRISMA 文献筛选助手 v1.2 - 双人协作版</h1>
       <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
       
       <!-- v1.1: Quick access to dual-review mode -->
@@ -1045,6 +1045,19 @@ input[type="range"]::-moz-range-thumb {
               <div class="format-source">简单文本</div>
               <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.2: 隐私与安全声明 -->
+      <div class="info-box" style="margin-bottom: var(--space-20); background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;">
+        <div style="display: flex; align-items: center; gap: var(--space-12);">
+          <div style="font-size: 2rem;">🛡️</div>
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 var(--space-4) 0; font-size: var(--font-size-base); color: white;">本地离线处理，数据不上传服务器</h4>
+            <p style="margin: 0; font-size: var(--font-size-sm); opacity: 0.9;">
+              所有数据处理均在您的浏览器本地完成，绝对安全。您的研究数据保密性得到完全保障。
+            </p>
           </div>
         </div>
       </div>
@@ -1333,6 +1346,11 @@ input[type="range"]::-moz-range-thumb {
         <div class="stat-card bg-3">
           <div class="stat-label">去重后</div>
           <div class="stat-value" id="stat-after-dupes">0</div>
+          <div class="stat-sublabel">
+            <small style="font-size: 0.75rem; opacity: 0.8;">
+              <a href="javascript:void(0)" onclick="showDeduplicationSettings()" style="color: inherit; text-decoration: underline;">⚙️ 去重设置</a>
+            </small>
+          </div>
         </div>
         <div class="stat-card bg-4">
           <div class="stat-label">标题/摘要筛选</div>
