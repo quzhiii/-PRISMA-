@@ -175,6 +175,80 @@ const defaultRules = {
   required_one_of: ["title", "abstract"]
 };
 
+// v1.3: 研究方法自动识别函数
+function guessStudyDesign(record) {
+  const text = ((record.title || '') + ' ' + (record.abstract || '')).toLowerCase();
+  
+  // 随机对照试验
+  if (/randomized|randomised|随机(.{0,3})对照|双盲|三盲|单盲|rct\b/.test(text)) {
+    return '随机对照试验（RCT）';
+  }
+  
+  // 系统综述/Meta分析
+  if (/systematic review|meta-analysis|meta analysis|系统综述|荟萃分析|meta\s?分析/.test(text)) {
+    return '系统综述/Meta分析';
+  }
+  
+  // 队列研究
+  if (/cohort\s+study|cohort|prospective|队列研究|前瞻性(.{0,3})研究|回顾性(.{0,3})队列/.test(text)) {
+    return '队列研究';
+  }
+  
+  // 病例对照研究
+  if (/case[-\s]?control|病例对照/.test(text)) {
+    return '病例对照研究';
+  }
+  
+  // 横断面研究
+  if (/cross[-\s]?sectional|横断面研究|横断面调查/.test(text)) {
+    return '横断面研究';
+  }
+  
+  // 临床试验（非随机）
+  if (/clinical trial|临床试验/.test(text) && !/random/.test(text)) {
+    return '临床试验（非随机）';
+  }
+  
+  // 诊断性试验
+  if (/diagnostic\s+accuracy|sensitivity\s+and\s+specificity|诊断(.{0,3})准确性|诊断试验/.test(text)) {
+    return '诊断性试验研究';
+  }
+  
+  // 动物实验
+  if (/animal\s+model|animal\s+study|in\s+vivo|动物模型|动物实验/.test(text)) {
+    return '动物实验研究';
+  }
+  
+  // 体外实验
+  if (/in\s+vitro|cell\s+culture|体外实验|细胞实验/.test(text)) {
+    return '体外实验研究';
+  }
+  
+  return '未标注';
+}
+
+// v1.3: 批量自动识别研究方法
+function autoIdentifyStudyDesigns() {
+  if (!screeningResults || !screeningResults.included) {
+    showToast('请先完成文献筛选', 'warning');
+    return;
+  }
+  
+  let identifiedCount = 0;
+  screeningResults.included.forEach(record => {
+    const design = guessStudyDesign(record);
+    if (design !== '未标注') {
+      record.studyDesign = design;
+      identifiedCount++;
+    }
+  });
+  
+  // 刷新人工审查界面
+  displayFulltextReviewUI();
+  
+  showToast(`✅ 已自动识别 ${identifiedCount}/${screeningResults.included.length} 篇文献的研究方法（建议人工核对）`, 'success');
+}
+
 // Initialize
 function init() {
   const uploadArea = document.getElementById('uploadArea');
@@ -2018,7 +2092,26 @@ function generateExcelUTF8BOM(data, type) {
   
   console.log('- 第一条记录的字段:', Object.keys(data[0]));
   
-  const columns = Object.keys(data[0]).filter(k => !k.startsWith('_'));
+  // v1.3: 定义导出字段顺序和中文列名
+  const fieldMapping = {
+    'title': '标题',
+    'authors': '作者',
+    'year': '年份',
+    'journal': '期刊',
+    'doi': 'DOI',
+    'abstract': '摘要',
+    'keywords': '关键词',
+    'type': '文献类型',
+    'database': '数据库来源',
+    'studyDesign': '研究方法'
+  };
+  
+  // 确定要导出的列（优先使用预定义顺序，然后包含其他字段）
+  const predefinedFields = Object.keys(fieldMapping);
+  const allFields = Object.keys(data[0]).filter(k => !k.startsWith('_'));
+  const columns = [...predefinedFields.filter(f => allFields.includes(f)),
+                    ...allFields.filter(f => !predefinedFields.includes(f))];
+  
   if (type === 'excluded') {
     columns.push('_exclude_stage', '_exclude_reason');
   }
@@ -2035,7 +2128,13 @@ function generateExcelUTF8BOM(data, type) {
     return val;
   };
   
-  const header = columns.map(escapeCSV).join(',');
+  // v1.3: 使用中文列名
+  const header = columns.map(col => {
+    if (col === '_exclude_stage') return escapeCSV('排除阶段');
+    if (col === '_exclude_reason') return escapeCSV('排除原因');
+    return escapeCSV(fieldMapping[col] || col);
+  }).join(',');
+  
   const rows = data.map(row => 
     columns.map(col => {
       if (col === '_exclude_stage' || col === '_exclude_reason') {

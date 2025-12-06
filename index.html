@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="文献筛选和PRISMA 2020流程图生成工具 - 支持多格式导入、智能去重、灵活筛选规则">
   <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析">
-  <title>PRISMA文献筛选助手 v1.2</title>
+  <title>PRISMA文献筛选助手 v1.3</title>
   <style>
     :root {
   /* Primitive Color Tokens */
@@ -850,7 +850,7 @@ input[type="range"]::-moz-range-thumb {
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>📚 PRISMA 文献筛选助手 v1.2</h1>
+      <h1>📚 PRISMA 文献筛选助手 v1.3</h1>
       <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
       
       <!-- v1.1: Quick access to dual-review mode -->
@@ -1513,6 +1513,25 @@ input[type="range"]::-moz-range-thumb {
       <div class="info-box">
         <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">审核说明</h3>
         <p>共<strong id="fulltext-total">0</strong>篇文献需要人工审核。请逐篇查阅全文，记录排除原因（如有）。</p>
+      </div>
+
+      <!-- v1.3: 研究方法自动识别 -->
+      <div class="info-box" style="margin: var(--space-24) 0; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none;">
+        <div style="display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-12);">
+          <span style="font-size: 1.5rem;">🤖</span>
+          <div style="flex: 1;">
+            <h3 style="margin: 0 0 var(--space-4) 0; font-size: var(--font-size-lg); color: white;">智能识别研究方法</h3>
+            <p style="margin: 0; font-size: var(--font-size-sm); opacity: 0.9;">
+              基于标题和摘要自动识别研究设计类型（RCT、队列、病例对照等）
+            </p>
+          </div>
+          <button class="btn" onclick="autoIdentifyStudyDesigns()" style="background: white; color: #f5576c; font-weight: bold; white-space: nowrap;">
+            ✨ 一键识别
+          </button>
+        </div>
+        <div style="font-size: var(--font-size-sm); opacity: 0.9; padding: var(--space-8); background: rgba(0,0,0,0.1); border-radius: 4px;">
+          ⚠️ <strong>重要提示：</strong>研究方法识别为自动建议结果，仅供参考，请在全文核对后确认或修改。
+        </div>
       </div>
 
       <!-- v4.1: 批量操作和快捷键 -->
