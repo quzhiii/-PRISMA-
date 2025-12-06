@@ -177,15 +177,22 @@ const defaultRules = {
 
 // Initialize
 function init() {
+  console.log('Init function called');
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
+  console.log('uploadArea:', uploadArea);
+  console.log('fileInput:', fileInput);
 
   if (!uploadArea || !fileInput) {
     console.error('Upload elements not found');
     return;
   }
 
-  uploadArea.addEventListener('click', () => fileInput.click());
+  console.log('Adding event listeners...');
+  uploadArea.addEventListener('click', () => {
+    console.log('Upload area clicked');
+    fileInput.click();
+  });
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -208,10 +215,14 @@ function init() {
     if (files.length > 0) handleMultipleFiles(files);
   });
 
-  // Initialize sliders
-  document.getElementById('ftExcludeRatio').addEventListener('input', (e) => {
-    document.getElementById('ftExcludeValue').textContent = Math.round(e.target.value * 100) + '%';
-  });
+  // Initialize sliders (with safety check)
+  const ftExcludeRatio = document.getElementById('ftExcludeRatio');
+  const ftExcludeValue = document.getElementById('ftExcludeValue');
+  if (ftExcludeRatio && ftExcludeValue) {
+    ftExcludeRatio.addEventListener('input', (e) => {
+      ftExcludeValue.textContent = Math.round(e.target.value * 100) + '%';
+    });
+  }
 
   // Initialize exclude list
   loadExcludeItems();
