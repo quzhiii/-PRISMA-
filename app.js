@@ -180,6 +180,11 @@ function init() {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
 
+  if (!uploadArea || !fileInput) {
+    console.error('Upload elements not found');
+    return;
+  }
+
   uploadArea.addEventListener('click', () => fileInput.click());
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -3714,5 +3719,9 @@ window.processFiles = function(files) {
   return result;
 };
 
-// Initialize app
-init();
+// Initialize app when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
