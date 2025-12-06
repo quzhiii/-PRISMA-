@@ -3708,20 +3708,6 @@ function saveProjectFile() {
   showToast('✅ 项目已导出到本地文件', 'success');
 }
 
-// Override existing data saving to use project-based storage
-const originalProcessFiles = processFiles;
-window.processFiles = function(files) {
-  const result = originalProcessFiles(files);
-  // Auto-save after file processing
-  setTimeout(() => {
-    if (projectData) {
-      projectData.name = `文献筛选项目 (${uploadedData ? uploadedData.length : 0}篇)`;
-      projectData.literatureCount = uploadedData ? uploadedData.length : 0;
-      saveProjectData();
-    }
-  }, 1000);
-  return result;
-};
 
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
@@ -3729,3 +3715,4 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
