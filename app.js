@@ -177,22 +177,15 @@ const defaultRules = {
 
 // Initialize
 function init() {
-  console.log('Init function called');
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
-  console.log('uploadArea:', uploadArea);
-  console.log('fileInput:', fileInput);
 
   if (!uploadArea || !fileInput) {
     console.error('Upload elements not found');
     return;
   }
 
-  console.log('Adding event listeners...');
-  uploadArea.addEventListener('click', () => {
-    console.log('Upload area clicked');
-    fileInput.click();
-  });
+  uploadArea.addEventListener('click', () => fileInput.click());
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -1360,14 +1353,14 @@ function loadExampleRules() {
 
 function syncFormToYAML() {
   const rules = getFormRules();
-  const yaml = jsyaml.dump(rules);
+  const yaml = JSON.stringify(rules, null, 2);
   document.getElementById('yamlEditor').value = yaml;
 }
 
 function syncYAMLToForm() {
   try {
     const yaml = document.getElementById('yamlEditor').value;
-    const rules = jsyaml.load(yaml);
+    const rules = JSON.parse(yaml);
     
     if (rules.time_window) {
       document.getElementById('startYear').value = rules.time_window.start_year || 2015;
