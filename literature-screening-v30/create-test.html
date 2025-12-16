@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建测试项目</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #5a67d8; }
+        .result { background: #f7fafc; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .success { background: #c6f6d5; color: #2d3748; }
+    </style>
+</head>
+<body>
+    <h1>🧪 创建测试项目</h1>
+    <p>点击按钮创建一个测试项目，然后您就可以使用副审查员身份加入了：</p>
+    
+    <button class="btn" onclick="createTestProject()">🏗️ 创建测试项目</button>
+    <button class="btn" onclick="showProjects()">📋 查看现有项目</button>
+    <button class="btn" onclick="clearProjects()">🗑️ 清空所有项目</button>
+    
+    <div id="result"></div>
+    
+    <h2>使用说明：</h2>
+    <ol>
+        <li>点击"创建测试项目"按钮</li>
+        <li>复制生成的项目ID</li>
+        <li>回到登录页面，选择"副审查员"</li>
+        <li>粘贴项目ID，现在应该显示"✅ 项目已找到"</li>
+        <li>点击登录即可加入项目！</li>
+    </ol>
+    
+    <script>
+        function createTestProject() {
+            const projectId = 'PRISMA-' + Date.now().toString(36).toUpperCase() + '-TEST';
+            const testProject = {
+                id: projectId,
+                name: '测试协作项目',
+                creator: '测试用户',
+                createdAt: new Date().toISOString(),
+                literatureCount: 10,
+                reviewers: {
+                    'reviewer-a': {
+                        username: '测试主审查员',
+                        joinedAt: new Date().toISOString(),
+                        status: 'active'
+                    }
+                },
+                uploadedData: [
+                    { title: '测试文献1', authors: '作者1', year: '2023', abstract: '这是一个测试摘要' },
+                    { title: '测试文献2', authors: '作者2', year: '2023', abstract: '这是另一个测试摘要' }
+                ],
+                screeningResults: {
+                    included: [
+                        { title: '测试文献1', authors: '作者1', year: '2023', abstract: '这是一个测试摘要' },
+                        { title: '测试文献2', authors: '作者2', year: '2023', abstract: '这是另一个测试摘要' }
+                    ]
+                },
+                reviewDecisions: {}
+            };
+            
+            // 保存到localStorage
+            const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            projects[projectId] = testProject;
+            localStorage.setItem('prisma_projects', JSON.stringify(projects));
+            
+            document.getElementById('result').innerHTML = `
+                <div class="result success">
+                    <h3>✅ 测试项目创建成功！</h3>
+                    <p><strong>项目ID：</strong> <code style="background: white; padding: 2px 6px; border-radius: 3px;">${projectId}</code></p>
+                    <p><strong>项目名称：</strong> 测试协作项目</p>
+                    <p><strong>文献数量：</strong> 2篇</p>
+                    <br>
+                    <p>现在您可以：</p>
+                    <ol>
+                        <li>复制上面的项目ID</li>
+                        <li><a href="login.html" target="_blank">打开登录页面</a></li>
+                        <li>选择"副审查员"角色</li>
+                        <li>粘贴项目ID</li>
+                        <li>应该会显示"✅ 项目已找到"</li>
+                    </ol>
+                </div>
+            `;
+        }
+        
+        function showProjects() {
+            const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            const projectList = Object.keys(projects);
+            
+            if (projectList.length === 0) {
+                document.getElementById('result').innerHTML = `
+                    <div class="result">
+                        <p>📭 暂无项目</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="result"><h3>📋 现有项目列表：</h3>';
+            projectList.forEach(id => {
+                const project = projects[id];
+                html += `
+                    <div style="border: 1px solid #e2e8f0; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                        <strong>ID:</strong> <code>${id}</code><br>
+                        <strong>名称:</strong> ${project.name || '未命名'}<br>
+                        <strong>创建者:</strong> ${project.creator || '未知'}<br>
+                        <strong>文献数:</strong> ${project.literatureCount || 0}篇
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            document.getElementById('result').innerHTML = html;
+        }
+        
+        function clearProjects() {
+            if (confirm('确定要清空所有项目吗？这个操作不可撤销！')) {
+                localStorage.removeItem('prisma_projects');
+                document.getElementById('result').innerHTML = `
+                    <div class="result">
+                        <p>🗑️ 所有项目已清空</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
