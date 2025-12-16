@@ -1083,6 +1083,42 @@ tr:hover {
   background: var(--color-bg-2);
 }
 
+/* Step 4: Abstract cell UX */
+.abstract-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.abstract-snippet {
+  max-height: 4.5em; /* ~3 lines */
+  overflow-y: auto;
+  line-height: 1.5;
+  padding-right: var(--space-8);
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.abstract-actions {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.btn-link {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.btn-link:hover {
+  background: var(--color-secondary-hover);
+}
+
 .form-group {
   margin-bottom: var(--space-20);
 }

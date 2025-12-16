@@ -7,7 +7,21 @@ let screeningResults = null;
 let fileFormat = 'unknown';
 let formatSource = 'Unknown';
 let currentTheme = 'subtle';
-let exclusionReasons = {}; // v3.0: Track exclusion reasons for fulltext stage
+// v1.4: Project-level exclusion reason template (customizable & persisted)
+const DEFAULT_EXCLUSION_REASONS = [
+  '人群不符',
+  '干预不符',
+  '对照不符',
+  '缺乏结局',
+  '数据不完整',
+  '研究设计不合适'
+];
+
+let exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
+
+// v1.4: Explicit state split
+let filterRules = null; // last used rules
+let currentProjectId = null; // local project id for persistence
 
 // v1.1: Multi-user collaboration variables
 let projectCollaboration = {
@@ -293,6 +307,40 @@ function init() {
 
   // Initialize exclude list
   loadExcludeItems();
+
+  // v1.4: Render exclusion template UI (Step 4)
+  renderExclusionTemplateButtons();
+  renderExclusionTemplateEditor();
+
+  // v1.4: Restore last opened project (per-project persistence)
+  const restored = loadCurrentProjectStateFromLocalStorage();
+  if (restored) {
+    // If we have data, ensure UI gets refreshed
+    if (uploadedData && uploadedData.length > 0) {
+      if (!columnMapping || Object.keys(columnMapping).length === 0) {
+        try { detectColumns(); } catch (_) {}
+      }
+      try { displayUploadInfo(); } catch (_) {}
+    }
+
+    if (filterRules) {
+      try { setFormRules(filterRules); } catch (_) {}
+    }
+
+    if (screeningResults) {
+      try { displayResults(screeningResults); } catch (_) {}
+      setStep(3);
+    } else if (uploadedData && uploadedData.length > 0) {
+      setStep(2);
+      try { syncFormToYAML(); } catch (_) {}
+      try { displayRulesPreview(); } catch (_) {}
+    } else {
+      setStep(1);
+    }
+  }
+
+  // v1.4: Ensure Step4 entry button reflects readiness
+  updateStep4EntryLock();
 }
 
 // v3.0: Handle multiple file uploads
@@ -335,10 +383,12 @@ function handleMultipleFiles(files) {
       
       uploadedData = allRecords;
       uploadedFiles = uploadedFilesInfo;
+      startNewProjectSession();
       hideProgress();
       setTimeout(() => {
         detectColumns();
         displayUploadInfo();
+        persistCurrentProjectState();
         hideLoading();
         showToast(`✅ 成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
         addSuccessAnimation();
@@ -1285,6 +1335,336 @@ function truncate(str, len) {
   return str.length > len ? str.substring(0, len) + '...' : str;
 }
 
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// v1.4: Project persistence (per-project, no cross-project interference)
+function generateProjectId() {
+  try {
+    if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch (_) {}
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getProjectStorageKey(projectId) {
+  return `prisma_project_${projectId}`;
+}
+
+function ensureProjectId() {
+  if (currentProjectId) return currentProjectId;
+  const savedId = localStorage.getItem('prisma_current_project_id');
+  if (savedId) {
+    currentProjectId = savedId;
+    return currentProjectId;
+  }
+  currentProjectId = generateProjectId();
+  localStorage.setItem('prisma_current_project_id', currentProjectId);
+  return currentProjectId;
+}
+
+function startNewProjectSession() {
+  currentProjectId = generateProjectId();
+  localStorage.setItem('prisma_current_project_id', currentProjectId);
+
+  // Reset project-scoped pieces
+  exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
+  filterRules = null;
+  screeningResults = null;
+
+  persistCurrentProjectState();
+  renderExclusionTemplateButtons();
+  renderExclusionTemplateEditor();
+  updateStep4EntryLock();
+}
+
+function persistCurrentProjectState() {
+  const projectId = ensureProjectId();
+  const snapshot = {
+    version: '1.4',
+    timestamp: new Date().toISOString(),
+    projectId,
+    uploadedData,
+    uploadedFiles,
+    screeningResults,
+    columnMapping,
+    fileFormat,
+    formatSource,
+    currentStep,
+    filterRules,
+    exclusionReasons
+  };
+  try {
+    localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
+  } catch (e) {
+    console.warn('Failed to persist project state:', e);
+  }
+}
+
+function restoreProjectState(snapshot) {
+  uploadedData = snapshot.uploadedData || [];
+  uploadedFiles = snapshot.uploadedFiles || [];
+  screeningResults = snapshot.screeningResults || null;
+  columnMapping = snapshot.columnMapping || {};
+  fileFormat = snapshot.fileFormat || 'unknown';
+  formatSource = snapshot.formatSource || 'Unknown';
+  currentStep = snapshot.currentStep || 1;
+  filterRules = snapshot.filterRules || null;
+
+  // v1.4: template
+  if (Array.isArray(snapshot.exclusionReasons) && snapshot.exclusionReasons.length > 0) {
+    exclusionReasons = snapshot.exclusionReasons.map(s => String(s)).filter(Boolean);
+  } else {
+    exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
+  }
+}
+
+function loadCurrentProjectStateFromLocalStorage() {
+  const savedId = localStorage.getItem('prisma_current_project_id');
+  if (!savedId) return false;
+  const raw = localStorage.getItem(getProjectStorageKey(savedId));
+  if (!raw) return false;
+
+  try {
+    const snapshot = JSON.parse(raw);
+    if (!snapshot || !snapshot.projectId) return false;
+    currentProjectId = snapshot.projectId;
+    restoreProjectState(snapshot);
+    return true;
+  } catch (e) {
+    console.warn('Failed to load project state:', e);
+    return false;
+  }
+}
+
+// v1.4: Exclusion template helpers
+function sanitizeExclusionTemplate(list) {
+  const cleaned = (Array.isArray(list) ? list : [])
+    .map(s => String(s || '').trim())
+    .filter(Boolean);
+  return cleaned.length > 0 ? cleaned : [...DEFAULT_EXCLUSION_REASONS];
+}
+
+function setExclusionReasonsTemplate(nextTemplate, { persist = true, rerender = true } = {}) {
+  exclusionReasons = sanitizeExclusionTemplate(nextTemplate);
+  if (persist) persistCurrentProjectState();
+  if (rerender) {
+    renderExclusionTemplateButtons();
+    renderExclusionTemplateEditor();
+    // If Step 4 table already exists, rebuild to refresh dropdown options
+    if (currentStep === 4) displayFulltextReviewUI();
+  }
+}
+
+function renderExclusionTemplateButtons() {
+  const container = document.getElementById('exclusion-template-buttons');
+  if (!container) return;
+
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  const numberEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣'];
+
+  container.innerHTML = template
+    .map((reason, idx) => {
+      const isHotkey = idx < 6;
+      const labelPrefix = isHotkey ? `${numberEmoji[idx]} ` : '';
+      const dataKey = isHotkey ? `data-key="${idx + 1}"` : '';
+      return `<button class="btn btn-secondary" type="button" onclick="setDefaultExclusion(${JSON.stringify(reason)})" data-reason="${escapeHTML(reason)}" ${dataKey}>${labelPrefix}${escapeHTML(reason)}</button>`;
+    })
+    .join('');
+}
+
+function toggleExclusionTemplateEditor() {
+  const editor = document.getElementById('exclusion-template-editor');
+  if (!editor) return;
+  editor.classList.toggle('hidden');
+  if (!editor.classList.contains('hidden')) {
+    renderExclusionTemplateEditor();
+    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function renderExclusionTemplateEditor() {
+  const listEl = document.getElementById('exclusion-template-list');
+  if (!listEl) return;
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+
+  listEl.innerHTML = template
+    .map((reason, idx) => {
+      const disableDelete = template.length <= 1;
+      return `
+        <div style="display: flex; gap: var(--space-8); align-items: center;">
+          <input class="form-input" type="text" value="${escapeHTML(reason)}" oninput="updateExclusionTemplateRow(${idx}, this.value)" />
+          <button class="btn btn-secondary" type="button" onclick="deleteExclusionTemplateRow(${idx})" ${disableDelete ? 'disabled' : ''}>删除</button>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function updateExclusionTemplateRow(index, value) {
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  template[index] = String(value || '').trim();
+  setExclusionReasonsTemplate(template);
+}
+
+function deleteExclusionTemplateRow(index) {
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  template.splice(index, 1);
+  setExclusionReasonsTemplate(template);
+}
+
+function addExclusionTemplateRow() {
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  template.push('');
+  exclusionReasons = template;
+  renderExclusionTemplateEditor();
+  persistCurrentProjectState();
+}
+
+function restoreDefaultExclusionTemplate() {
+  setExclusionReasonsTemplate([...DEFAULT_EXCLUSION_REASONS]);
+}
+
+// v1.4: Step scrolling helpers
+function scrollToStep(stepNumber) {
+  const el = document.getElementById(`step${stepNumber}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// v1.4: Rule backfill to Step 2
+function setFormRules(rules) {
+  if (!rules) return;
+  if (rules.time_window) {
+    document.getElementById('startYear').value = rules.time_window.start_year ?? document.getElementById('startYear').value;
+    document.getElementById('endYear').value = rules.time_window.end_year ?? document.getElementById('endYear').value;
+  }
+
+  if (Array.isArray(rules.include_any)) {
+    document.getElementById('includeKeywords').value = rules.include_any.join('\n');
+  }
+
+  if (Array.isArray(rules.exclude)) {
+    const container = document.getElementById('excludeList');
+    container.innerHTML = '';
+    rules.exclude.forEach(item => addExcludeItemToDOM(item.keyword || '', item.reason || ''));
+  }
+
+  if (rules.language && Array.isArray(rules.language.allow)) {
+    const allow = new Set(rules.language.allow);
+    document.querySelectorAll('input[type="checkbox"][value="english"], input[type="checkbox"][value="chinese"]').forEach(cb => {
+      cb.checked = allow.has(cb.value);
+    });
+  }
+
+  if (Array.isArray(rules.required_one_of)) {
+    const required = new Set(rules.required_one_of);
+    document.querySelectorAll('.required-field').forEach(cb => {
+      cb.checked = required.has(cb.value);
+    });
+  }
+
+  if (typeof rules.fulltext_exclude_ratio === 'number' && !Number.isNaN(rules.fulltext_exclude_ratio)) {
+    const slider = document.getElementById('ftExcludeRatio');
+    const label = document.getElementById('ftExcludeValue');
+    if (slider) slider.value = String(rules.fulltext_exclude_ratio);
+    if (label) label.textContent = Math.round(rules.fulltext_exclude_ratio * 100) + '%';
+  }
+
+  syncFormToYAML();
+}
+
+function getManualReviewMarkedCount() {
+  // Prefer finalized counts if available
+  const finalized = screeningResults?.excluded?.filter(r => r._exclude_stage === 'fulltext')?.length || 0;
+  if (finalized > 0) return finalized;
+
+  // Dual-review mode: count any non-empty decision per index
+  if (projectData && projectData.reviewDecisions && screeningResults?.included?.length) {
+    const total = screeningResults.included.length;
+    let marked = 0;
+    for (let i = 0; i < total; i++) {
+      const a = projectData.reviewDecisions['reviewer-a']?.[i]?.decision;
+      const b = projectData.reviewDecisions['reviewer-b']?.[i]?.decision;
+      if ((a && String(a).trim()) || (b && String(b).trim())) marked++;
+    }
+    if (marked > 0) return marked;
+  }
+
+  // Single-review draft stored in screeningResults
+  const draft = screeningResults?.manualReviewDraft;
+  if (draft && typeof draft === 'object') {
+    const decided = Object.values(draft).filter(v => v && String(v).trim().length > 0).length;
+    if (decided > 0) return decided;
+  }
+
+  // As a last fallback: count current DOM selections if Step 4 table exists
+  const selects = document.querySelectorAll('select[id^="exclude-"]');
+  if (selects && selects.length) {
+    let decided = 0;
+    selects.forEach(s => {
+      if (s && s.value && String(s.value).trim().length > 0) decided++;
+    });
+    if (decided > 0) return decided;
+  }
+
+  return 0;
+}
+
+function editRulesAndRerun() {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传文献数据', 'warning');
+    return;
+  }
+  if (!filterRules) {
+    showToast('当前还没有可回填的筛选规则，请先运行一次筛选', 'info');
+    goToStep2();
+    scrollToStep(2);
+    return;
+  }
+
+  const markedCount = getManualReviewMarkedCount();
+  if (markedCount > 0) {
+    const ok = confirm(`修改筛选规则将重置当前人工审核结果（已标记 ${markedCount} 条记录）。\n是否继续？`);
+    if (!ok) return;
+
+    // Reset collaborative decisions if present
+    if (projectData) {
+      projectData.reviewDecisions = {};
+      saveProjectData();
+    }
+
+    if (screeningResults && screeningResults.manualReviewDraft) {
+      screeningResults.manualReviewDraft = {};
+      persistCurrentProjectState();
+    }
+  }
+
+  goToStep2();
+  setFormRules(filterRules);
+  scrollToStep(2);
+}
+
+function setManualReviewDraftDecision(idx, decision) {
+  if (!screeningResults) return;
+  if (!screeningResults.manualReviewDraft || typeof screeningResults.manualReviewDraft !== 'object') {
+    screeningResults.manualReviewDraft = {};
+  }
+
+  const v = String(decision || '').trim();
+  if (v) {
+    screeningResults.manualReviewDraft[idx] = v;
+  } else {
+    delete screeningResults.manualReviewDraft[idx];
+  }
+
+  persistCurrentProjectState();
+}
+
 // Step navigation
 function goToStep1() {
   setStep(1);
@@ -1326,6 +1706,16 @@ function goToStep4() {
   displayFulltextReviewUI();
 }
 
+// v1.4: Step 5 for final results
+function goToStep5() {
+  if (!screeningResults) {
+    showToast('请先完成文献筛选', 'warning');
+    return;
+  }
+  setStep(5);
+  displayResults(screeningResults);
+}
+
 function setStep(step) {
   currentStep = step;
   
@@ -1335,12 +1725,14 @@ function setStep(step) {
   document.getElementById('step3').classList.add('hidden');
   const step4 = document.getElementById('step4');
   if (step4) step4.classList.add('hidden');
+  const step5 = document.getElementById('step5');
+  if (step5) step5.classList.add('hidden');
   
   // Show current step
   document.getElementById('step' + step).classList.remove('hidden');
   
   // Update indicators
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 5; i++) {
     const indicator = document.getElementById('step-indicator-' + i);
     if (indicator) {
       indicator.classList.remove('active', 'completed');
@@ -1520,6 +1912,9 @@ function startScreening() {
   
   setTimeout(() => {
     const rules = getFormRules();
+    filterRules = rules;
+    ensureProjectId();
+    persistCurrentProjectState();
     
     // v3.0: Debug - check input data
     console.log('🔍 开始筛选调试：');
@@ -1535,6 +1930,7 @@ function startScreening() {
     
     const results = performScreening(uploadedData, rules);
     screeningResults = results;
+    persistCurrentProjectState();
     hideLoading();
     
     // v3.0: Debug logging to diagnose filtering issues
@@ -1557,9 +1953,11 @@ function startScreening() {
       showToast('⚠️ 警告：没有文献进入人工审核阶段！请检查筛选规则', 'warning');
     }
     
-    // v3.0: Go to Step 4 (Manual Review) instead of Step 3 directly
-    goToStep4();
-    showToast('文献筛选完成，请进行人工审核', 'success');
+    // v1.4: Go to Step 3 (Auto screening results) and scroll into view
+    displayResults(screeningResults);
+    goToStep3();
+    scrollToStep(3);
+    showToast('自动筛选完成：请在第3步查看初步结果', 'success');
   }, 1500);
 }
 
@@ -1818,6 +2216,91 @@ function detectLanguage(text) {
   return cjkPattern.test(text) ? 'chinese' : 'english';
 }
 
+function getSelectedPrismaMode() {
+  const el = document.querySelector('input[name="prismaMode"]:checked');
+  const v = el ? String(el.value || '') : '';
+  return v === 'simple' ? 'simple' : 'prisma2020';
+}
+
+function updateStep4EntryLock() {
+  const btn = document.getElementById('btnGoStep4');
+  if (!btn) return;
+
+  const ready = !!screeningResults && Array.isArray(screeningResults.included);
+  btn.disabled = !ready;
+  btn.title = ready ? '' : '请先在第3步完成自动筛选';
+}
+
+function renderFilterRulesOverview(rules) {
+  const container = document.getElementById('filterRulesOverview');
+  if (!container) return;
+  if (!rules) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const time = rules.time_window || {};
+  const includeAny = Array.isArray(rules.include_any) ? rules.include_any.filter(Boolean) : [];
+  const excludeList = Array.isArray(rules.exclude) ? rules.exclude : [];
+  const langAllow = rules.language?.allow || [];
+  const required = Array.isArray(rules.required_one_of) ? rules.required_one_of : [];
+  const ftRatio = typeof rules.fulltext_exclude_ratio === 'number' && !Number.isNaN(rules.fulltext_exclude_ratio)
+    ? Math.round(rules.fulltext_exclude_ratio * 100) + '%'
+    : '未设置';
+
+  const includeHtml = includeAny.length
+    ? includeAny.map(kw => `<li>${escapeHTML(String(kw))}</li>`).join('')
+    : '<li>（未设置：不进行包含关键词过滤）</li>';
+
+  const excludeHtml = excludeList.length
+    ? excludeList.map(ex => `<li><strong>${escapeHTML(String(ex.keyword || ''))}</strong>：${escapeHTML(String(ex.reason || ''))}</li>`).join('')
+    : '<li>（未设置）</li>';
+
+  const langHtml = (Array.isArray(langAllow) && langAllow.length)
+    ? langAllow.map(x => `<li>${escapeHTML(String(x))}</li>`).join('')
+    : '<li>（未设置）</li>';
+
+  const reqHtml = required.length
+    ? required.map(x => `<li>${escapeHTML(String(x))}</li>`).join('')
+    : '<li>（未设置）</li>';
+
+  container.innerHTML = `
+    <div class="info-box" style="background: var(--color-bg-1); border-left: 4px solid var(--color-primary);">
+      <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-12);">筛选规则概览</div>
+      <div class="grid grid-2" style="gap: var(--space-16);">
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">时间窗口</div>
+          <div style="color: var(--color-text-secondary);">${escapeHTML(String(time.start_year ?? ''))} - ${escapeHTML(String(time.end_year ?? ''))}</div>
+        </div>
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">全文排除比例参数</div>
+          <div style="color: var(--color-text-secondary);">${escapeHTML(String(ftRatio))}</div>
+        </div>
+      </div>
+      <div class="grid grid-2" style="gap: var(--space-16); margin-top: var(--space-16);">
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">包含关键词</div>
+          <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.7;">${includeHtml}</ul>
+        </div>
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">排除关键词（标题/摘要阶段）</div>
+          <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.7;">${excludeHtml}</ul>
+        </div>
+      </div>
+      <div class="grid grid-2" style="gap: var(--space-16); margin-top: var(--space-16);">
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">语言要求</div>
+          <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.7;">${langHtml}</ul>
+        </div>
+        <div>
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">必填字段（至少一个）</div>
+          <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.7;">${reqHtml}</ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // Display results
 function displayResults(results) {
   if (!results || !results.counts) {
@@ -1827,6 +2310,7 @@ function displayResults(results) {
   
   const counts = results.counts;
   
+  // Update Step 3 stats
   document.getElementById('stat-identified-db').textContent = counts.identified_db || 0;
   document.getElementById('stat-identified-other').textContent = counts.identified_other || 0;
   document.getElementById('stat-after-dupes').textContent = counts.after_dupes || 0;
@@ -1836,16 +2320,84 @@ function displayResults(results) {
   document.getElementById('stat-excluded-ft').textContent = counts.excluded_ft || 0;
   document.getElementById('stat-included').textContent = counts.included || 0;
 
+  // Update Step 5 stats (if exists)
+  const step5Exists = document.getElementById('stat-identified-db-final');
+  if (step5Exists) {
+    document.getElementById('stat-identified-db-final').textContent = counts.identified_db || 0;
+    document.getElementById('stat-identified-other-final').textContent = counts.identified_other || 0;
+    document.getElementById('stat-after-dupes-final').textContent = counts.after_dupes || 0;
+    document.getElementById('stat-screened-final').textContent = counts.screened || 0;
+    document.getElementById('stat-excluded-ta-final').textContent = counts.excluded_ta || 0;
+    document.getElementById('stat-fulltext-final').textContent = counts.fulltext || 0;
+    document.getElementById('stat-excluded-ft-final').textContent = counts.excluded_ft || 0;
+    document.getElementById('stat-included-final').textContent = counts.included || 0;
+  }
+
+  renderFilterRulesOverview(results.rules || filterRules);
+  
+  // Render rules overview in Step5 if exists
+  const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
+  if (rulesOverviewFinal) {
+    rulesOverviewFinal.innerHTML = renderFilterRulesHTML(results.rules || filterRules);
+  }
+  
+  updateStep4EntryLock();
+
   // Set default theme
   currentTheme = 'subtle';
-  const svg = generatePRISMASVG(counts, currentTheme);
+  const svg = generatePRISMASVG(counts, currentTheme, getSelectedPrismaMode());
   document.getElementById('svgPreview').innerHTML = svg;
+  
+  // Update Step 5 preview if exists (use prisma2020 as default for Step5)
+  const svgPreviewFinal = document.getElementById('svgPreviewFinal');
+  if (svgPreviewFinal) {
+    const modeFinal = document.querySelector('input[name="prismaModeFinal"]:checked')?.value || 'prisma2020';
+    const svgFinal = generatePRISMASVG(counts, currentTheme, modeFinal);
+    svgPreviewFinal.innerHTML = svgFinal;
+  }
   
   // Setup theme change listeners
   document.querySelectorAll('input[name="theme"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
       currentTheme = e.target.value;
       updateCurrentThemeLabel();
+    });
+  });
+
+  // PRISMA mode change listeners
+  document.querySelectorAll('input[name="prismaMode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!screeningResults) return;
+      const svg2 = generatePRISMASVG(screeningResults.counts, currentTheme, getSelectedPrismaMode());
+      document.getElementById('svgPreview').innerHTML = svg2;
+    });
+  });
+
+  // Step 5 PRISMA mode listeners
+  document.querySelectorAll('input[name="prismaModeFinal"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!screeningResults) return;
+      const mode = document.querySelector('input[name="prismaModeFinal"]:checked')?.value || 'prisma2020';
+      const svg3 = generatePRISMASVG(screeningResults.counts, currentTheme, mode);
+      const previewFinal = document.getElementById('svgPreviewFinal');
+      if (previewFinal) previewFinal.innerHTML = svg3;
+    });
+  });
+
+  // Step 5 theme listeners
+  document.querySelectorAll('input[name="themeFinal"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      currentTheme = e.target.value;
+      updateCurrentThemeLabel();
+      const labelFinal = document.getElementById('currentThemeLabelFinal');
+      if (labelFinal) labelFinal.textContent = colorThemes[currentTheme].name;
+      // 更新 Step5 的 PRISMA 预览
+      if (screeningResults) {
+        const mode = document.querySelector('input[name="prismaModeFinal"]:checked')?.value || 'prisma2020';
+        const svg = generatePRISMASVG(screeningResults.counts, currentTheme, mode);
+        const previewFinal = document.getElementById('svgPreviewFinal');
+        if (previewFinal) previewFinal.innerHTML = svg;
+      }
     });
   });
   
@@ -1858,7 +2410,7 @@ function updateThemePreview() {
   const selectedTheme = document.querySelector('input[name="theme"]:checked')?.value || 'subtle';
   currentTheme = selectedTheme;
   
-  const svg = generatePRISMASVG(screeningResults.counts, currentTheme);
+  const svg = generatePRISMASVG(screeningResults.counts, currentTheme, getSelectedPrismaMode());
   document.getElementById('svgPreview').innerHTML = svg;
   
   updateCurrentThemeLabel();
@@ -1870,103 +2422,249 @@ function updateCurrentThemeLabel() {
   if (label) {
     label.textContent = colorThemes[currentTheme].name;
   }
+  const labelFinal = document.getElementById('currentThemeLabelFinal');
+  if (labelFinal) {
+    labelFinal.textContent = colorThemes[currentTheme].name;
+  }
 }
 
-function generatePRISMASVG(counts, theme = 'subtle') {
-  const width = 800;
-  const height = 1200; // v3.0: Extended height for additional exclusion details
-  const boxWidth = 200;
-  const boxHeight = 80;
-  const padding = 20;
+function updateThemePreviewFinal() {
+  if (!screeningResults) return;
   
-  const colors = colorThemes[theme].colors;
+  const selectedTheme = document.querySelector('input[name="themeFinal"]:checked')?.value || 'subtle';
+  currentTheme = selectedTheme;
+  
+  const mode = document.querySelector('input[name="prismaModeFinal"]:checked')?.value || 'prisma2020';
+  const svg = generatePRISMASVG(screeningResults.counts, currentTheme, mode);
+  document.getElementById('svgPreviewFinal').innerHTML = svg;
+  
+  updateCurrentThemeLabel();
+  showToast(`已切换到${colorThemes[currentTheme].name}主题`, 'success');
+}
 
-  const svg = `
+function getFulltextExclusionReasonStats(limit = 6) {
+  if (!screeningResults || !Array.isArray(screeningResults.excluded)) return [];
+  const map = {};
+  screeningResults.excluded
+    .filter(r => r && r._exclude_stage === 'fulltext' && r._exclude_reason)
+    .forEach(r => {
+      const key = String(r._exclude_reason).trim();
+      if (!key) return;
+      map[key] = (map[key] || 0) + 1;
+    });
+
+  return Object.entries(map)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
+  const selectedMode = mode === 'simple' ? 'simple' : 'prisma2020';
+  const colors = (colorThemes[theme] || colorThemes.subtle).colors;
+  const themeName = (colorThemes[theme] || colorThemes.subtle).name;
+
+  const reasons = getFulltextExclusionReasonStats(6);
+  const reasonLines = reasons.length
+    ? reasons.map((r, i) => ({
+        text: `• ${r.reason}: ${r.count} 篇`,
+        yOffset: i * 18
+      }))
+    : [{ text: '• （暂无全文排除统计）', yOffset: 0 }];
+
+  if (selectedMode === 'simple') {
+    const width = 800;
+    const height = 1200;
+    const boxWidth = 200;
+    const boxHeight = 80;
+
+    return `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="${colors.border}" />
+          </marker>
+        </defs>
+
+        <!-- Identification -->
+        <rect x="50" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="150" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 数据库</text>
+        <text x="150" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_db}</text>
+
+        <rect x="300" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="400" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 其他来源</text>
+        <text x="400" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_other}</text>
+
+        <!-- Duplicates removed -->
+        <rect x="550" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.duplicates}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="650" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去除重复</text>
+        <text x="650" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.duplicates}</text>
+
+        <line x1="275" y1="100" x2="275" y2="140" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+        <line x1="275" y1="140" x2="650" y2="140" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+
+        <!-- After deduplication -->
+        <rect x="175" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="275" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去重后记录</text>
+        <text x="275" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.after_dupes}</text>
+
+        <!-- Screening -->
+        <rect x="175" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="275" y="290" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">标题/摘要筛选</text>
+        <text x="275" y="310" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.screened}</text>
+
+        <line x1="275" y1="220" x2="275" y2="260" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- TA Excluded -->
+        <rect x="550" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="650" y="280" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">标题/摘要排除</text>
+        <text x="650" y="300" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ta}</text>
+
+        <line x1="375" y1="300" x2="550" y2="300" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+
+        <!-- Fulltext -->
+        <rect x="175" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="275" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文评估</text>
+        <text x="275" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.fulltext}</text>
+
+        <line x1="275" y1="340" x2="275" y2="380" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- FT Excluded -->
+        <rect x="550" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
+        <text x="650" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文排除</text>
+        <text x="650" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ft}</text>
+
+        <line x1="375" y1="420" x2="550" y2="420" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
+
+        <!-- Included -->
+        <rect x="175" y="500" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.included}" fill-opacity="0.4" stroke="${colors.border}" stroke-width="3"/>
+        <text x="275" y="530" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">✓ 最终纳入</text>
+        <text x="275" y="550" text-anchor="middle" font-size="20" font-weight="bold" fill="${colors.text}">${counts.included}</text>
+
+        <line x1="275" y1="460" x2="275" y2="500" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+        <!-- Fulltext exclusion reasons (dynamic) -->
+        <text x="50" y="620" font-size="12" font-weight="bold" fill="${colors.text}">全文排除原因（Top ${Math.min(6, reasons.length || 1)}）:</text>
+        ${reasonLines.map((r, i) => `<text x="50" y="${645 + r.yOffset}" font-size="11" fill="${colors.text}">${escapeHTML(r.text)}</text>`).join('')}
+
+        <!-- Title -->
+        <text x="400" y="760" text-anchor="middle" font-size="16" font-weight="bold" fill="${colors.text}">PRISMA 流程图（简化版）</text>
+        <text x="400" y="785" text-anchor="middle" font-size="12" fill="${colors.text}" opacity="0.7">主题: ${escapeHTML(themeName)} | 生成时间: ${escapeHTML(new Date().toLocaleDateString('zh-CN'))}</text>
+      </svg>
+    `;
+  }
+
+  // PRISMA 2020-like layout
+  const width = 900;
+  const height = 1400;
+  const boxW = 360;
+  const boxH = 72;
+
+  const xCenter = (width - boxW) / 2;
+  const xRight = width - boxW - 40;
+  const xLeft = 40;
+
+  const y0 = 60;
+  const gapY = 115;
+
+  const yId = y0;
+  const yRemoved = yId + gapY;
+  const yScreened = yRemoved + gapY;
+  const ySought = yScreened + gapY;
+  const yAssessed = ySought + gapY;
+  const yIncluded = yAssessed + gapY;
+
+  const yExcludedRecords = yScreened;
+  const yNotRetrieved = ySought;
+  const yReportsExcluded = yAssessed;
+
+  const totalIdentified = (counts.identified_db || 0) + (counts.identified_other || 0);
+
+  const reasonStartY = yReportsExcluded + boxH + 26;
+  const reasonSvgLines = reasonLines.slice(0, 6).map((r, i) => {
+    const y = reasonStartY + i * 18;
+    return `<text x="${xRight}" y="${y}" font-size="11" fill="${colors.text}">${escapeHTML(r.text)}</text>`;
+  }).join('');
+
+  return `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <polygon points="0 0, 10 3, 0 6" fill="${colors.border}" />
         </marker>
       </defs>
-      
-      <!-- Identification -->
-      <rect x="50" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="150" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 数据库</text>
-      <text x="150" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_db}</text>
-      
-      <rect x="300" y="20" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.identified}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="400" y="50" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">识别: 其他来源</text>
-      <text x="400" y="70" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.identified_other}</text>
-      
-      <!-- Duplicates removed -->
-      <rect x="550" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.duplicates}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="650" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去除重复</text>
-      <text x="650" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.duplicates}</text>
-      
-      <line x1="275" y1="100" x2="275" y2="140" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
-      <line x1="275" y1="140" x2="650" y2="140" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
-      
-      <!-- After deduplication -->
-      <rect x="175" y="140" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="275" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">去重后记录</text>
-      <text x="275" y="190" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.after_dupes}</text>
-      
-      <!-- Screening -->
-      <rect x="175" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="275" y="290" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">标题/摘要筛选</text>
-      <text x="275" y="310" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.screened}</text>
-      
-      <line x1="275" y1="220" x2="275" y2="260" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
-      
-      <!-- TA Excluded -->
-      <rect x="550" y="260" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="650" y="280" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">标题/摘要排除</text>
-      <text x="650" y="300" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ta}</text>
-      
-      <line x1="375" y1="300" x2="550" y2="300" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
-      
-      <!-- Fulltext -->
-      <rect x="175" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.screened}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="275" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文评估</text>
-      <text x="275" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.fulltext}</text>
-      
-      <line x1="275" y1="340" x2="275" y2="380" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
-      
-      <!-- FT Excluded -->
-      <rect x="550" y="380" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.excluded}" fill-opacity="0.3" stroke="${colors.border}" stroke-width="2"/>
-      <text x="650" y="410" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">全文排除</text>
-      <text x="650" y="430" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ft}</text>
-      
-      <line x1="375" y1="420" x2="550" y2="420" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5"/>
-      
-      <!-- Included -->
-      <rect x="175" y="500" width="${boxWidth}" height="${boxHeight}" rx="10" fill="${colors.included}" fill-opacity="0.4" stroke="${colors.border}" stroke-width="3"/>
-      <text x="275" y="530" text-anchor="middle" font-size="14" font-weight="bold" fill="${colors.text}">✓ 最终纳入</text>
-      <text x="275" y="550" text-anchor="middle" font-size="20" font-weight="bold" fill="${colors.text}">${counts.included}</text>
-      
-      <line x1="275" y1="460" x2="275" y2="500" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
-      
-      <!-- v3.0: Exclusion reasons breakdown -->
-      <text x="50" y="620" font-size="12" font-weight="bold" fill="${colors.text}">排除原因统计 (全文阶段):</text>
-      <text x="50" y="645" font-size="11" fill="${colors.text}">• 人群不符: ${getExclusionCount('人群不符')} 篇</text>
-      <text x="50" y="665" font-size="11" fill="${colors.text}">• 干预不符: ${getExclusionCount('干预不符')} 篇</text>
-      <text x="50" y="685" font-size="11" fill="${colors.text}">• 对照不符: ${getExclusionCount('对照不符')} 篇</text>
-      <text x="50" y="705" font-size="11" fill="${colors.text}">• 缺乏结局: ${getExclusionCount('缺乏结局')} 篇</text>
-      <text x="50" y="725" font-size="11" fill="${colors.text}">• 数据不完整: ${getExclusionCount('数据不完整')} 篇</text>
-      
+
       <!-- Title -->
-      <text x="400" y="760" text-anchor="middle" font-size="16" font-weight="bold" fill="${colors.text}">PRISMA 2020 文献筛选流程图</text>
-      <text x="400" y="785" text-anchor="middle" font-size="12" fill="${colors.text}" opacity="0.7">主题: ${colorThemes[theme].name} | 生成时间: ${new Date().toLocaleDateString('zh-CN')}</text>
+      <text x="${width / 2}" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="${colors.text}">PRISMA 2020 文献筛选流程图</text>
+      <text x="${width / 2}" y="42" text-anchor="middle" font-size="12" fill="${colors.text}" opacity="0.7">主题: ${escapeHTML(themeName)} | 生成时间: ${escapeHTML(new Date().toLocaleDateString('zh-CN'))}</text>
+
+      <!-- Identification (center) -->
+      <rect x="${xCenter}" y="${yId}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.identified}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xCenter + boxW / 2}" y="${yId + 26}" text-anchor="middle" font-size="13" font-weight="bold" fill="${colors.text}">识别的记录</text>
+      <text x="${xCenter + boxW / 2}" y="${yId + 46}" text-anchor="middle" font-size="12" fill="${colors.text}">数据库: ${counts.identified_db || 0} | 其他来源: ${counts.identified_other || 0} | 合计: ${totalIdentified}</text>
+
+      <!-- Records removed before screening (right) -->
+      <rect x="${xRight}" y="${yRemoved}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.duplicates}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xRight + boxW / 2}" y="${yRemoved + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">筛选前移除的记录</text>
+      <text x="${xRight + boxW / 2}" y="${yRemoved + 48}" text-anchor="middle" font-size="12" fill="${colors.text}">去重移除: ${counts.duplicates || 0} | 其他: 0</text>
+
+      <!-- After dupes (center) -->
+      <rect x="${xCenter}" y="${yRemoved}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.screened}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xCenter + boxW / 2}" y="${yRemoved + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">去重后记录</text>
+      <text x="${xCenter + boxW / 2}" y="${yRemoved + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.after_dupes || 0}</text>
+
+      <!-- Records screened (center) -->
+      <rect x="${xCenter}" y="${yScreened}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.screened}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xCenter + boxW / 2}" y="${yScreened + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">记录筛选（标题/摘要）</text>
+      <text x="${xCenter + boxW / 2}" y="${yScreened + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.screened || 0}</text>
+
+      <!-- Records excluded (right) -->
+      <rect x="${xRight}" y="${yExcludedRecords}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.excluded}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xRight + boxW / 2}" y="${yExcludedRecords + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">记录排除</text>
+      <text x="${xRight + boxW / 2}" y="${yExcludedRecords + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ta || 0}</text>
+
+      <!-- Reports sought (center) -->
+      <rect x="${xCenter}" y="${ySought}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.screened}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xCenter + boxW / 2}" y="${ySought + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">全文检索（报告获取）</text>
+      <text x="${xCenter + boxW / 2}" y="${ySought + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.fulltext || 0}</text>
+
+      <!-- Reports not retrieved (right) -->
+      <rect x="${xRight}" y="${yNotRetrieved}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.excluded}" fill-opacity="0.15" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xRight + boxW / 2}" y="${yNotRetrieved + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">未能获取全文</text>
+      <text x="${xRight + boxW / 2}" y="${yNotRetrieved + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">0</text>
+
+      <!-- Reports assessed (center) -->
+      <rect x="${xCenter}" y="${yAssessed}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.screened}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xCenter + boxW / 2}" y="${yAssessed + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">全文合格性评估</text>
+      <text x="${xCenter + boxW / 2}" y="${yAssessed + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.fulltext || 0}</text>
+
+      <!-- Reports excluded (right) -->
+      <rect x="${xRight}" y="${yReportsExcluded}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.excluded}" fill-opacity="0.25" stroke="${colors.border}" stroke-width="2"/>
+      <text x="${xRight + boxW / 2}" y="${yReportsExcluded + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">全文排除（含原因）</text>
+      <text x="${xRight + boxW / 2}" y="${yReportsExcluded + 50}" text-anchor="middle" font-size="18" font-weight="bold" fill="${colors.text}">${counts.excluded_ft || 0}</text>
+
+      <!-- Included (center) -->
+      <rect x="${xCenter}" y="${yIncluded}" width="${boxW}" height="${boxH}" rx="10" fill="${colors.included}" fill-opacity="0.35" stroke="${colors.border}" stroke-width="3"/>
+      <text x="${xCenter + boxW / 2}" y="${yIncluded + 28}" text-anchor="middle" font-size="12" font-weight="bold" fill="${colors.text}">最终纳入研究</text>
+      <text x="${xCenter + boxW / 2}" y="${yIncluded + 52}" text-anchor="middle" font-size="20" font-weight="bold" fill="${colors.text}">${counts.included || 0}</text>
+
+      <!-- Arrows -->
+      <line x1="${xCenter + boxW / 2}" y1="${yId + boxH}" x2="${xCenter + boxW / 2}" y2="${yRemoved}" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW / 2}" y1="${yRemoved + boxH}" x2="${xCenter + boxW / 2}" y2="${yScreened}" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW / 2}" y1="${yScreened + boxH}" x2="${xCenter + boxW / 2}" y2="${ySought}" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW / 2}" y1="${ySought + boxH}" x2="${xCenter + boxW / 2}" y2="${yAssessed}" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW / 2}" y1="${yAssessed + boxH}" x2="${xCenter + boxW / 2}" y2="${yIncluded}" stroke="${colors.border}" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+      <line x1="${xCenter + boxW}" y1="${yRemoved + boxH / 2}" x2="${xRight}" y2="${yRemoved + boxH / 2}" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW}" y1="${yScreened + boxH / 2}" x2="${xRight}" y2="${yExcludedRecords + boxH / 2}" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW}" y1="${ySought + boxH / 2}" x2="${xRight}" y2="${yNotRetrieved + boxH / 2}" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+      <line x1="${xCenter + boxW}" y1="${yAssessed + boxH / 2}" x2="${xRight}" y2="${yReportsExcluded + boxH / 2}" stroke="${colors.border}" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+
+      <!-- Exclusion reason list -->
+      <text x="${xRight}" y="${reasonStartY - 10}" font-size="12" font-weight="bold" fill="${colors.text}">全文排除原因（Top ${Math.min(6, reasons.length || 1)}）:</text>
+      ${reasonSvgLines}
     </svg>
   `;
-
-  return svg;
-}
-
-// v3.0: Helper function to get exclusion count from screening results
-function getExclusionCount(reason) {
-  if (!screeningResults || !screeningResults.excluded) return 0;
-  return screeningResults.excluded.filter(r => r._exclude_reason === reason).length;
 }
 
 // Download functions
@@ -2004,17 +2702,17 @@ function downloadFile(type) {
       mimeType = 'text/csv;charset=utf-8';
       break;
     case 'svg-colorful':
-      content = generatePRISMASVG(screeningResults.counts, 'colorful');
+      content = generatePRISMASVG(screeningResults.counts, 'colorful', getSelectedPrismaMode());
       filename = 'prisma_flow_colorful.svg';
       mimeType = 'image/svg+xml';
       break;
     case 'svg-blackwhite':
-      content = generatePRISMASVG(screeningResults.counts, 'blackwhite');
+      content = generatePRISMASVG(screeningResults.counts, 'blackwhite', getSelectedPrismaMode());
       filename = 'prisma_flow_blackwhite.svg';
       mimeType = 'image/svg+xml';
       break;
     case 'svg-subtle':
-      content = generatePRISMASVG(screeningResults.counts, 'subtle');
+      content = generatePRISMASVG(screeningResults.counts, 'subtle', getSelectedPrismaMode());
       filename = 'prisma_flow_subtle.svg';
       mimeType = 'image/svg+xml';
       break;
@@ -2261,7 +2959,7 @@ ${exclusionDetails || '- 未排除任何文献'}
 
 ---
 
-*本报告由文献快筛工具 v3.0 自动生成*
+*本报告由文献快筛工具 v1.4 自动生成*
 `;
 }
 
@@ -2372,6 +3070,13 @@ function hideLoading() {
 }
 
 function resetApp() {
+  // v1.4: Clear current project snapshot
+  try {
+    const id = localStorage.getItem('prisma_current_project_id');
+    if (id) localStorage.removeItem(getProjectStorageKey(id));
+    localStorage.removeItem('prisma_current_project_id');
+  } catch (_) {}
+
   uploadedData = [];
   uploadedFiles = []; // v3.0
   screeningResults = null;
@@ -2379,11 +3084,16 @@ function resetApp() {
   fileFormat = 'unknown';
   formatSource = 'Unknown';
   currentStep = 1;
-  exclusionReasons = {}; // v3.0
+  filterRules = null;
+  exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
+  currentProjectId = null;
   document.getElementById('uploadInfo').classList.add('hidden');
   document.getElementById('fileInput').value = '';
   hideProgress();
   setStep(1);
+  renderExclusionTemplateButtons();
+  renderExclusionTemplateEditor();
+  updateStep4EntryLock();
   showToast('已重置应用', 'success');
 }
 
@@ -2404,11 +3114,14 @@ function loadSampleData() {
         recordCount: sampleData.data.length,
         source: '系统内置'
       }];
+      startNewProjectSession();
       fileFormat = 'JSON';
       formatSource = '示例数据（中医治疗高血压）';
       
       detectColumns();
       displayUploadInfo();
+      persistCurrentProjectState();
+      updateStep4EntryLock();
       hideLoading();
       
       showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
@@ -2576,28 +3289,41 @@ function displayFulltextReviewUI() {
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  const optionHTML = template.map(r => `<option value="${escapeHTML(r)}">${escapeHTML(r)}</option>`).join('');
+
   fulltext.forEach((record, idx) => {
     const tr = document.createElement('tr');
     const excludeSelect = `
       <select id="exclude-${idx}" class="form-input" onchange="updateFulltextStats()" style="width: 100%; padding: var(--space-8);">
         <option value="">保留</option>
-        <option value="人群不符">人群不符</option>
-        <option value="干预不符">干预不符</option>
-        <option value="对照不符">对照不符</option>
-        <option value="缺乏结局">缺乏结局</option>
-        <option value="数据不完整">数据不完整</option>
-        <option value="研究设计不合适">研究设计不合适</option>
-        <option value="其他">其他</option>
+        ${optionHTML}
       </select>
     `;
+
+    const abstractText = getValue(record, 'abstract');
+    const hasAbstract = String(abstractText || '').trim().length > 0;
+    const abstractCell = `
+      <div class="abstract-cell">
+        <div class="abstract-snippet">${escapeHTML(abstractText || '（无摘要）')}</div>
+        <div class="abstract-actions">
+          <button class="btn-link" type="button" onclick="openAbstractModal(${idx})" ${hasAbstract ? '' : 'disabled'}>🔍 查看完整摘要</button>
+        </div>
+      </div>
+    `;
+
+    const fulltextInfo = getFulltextLinkInfo(record);
+    const fulltextAction = fulltextInfo.url
+      ? `<a class="btn-link" href="${escapeHTML(fulltextInfo.url)}" target="_blank" rel="noopener noreferrer">查看全文</a>`
+      : `<button class="btn-link" type="button" disabled title="无可用全文链接">无可用全文链接</button>`;
     
     tr.innerHTML = `
       <td><input type="checkbox" class="review-checkbox" data-index="${idx}" onchange="if(this.checked) selectedRecords.add(${idx}); else selectedRecords.delete(${idx});"></td>
       <td>${idx + 1}</td>
-      <td>${truncate(getValue(record, 'title'), 60)}</td>
-      <td>${truncate(getValue(record, 'abstract'), 60)}</td>
+      <td>${escapeHTML(truncate(getValue(record, 'title'), 80))}</td>
+      <td>${abstractCell}</td>
       <td>${excludeSelect}</td>
-      <td><a href="javascript:void(0)" onclick="viewFulltext(${idx})">查看</a></td>
+      <td>${fulltextAction}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -2605,6 +3331,30 @@ function displayFulltextReviewUI() {
   table.appendChild(tbody);
   tableContainer.innerHTML = '';
   tableContainer.appendChild(table);
+
+  // Restore existing selections (collaboration or single-review draft)
+  const draft = screeningResults.manualReviewDraft && typeof screeningResults.manualReviewDraft === 'object'
+    ? screeningResults.manualReviewDraft
+    : {};
+  fulltext.forEach((_, idx) => {
+    const select = document.getElementById(`exclude-${idx}`);
+    if (!select) return;
+
+    // Collaboration: restore current role's decision if present
+    if (currentUserSession && projectData && projectData.reviewDecisions) {
+      const d = projectData.reviewDecisions[currentUserSession.role]?.[idx]?.decision;
+      if (typeof d === 'string') {
+        select.value = d;
+        return;
+      }
+    }
+
+    // Single-review draft
+    const v = draft[idx];
+    if (typeof v === 'string') {
+      select.value = v;
+    }
+  });
 
   // Clear selection
   selectedRecords.clear();
@@ -2614,6 +3364,9 @@ function displayFulltextReviewUI() {
   
   // v4.1: Add keyboard event listener for Step 4
   addKeyboardShortcuts();
+
+  // Ensure template buttons are in sync
+  renderExclusionTemplateButtons();
 }
 
 // v1.1: Cohen's Kappa Calculation
@@ -2709,9 +3462,11 @@ function handleKeyboardShortcut(e) {
   
   // Number keys 1-6 for exclusion reasons
   if (key >= '1' && key <= '6') {
-    const reasons = ['人群不符', '干预不符', '对照不符', '缺乏结局', '数据不完整', '研究设计不合适'];
-    const reason = reasons[parseInt(key) - 1];
-    setDefaultExclusion(reason);
+    const reasons = (Array.isArray(exclusionReasons) && exclusionReasons.length)
+      ? exclusionReasons
+      : DEFAULT_EXCLUSION_REASONS;
+    const reason = (reasons[parseInt(key) - 1] || '').trim();
+    if (reason) setDefaultExclusion(reason);
     e.preventDefault();
   }
   
@@ -2783,8 +3538,9 @@ function updateFulltextStats() {
     // Fallback for non-collaborative mode
     fulltext.forEach((record, idx) => {
       const select = document.getElementById(`exclude-${idx}`);
-      if (select && select.value) {
-        excludedCount++;
+      if (select) {
+        setManualReviewDraftDecision(idx, select.value || '');
+        if (select.value) excludedCount++;
       }
     });
   }
@@ -2953,16 +3709,108 @@ function finalizeFulltextReview() {
 
   console.log('- 更新后总排除文献数:', screeningResults.excluded.length);
 
-  // Go to final results display (Step 3)
-  displayResults(screeningResults);
-  goToStep3();
-  showToast('人工审核完成，已生成最终结果', 'success');
+  // v1.4: Go to Step 5 (Final Results)
+  persistCurrentProjectState();
+  goToStep5();
+  scrollToStep(5);
+  showToast('✅ 人工审核完成，已生成最终结果', 'success');
 }
 
-// v3.0: View fulltext (placeholder - in real app would link to PDF or retrieve from API)
+// v1.4: View fulltext in a new tab (DOI preferred)
+function normalizeDoi(doi) {
+  const s = String(doi || '').trim();
+  if (!s) return '';
+  return s.replace(/^https?:\/\/doi\.org\//i, '').trim();
+}
+
+function looksLikeHttpUrl(url) {
+  return /^https?:\/\//i.test(String(url || '').trim());
+}
+
+function getFulltextLinkInfo(record) {
+  const doi = normalizeDoi(getValue(record, 'doi') || record.doi);
+  if (doi) {
+    return { url: `https://doi.org/${encodeURIComponent(doi)}`, source: 'doi' };
+  }
+
+  const pmid = String(record.pmid || record.PMID || '').trim();
+  if (pmid && /^\d+$/.test(pmid)) {
+    return { url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`, source: 'pmid' };
+  }
+
+  const candidateFields = [
+    record.url,
+    record.link,
+    record.fulltextUrl,
+    record.fulltext_url,
+    record.sourceUrl,
+    record.source_url,
+    record.cnkiUrl,
+    record.cnki_url,
+    record.pdfUrl,
+    record.pdf_url
+  ];
+  const url = candidateFields.find(looksLikeHttpUrl);
+  if (url) return { url: String(url).trim(), source: 'url' };
+
+  return { url: '', source: 'none' };
+}
+
 function viewFulltext(idx) {
-  showToast(`打开第${idx + 1}篇文献全文`, 'info');
-  // In production: open PDF viewer, fetch fulltext from database, etc.
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const info = getFulltextLinkInfo(record);
+  if (!info.url) {
+    showToast('无可用全文链接（缺少 DOI/外部链接）', 'warning');
+    return;
+  }
+
+  window.open(info.url, '_blank', 'noopener,noreferrer');
+}
+
+function openAbstractModal(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const title = escapeHTML(getValue(record, 'title'));
+  const journal = escapeHTML(getValue(record, 'journal'));
+  const year = escapeHTML(getValue(record, 'year'));
+  const authors = escapeHTML(getValue(record, 'authors'));
+  const doi = escapeHTML(getValue(record, 'doi'));
+  const studyDesign = escapeHTML(record.studyDesign || '未标注');
+  const abstractText = escapeHTML(getValue(record, 'abstract'));
+
+  const modalHTML = `
+    <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);">
+        <div style="flex: 1;">
+          <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || '（无标题）'}</div>
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
+            ${journal ? `期刊：${journal}<br>` : ''}
+            ${year ? `年份：${year}<br>` : ''}
+            ${authors ? `作者：${authors}<br>` : ''}
+            ${doi ? `DOI：${doi}<br>` : ''}
+            ${studyDesign ? `研究方法：${studyDesign}` : ''}
+          </div>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="closeModal()">关闭</button>
+      </div>
+      <div style="margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">摘要（完整）</div>
+        <div style="max-height: 55vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+          ${abstractText || '（无摘要）'}
+        </div>
+      </div>
+      <div style="margin-top: var(--space-16); display: flex; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})">查看全文（新标签）</button>
+      </div>
+    </div>
+  `;
+
+  showModal(modalHTML);
 }
 
 // v3.0: Add exclusion reason to UI
@@ -2990,9 +3838,13 @@ function saveProject() {
     return;
   }
 
+  ensureProjectId();
+  const safeTemplate = sanitizeExclusionTemplate(exclusionReasons);
+
   const project = {
-    version: '4.1',
+    version: '1.4',
     timestamp: new Date().toISOString(),
+    projectId: currentProjectId,
     uploadedData: uploadedData,
     uploadedFiles: uploadedFiles,
     screeningResults: screeningResults,
@@ -3000,7 +3852,8 @@ function saveProject() {
     fileFormat: fileFormat,
     formatSource: formatSource,
     currentStep: currentStep,
-    exclusionReasons: exclusionReasons
+    exclusionReasons: safeTemplate,
+    filterRules: filterRules || null
   };
 
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -3037,6 +3890,9 @@ function loadProject() {
           return;
         }
 
+        // Start a fresh local project session so different projects don't interfere
+        startNewProjectSession();
+
         uploadedData = project.uploadedData || [];
         uploadedFiles = project.uploadedFiles || [];
         screeningResults = project.screeningResults || null;
@@ -3044,7 +3900,20 @@ function loadProject() {
         fileFormat = project.fileFormat || 'unknown';
         formatSource = project.formatSource || 'Unknown';
         currentStep = project.currentStep || 1;
-        exclusionReasons = project.exclusionReasons || {};
+        filterRules = project.filterRules || null;
+
+        // Backward compatible: old versions may store exclusionReasons as an object map
+        let templateFromFile = project.exclusionReasons;
+        if (!Array.isArray(templateFromFile) && templateFromFile && typeof templateFromFile === 'object') {
+          templateFromFile = Object.keys(templateFromFile);
+        }
+        setExclusionReasonsTemplate(templateFromFile);
+
+        // Restore project id if provided (otherwise keep the newly generated one)
+        if (project.projectId && typeof project.projectId === 'string') {
+          currentProjectId = project.projectId;
+          localStorage.setItem('prisma_current_project_id', currentProjectId);
+        }
 
         if (screeningResults) {
           displayResults(screeningResults);
@@ -3053,6 +3922,12 @@ function loadProject() {
           displayUploadInfo();
           setStep(2);
         }
+
+        if (filterRules) {
+          setFormRules(filterRules);
+        }
+
+        persistCurrentProjectState();
 
         const savedTime = new Date(project.timestamp).toLocaleString('zh-CN');
         document.getElementById('lastSaveTime').textContent = `上次保存：${savedTime}`;
@@ -3081,8 +3956,9 @@ function autoSaveToggle() {
     autoSaveInterval = setInterval(() => {
       if (uploadedData && uploadedData.length > 0) {
         localStorage.setItem('prisma_autosave', JSON.stringify({
-          version: '4.1',
+          version: '1.4',
           timestamp: new Date().toISOString(),
+          projectId: currentProjectId || null,
           uploadedData: uploadedData,
           uploadedFiles: uploadedFiles,
           screeningResults: screeningResults,
@@ -3090,7 +3966,8 @@ function autoSaveToggle() {
           fileFormat: fileFormat,
           formatSource: formatSource,
           currentStep: currentStep,
-          exclusionReasons: exclusionReasons
+          exclusionReasons: sanitizeExclusionTemplate(exclusionReasons),
+          filterRules: filterRules || null
         }));
         
         const now = new Date().toLocaleString('zh-CN');

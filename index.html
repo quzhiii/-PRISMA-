@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="文献筛选和PRISMA 2020流程图生成工具 - 支持多格式导入、智能去重、灵活筛选规则">
   <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析">
-  <title>PRISMA文献筛选助手 v1.3</title>
+  <title>PRISMA文献筛选助手 v1.4</title>
   <style>
     :root {
   /* Primitive Color Tokens */
@@ -850,7 +850,7 @@ input[type="range"]::-moz-range-thumb {
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>📚 PRISMA 文献筛选助手 v1.3</h1>
+      <h1>📚 PRISMA 文献筛选助手 v1.4</h1>
       <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
       
       <!-- v1.1: Quick access to dual-review mode -->
@@ -884,12 +884,17 @@ input[type="range"]::-moz-range-thumb {
       <div class="step-divider"></div>
       <div class="step" id="step-indicator-3">
         <div class="step-circle">3</div>
-        <span class="step-label">查看结果</span>
+        <span class="step-label">初步筛选结果（自动）</span>
       </div>
       <div class="step-divider"></div>
       <div class="step" id="step-indicator-4">
         <div class="step-circle">4</div>
-        <span class="step-label">人工审核</span>
+        <span class="step-label">全文人工审核</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" id="step-indicator-5">
+        <div class="step-circle">5</div>
+        <span class="step-label">最终结果</span>
       </div>
     </div>
 
@@ -1318,7 +1323,15 @@ input[type="range"]::-moz-range-thumb {
 
     <!-- Step 3: Results -->
     <div id="step3" class="card hidden">
-      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 3: 筛选结果</h2>
+      <h2 style="margin-bottom: var(--space-12); font-size: var(--font-size-2xl);">步骤 3: 初步筛选结果（自动）</h2>
+
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-1); border-left: 4px solid var(--color-info);">
+        本页展示的是根据筛选规则自动生成的<strong>初步结果与 PRISMA 统计</strong>。下一步将进入<strong>全文人工审核</strong>。
+      </div>
+
+      <div class="button-group" style="margin-bottom: var(--space-24);">
+        <button class="btn btn-secondary" onclick="editRulesAndRerun()">修改筛选规则并重新运行</button>
+      </div>
 
       <!-- v4.1: 项目保存/加载功能 -->
       <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-5); border-left: 4px solid var(--color-primary);">
@@ -1418,7 +1431,22 @@ input[type="range"]::-moz-range-thumb {
       </div>
 
       <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">PRISMA 2020 流程图预览</h3>
+
+      <div class="info-box" style="margin-bottom: var(--space-16); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">PRISMA 导出模式</div>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8); margin-right: var(--space-16);">
+          <input type="radio" name="prismaMode" value="simple" />
+          简化版 PRISMA 流程图（教学/内部汇报）
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8);">
+          <input type="radio" name="prismaMode" value="prisma2020" checked />
+          标准化 PRISMA 2020 流程图（投稿推荐）
+        </label>
+      </div>
+
       <div class="svg-preview" id="svgPreview"></div>
+
+      <div id="filterRulesOverview" style="margin-top: var(--space-16);"></div>
 
       <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">下载结果文件</h3>
       
@@ -1467,13 +1495,13 @@ input[type="range"]::-moz-range-thumb {
 
       <div class="actions">
         <button class="btn btn-secondary" onclick="resetApp()">🔄 重新开始</button>
-        <button class="btn btn-primary" onclick="goToStep4()">下一步: 人工审核 →</button>
+        <button class="btn btn-primary" id="btnGoStep4" onclick="goToStep4()">下一步: 人工审核 →</button>
       </div>
     </div>
 
     <!-- Step 4: Fulltext Manual Review (v1.1) -->
     <div id="step4" class="card hidden">
-      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 4: 全文人工审核</h2>
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 4: 全文人工审核（最终）</h2>
       
       <!-- v1.1: 多用户协作信息 -->
       <div class="info-box" style="margin-bottom: var(--space-24); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
@@ -1558,15 +1586,25 @@ input[type="range"]::-moz-range-thumb {
         <p style="margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary);">💡 提示：使用快捷键可大幅提高审查效率</p>
       </div>
 
-      <h3 style="margin: var(--space-24) 0 var(--space-12); font-size: var(--font-size-lg);">排除原因模板</h3>
-      <div class="button-group" style="margin-bottom: var(--space-24);">
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('人群不符')" data-key="1">1️⃣ 人群不符</button>
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('干预不符')" data-key="2">2️⃣ 干预不符</button>
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('对照不符')" data-key="3">3️⃣ 对照不符</button>
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('缺乏结局')" data-key="4">4️⃣ 缺乏结局</button>
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('数据不完整')" data-key="5">5️⃣ 数据不完整</button>
-        <button class="btn btn-secondary" onclick="setDefaultExclusion('研究设计不合适')" data-key="6">6️⃣ 研究设计不合适</button>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin: var(--space-24) 0 var(--space-12);">
+        <h3 style="margin: 0; font-size: var(--font-size-lg);">排除原因模板</h3>
+        <button class="btn btn-secondary" onclick="toggleExclusionTemplateEditor()">✏ 编辑模板</button>
       </div>
+
+      <div id="exclusion-template-editor" class="hidden" style="margin-bottom: var(--space-16);">
+        <div class="info-box" style="background: var(--color-bg-5); border-left: 4px solid var(--color-primary);">
+          <div style="margin-bottom: var(--space-12); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+            支持按项目自定义。数字键 <strong>1–6</strong> 仅映射到模板前 6 条。
+          </div>
+          <div id="exclusion-template-list" style="display: flex; flex-direction: column; gap: var(--space-8);"></div>
+          <div class="button-group" style="margin-top: var(--space-12);">
+            <button class="btn btn-secondary" onclick="addExclusionTemplateRow()">+ 添加原因</button>
+            <button class="btn btn-secondary" onclick="restoreDefaultExclusionTemplate()">恢复默认模板</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="exclusion-template-buttons" class="button-group" style="margin-bottom: var(--space-24);"></div>
 
       <div id="fulltext-review-table" class="table-container" style="max-height: 600px; overflow-y: auto;"></div>
 
@@ -1595,6 +1633,167 @@ input[type="range"]::-moz-range-thumb {
       <div class="actions">
         <button class="btn btn-secondary" onclick="goToStep3()">← 返回结果预览</button>
         <button class="btn btn-primary" onclick="finalizeFulltextReview()">完成审核，生成最终结果 →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Final Results -->
+    <div id="step5" class="card hidden">
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 5: 最终结果</h2>
+      
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">✅ 文献筛选已完成</h3>
+        <p style="margin-bottom: var(--space-8);">恭喜！您已完成所有筛选步骤。以下是最终统计结果和可下载的文件。</p>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">📊 筛选统计摘要</h3>
+      
+      <div class="grid grid-4" style="margin-bottom: var(--space-32);">
+        <div class="stat-card">
+          <div class="stat-label">数据库识别</div>
+          <div class="stat-value" id="stat-identified-db-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">其他来源</div>
+          <div class="stat-value" id="stat-identified-other-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">去重后</div>
+          <div class="stat-value" id="stat-after-dupes-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">标题/摘要筛选</div>
+          <div class="stat-value" id="stat-screened-final">0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom: var(--space-32);">
+        <div class="stat-card">
+          <div class="stat-label">标题/摘要排除</div>
+          <div class="stat-value" id="stat-excluded-ta-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">全文评估</div>
+          <div class="stat-value" id="stat-fulltext-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">全文排除</div>
+          <div class="stat-value" id="stat-excluded-ft-final">0</div>
+        </div>
+        <div class="stat-card" style="background: var(--color-bg-3); border: 2px solid var(--color-success);">
+          <div class="stat-label" style="color: var(--color-success); font-weight: var(--font-weight-bold);">✓ 最终纳入</div>
+          <div class="stat-value" style="color: var(--color-success); font-size: var(--font-size-4xl);" id="stat-included-final">0</div>
+        </div>
+      </div>
+
+      <div class="info-box" style="margin-bottom: var(--space-24);">
+        <p style="margin-bottom: var(--space-12); font-weight: var(--font-weight-semibold);">当前版本：v1.4 - 自定义排除模板、人工审核草稿持久化、PRISMA 2020 流程图</p>
+        <p style="margin-bottom: var(--space-16);">选择您偏好的流程图颜色主题：</p>
+        
+        <div class="theme-selector">
+          <label class="theme-option" data-theme="colorful">
+            <input type="radio" name="themeFinal" value="colorful" />
+            <div class="theme-card">
+              <div class="theme-title">🎨 活力彩色</div>
+              <div class="theme-desc">✓ 演讲/汇报推荐</div>
+              <div class="theme-desc">✓ 网页展示最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 黑白打印效果差</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="blackwhite">
+            <input type="radio" name="themeFinal" value="blackwhite" />
+            <div class="theme-card">
+              <div class="theme-title">⚫ 黑白</div>
+              <div class="theme-desc">✓ 学术期刊推荐</div>
+              <div class="theme-desc">✓ 黑白打印最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 网页显得过时</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="subtle">
+            <input type="radio" name="themeFinal" value="subtle" checked />
+            <div class="theme-card theme-recommended">
+              <div class="theme-title">✨ 柔和 <span class="recommend-badge">推荐</span></div>
+              <div class="theme-desc">✓ 医学/政策推荐</div>
+              <div class="theme-desc">✓ 彩色黑白都适配</div>
+              <div class="theme-desc">✓ 最安全的选择</div>
+            </div>
+          </label>
+        </div>
+        
+        <button class="btn btn-secondary" onclick="updateThemePreviewFinal()" style="margin-top: var(--space-16);">🔄 更新预览</button>
+        
+        <div style="margin-top: var(--space-16); padding: var(--space-12); background: var(--color-bg-2); border-radius: var(--radius-base);">
+          <strong>💡 提示：</strong> 不确定选择？柔和方案最安全 ✓
+        </div>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">PRISMA 2020 流程图预览</h3>
+
+      <div class="info-box" style="margin-bottom: var(--space-16); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">PRISMA 导出模式</div>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8); margin-right: var(--space-16);">
+          <input type="radio" name="prismaModeFinal" value="simple" />
+          简化版 PRISMA 流程图（教学/内部汇报）
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8);">
+          <input type="radio" name="prismaModeFinal" value="prisma2020" checked />
+          标准化 PRISMA 2020 流程图（投稿推荐）
+        </label>
+      </div>
+
+      <div class="svg-preview" id="svgPreviewFinal"></div>
+
+      <div id="filterRulesOverviewFinal" style="margin-top: var(--space-16);"></div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">下载结果文件</h3>
+      
+      <div class="info-box" style="margin-bottom: var(--space-20);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">📁 可下载文件说明</h4>
+        <p><strong>Excel 文件：</strong> 采用 UTF-8 with BOM 编码，Excel 可直接打开，无需手动指定编码</p>
+        <p style="margin-top: var(--space-8);"><strong>流程图：</strong> 提供 3 个颜色主题版本（彩色、黑白、柔和），根据使用场景选择</p>
+        <p style="margin-top: var(--space-8); color: var(--color-success); font-weight: var(--font-weight-medium);">✅ 中文显示完美，永久解决乱码问题</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【推荐】数据文件</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('included')">📥 下载 - 纳入研究 (Excel)</button>
+          <button class="btn btn-primary" onclick="downloadFile('excluded')">📥 下载 - 排除研究 (Excel)</button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">所有文件均为 UTF-8 编码，Excel 可直接打开，无需手动指定编码</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【流程图】PRISMA 图表</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('svg-colorful')">📥 下载 - PRISMA 流程图（彩色版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-blackwhite')">📥 下载 - PRISMA 流程图（黑白版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-subtle')" style="border: 2px solid var(--color-success);">📥 下载 - PRISMA 流程图（柔和版）<span style="margin-left: 8px; font-size: 11px;">← 推荐</span></button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">当前选择：<span id="currentThemeLabelFinal" style="font-weight: var(--font-weight-semibold); color: var(--color-primary);">柔和版</span></p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【其他】辅助文件</h4>
+        <div class="button-group">
+          <button class="btn btn-secondary" onclick="downloadFile('report')">📥 下载 - 筛选报告 (Markdown)</button>
+          <button class="btn btn-secondary" onclick="downloadAllFiles()">📦 下载 - 所有文件</button>
+        </div>
+      </div>
+
+      <div class="info-box" style="background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">🎨 颜色主题建议</h4>
+        <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.8;">
+          <li><strong>投稿医学期刊</strong> → 黑白版</li>
+          <li><strong>学术汇报演讲</strong> → 彩色版</li>
+          <li><strong>不确定选择</strong> → 柔和版（推荐 ✓）</li>
+        </ul>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="resetApp()">🔄 重新开始</button>
+        <button class="btn btn-secondary" onclick="goToStep4()">← 返回人工审核</button>
       </div>
     </div>
   </div>
