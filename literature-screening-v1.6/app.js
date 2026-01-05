@@ -2963,8 +2963,20 @@ ${exclusionDetails || '- 未排除任何文献'}
 `;
 }
 
+// v1.6: Enhanced Progress Tracking System
+let progressTracker = {
+  startTime: null,
+  currentPercent: 0,
+  totalItems: 0,
+  processedItems: 0,
+  isPaused: false,
+  parseSpeed: 0,  // records/second
+  writeSpeed: 0,  // records/second
+  estimatedTimeLeft: 0  // seconds
+};
+
 // Progress bar utilities
-function showProgress(message, percent) {
+function showProgress(message, percent, options = {}) {
   let progressDiv = document.getElementById('uploadProgress');
   if (!progressDiv) {
     progressDiv = document.createElement('div');
@@ -2973,22 +2985,139 @@ function showProgress(message, percent) {
     document.getElementById('uploadArea').after(progressDiv);
   }
   
+  // v1.6: Initialize progress tracker
+  if (percent === 0) {
+    progressTracker.startTime = Date.now();
+    progressTracker.currentPercent = 0;
+    progressTracker.isPaused = false;
+  }
+  
+  progressTracker.currentPercent = percent;
+  
+  // v1.6: Calculate stats
+  const elapsedSeconds = (Date.now() - progressTracker.startTime) / 1000;
+  const etaText = calculateETA(percent, elapsedSeconds);
+  const speedText = formatSpeed(options.parseSpeed, options.writeSpeed);
+  
   progressDiv.innerHTML = `
-    <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">${message}</div>
-    <div class="progress-bar">
-      <div class="progress-fill" style="width: ${percent}%"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-8);">
+      <div style="font-size: var(--font-size-sm);">${message}</div>
+      <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">${etaText}</div>
     </div>
-    <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: var(--space-4); text-align: right;">${percent}%</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: ${percent}%; transition: width 0.3s ease"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: var(--space-4); font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+      <span>${speedText}</span>
+      <span>${percent}%</span>
+    </div>
+    ${percent > 0 && percent < 100 ? `
+      <div style="margin-top: var(--space-12); text-align: center;">
+        <button id="pauseResumeBtn" class="btn-secondary" style="padding: var(--space-4) var(--space-12); font-size: var(--font-size-xs);">
+          ${progressTracker.isPaused ? '▶ 继续' : '⏸ 暂停'}
+        </button>
+      </div>
+    ` : ''}
   `;
+  
+  // v1.6: Add pause/resume button handler
+  if (percent > 0 && percent < 100) {
+    const pauseBtn = document.getElementById('pauseResumeBtn');
+    if (pauseBtn && !pauseBtn.onclick) {
+      pauseBtn.onclick = togglePauseResume;
+    }
+  }
 }
 
-function updateProgress(percent) {
+// v1.6: Calculate ETA (Estimated Time of Arrival)
+function calculateETA(percent, elapsedSeconds) {
+  if (percent === 0 || percent === 100) return '';
+  
+  const remainingPercent = 100 - percent;
+  const avgSecondsPerPercent = elapsedSeconds / percent;
+  const estimatedSeconds = Math.round(remainingPercent * avgSecondsPerPercent);
+  
+  progressTracker.estimatedTimeLeft = estimatedSeconds;
+  
+  if (estimatedSeconds < 60) {
+    return `剩余 ${estimatedSeconds} 秒`;
+  } else if (estimatedSeconds < 3600) {
+    const minutes = Math.floor(estimatedSeconds / 60);
+    const seconds = estimatedSeconds % 60;
+    return `剩余 ${minutes}分${seconds}秒`;
+  } else {
+    const hours = Math.floor(estimatedSeconds / 3600);
+    const minutes = Math.floor((estimatedSeconds % 3600) / 60);
+    return `剩余 ${hours}小时${minutes}分钟`;
+  }
+}
+
+// v1.6: Format speed display
+function formatSpeed(parseSpeed, writeSpeed) {
+  if (!parseSpeed && !writeSpeed) return '';
+  
+  const parts = [];
+  if (parseSpeed) {
+    parts.push(`解析: ${parseSpeed.toFixed(0)} 条/秒`);
+  }
+  if (writeSpeed) {
+    parts.push(`写入: ${writeSpeed.toFixed(0)} 条/秒`);
+  }
+  return parts.join(' | ');
+}
+
+// v1.6: Pause/Resume functionality
+function togglePauseResume() {
+  progressTracker.isPaused = !progressTracker.isPaused;
+  
+  const pauseBtn = document.getElementById('pauseResumeBtn');
+  if (pauseBtn) {
+    pauseBtn.textContent = progressTracker.isPaused ? '▶ 继续' : '⏸ 暂停';
+  }
+  
+  if (progressTracker.isPaused) {
+    showToast('导入已暂停，点击"继续"恢复', 'info');
+  } else {
+    showToast('导入已恢复', 'success');
+  }
+  
+  // Trigger pause/resume event for import queue manager
+  if (window.importQueueManager) {
+    if (progressTracker.isPaused) {
+      window.importQueueManager.pause();
+    } else {
+      window.importQueueManager.resume();
+    }
+  }
+}
+
+function updateProgress(percent, options = {}) {
   const progressDiv = document.getElementById('uploadProgress');
   if (progressDiv) {
     const fill = progressDiv.querySelector('.progress-fill');
-    const percentText = progressDiv.querySelectorAll('div')[2];
+    const percentText = progressDiv.querySelector('div:last-child span:last-child');
+    
     if (fill) fill.style.width = percent + '%';
     if (percentText) percentText.textContent = percent + '%';
+    
+    // Update ETA and speed
+    if (progressTracker.startTime) {
+      const elapsedSeconds = (Date.now() - progressTracker.startTime) / 1000;
+      const etaText = calculateETA(percent, elapsedSeconds);
+      const etaElement = progressDiv.querySelector('div:first-child div:last-child');
+      if (etaElement) {
+        etaElement.textContent = etaText;
+      }
+      
+      // Update speed if provided
+      if (options.parseSpeed || options.writeSpeed) {
+        const speedText = formatSpeed(options.parseSpeed, options.writeSpeed);
+        const speedElement = progressDiv.querySelector('div:last-child span:first-child');
+        if (speedElement) {
+          speedElement.textContent = speedText;
+        }
+      }
+    }
   }
 }
 
