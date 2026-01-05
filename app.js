@@ -2953,9 +2953,10 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
   const yAssessed = ySought + gapY;
   const yIncluded = yAssessed + gapY;
 
-  const yExcludedRecords = yScreened + 10;
-  const yNotRetrieved = ySought + 10;
-  const yReportsExcluded = yAssessed + 10;
+  // 右侧排除框的Y坐标应与对应的主流程框相同，确保虚线水平
+  const yExcludedRecords = yScreened;
+  const yNotRetrieved = ySought;
+  const yReportsExcluded = yAssessed;
 
   const totalIdentified = (counts.identified_db || 0) + (counts.identified_other || 0);
 
