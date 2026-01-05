@@ -367,6 +367,9 @@ function handleMultipleFiles(files) {
   showLoading(`正在处理${validFiles.length}个文件...`);
   showProgress(`正在上传文件...`, 0);
 
+  // v1.6: Reset error tracker
+  resetErrorTracker();
+
   let processedCount = 0;
   let allRecords = [];
   let uploadedFilesInfo = [];
@@ -381,6 +384,9 @@ function handleMultipleFiles(files) {
         return;
       }
       
+      // v1.6: Calculate and show success rate
+      updateSuccessRate();
+      
       uploadedData = allRecords;
       uploadedFiles = uploadedFilesInfo;
       startNewProjectSession();
@@ -390,7 +396,15 @@ function handleMultipleFiles(files) {
         displayUploadInfo();
         persistCurrentProjectState();
         hideLoading();
-        showToast(`✅ 成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
+        
+        // v1.6: Show error report if there were issues
+        showErrorReport();
+        
+        const successMessage = errorTracker.errors.length > 0
+          ? `✅ 导入完成！成功${allRecords.length}条记录（成功率${errorTracker.successRate}%），有${errorTracker.errors.length}个错误`
+          : `✅ 成功上传${validFiles.length}个文件，共${allRecords.length}条记录`;
+        
+        showToast(successMessage, errorTracker.errors.length > 0 ? 'warning' : 'success');
         addSuccessAnimation();
       }, 500);
       return;
@@ -409,17 +423,30 @@ function handleMultipleFiles(files) {
           name: file.name,
           format: ext,
           recordCount: 0,
-          source: 'Unknown'
+          source: 'Unknown',
+          errors: 0,
+          warnings: 0
         };
 
-        // Parse file and get records
-        const records = parseFileContent(text, ext);
+        // v1.6: Safe parsing with error tracking
+        let records = [];
+        try {
+          records = parseFileContent(text, ext);
+          errorTracker.totalRecords += records.length;
+        } catch (parseError) {
+          addParseError(file.name, 0, parseError, text.substring(0, 200));
+          fileData.errors++;
+          console.error(`文件 ${file.name} 解析失败:`, parseError);
+        }
         
         if (!records || records.length === 0) {
-          console.warn(`文件 ${file.name} 解析结果为空`);
+          addParseWarning(file.name, 0, '解析结果为空，可能文件格式不正确');
+          fileData.warnings++;
         }
         
         fileData.recordCount = records.length;
+        fileData.errors = errorTracker.errors.filter(e => e.fileName === file.name).length;
+        fileData.warnings = errorTracker.warnings.filter(w => w.fileName === file.name).length;
         
         // Detect source from format
         switch (ext) {
@@ -2974,6 +3001,149 @@ let progressTracker = {
   writeSpeed: 0,  // records/second
   estimatedTimeLeft: 0  // seconds
 };
+
+// v1.6: Error Tracking System
+let errorTracker = {
+  errors: [],           // { fileName, lineNumber, recordIndex, errorType, message, content }
+  warnings: [],         // { fileName, recordIndex, message }
+  skippedRecords: 0,
+  totalRecords: 0,
+  successRate: 100
+};
+
+function resetErrorTracker() {
+  errorTracker.errors = [];
+  errorTracker.warnings = [];
+  errorTracker.skippedRecords = 0;
+  errorTracker.totalRecords = 0;
+  errorTracker.successRate = 100;
+}
+
+function addParseError(fileName, recordIndex, error, content = '') {
+  errorTracker.errors.push({
+    fileName,
+    recordIndex,
+    lineNumber: error.line || recordIndex,
+    errorType: error.name || 'ParseError',
+    message: error.message || '解析失败',
+    content: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+    timestamp: new Date().toISOString()
+  });
+  errorTracker.skippedRecords++;
+}
+
+function addParseWarning(fileName, recordIndex, message) {
+  errorTracker.warnings.push({
+    fileName,
+    recordIndex,
+    message,
+    timestamp: new Date().toISOString()
+  });
+}
+
+function updateSuccessRate() {
+  if (errorTracker.totalRecords > 0) {
+    const successfulRecords = errorTracker.totalRecords - errorTracker.skippedRecords;
+    errorTracker.successRate = ((successfulRecords / errorTracker.totalRecords) * 100).toFixed(1);
+  }
+}
+
+function showErrorReport() {
+  if (errorTracker.errors.length === 0 && errorTracker.warnings.length === 0) {
+    return;
+  }
+  
+  const errorSummary = `
+    <div class="error-report-summary" style="margin-top: var(--space-16); padding: var(--space-16); background: var(--color-warning-bg); border-radius: var(--border-radius); border-left: 4px solid var(--color-warning);">
+      <h4 style="margin: 0 0 var(--space-12) 0; color: var(--color-warning);">⚠️ 导入完成，但有${errorTracker.errors.length}个错误和${errorTracker.warnings.length}个警告</h4>
+      <p style="margin: 0 0 var(--space-8) 0;">成功率: ${errorTracker.successRate}% (${errorTracker.totalRecords - errorTracker.skippedRecords}/${errorTracker.totalRecords} 条记录)</p>
+      <button onclick="showDetailedErrorReport()" class="btn-secondary" style="margin-top: var(--space-8);">查看详细错误报告</button>
+    </div>
+  `;
+  
+  const uploadInfo = document.getElementById('uploadInfo');
+  if (uploadInfo) {
+    uploadInfo.insertAdjacentHTML('beforeend', errorSummary);
+  }
+}
+
+function showDetailedErrorReport() {
+  const errorList = errorTracker.errors.map((err, idx) => `
+    <div style="padding: var(--space-12); margin-bottom: var(--space-8); background: var(--color-error-bg); border-radius: var(--border-radius); border-left: 3px solid var(--color-error);">
+      <div style="font-weight: var(--font-weight-semibold); color: var(--color-error); margin-bottom: var(--space-4);">
+        错误 #${idx + 1}: ${err.fileName}
+      </div>
+      <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-4);">
+        第 ${err.lineNumber} 行 (记录 #${err.recordIndex}) | ${err.errorType}
+      </div>
+      <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-4);">
+        ${err.message}
+      </div>
+      ${err.content ? `<div style="font-size: var(--font-size-xs); font-family: monospace; background: var(--color-bg-secondary); padding: var(--space-8); border-radius: var(--border-radius); overflow-x: auto;">
+        ${escapeHTML(err.content)}
+      </div>` : ''}
+    </div>
+  `).join('');
+  
+  const warningList = errorTracker.warnings.map((warn, idx) => `
+    <div style="padding: var(--space-8); margin-bottom: var(--space-4); background: var(--color-warning-bg); border-radius: var(--border-radius); border-left: 3px solid var(--color-warning);">
+      <span style="font-weight: var(--font-weight-semibold); color: var(--color-warning);">警告 #${idx + 1}:</span>
+      ${warn.fileName} - 记录 #${warn.recordIndex}: ${warn.message}
+    </div>
+  `).join('');
+  
+  const modal = `
+    <div id="errorReportModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="if(event.target.id==='errorReportModal') this.remove()">
+      <div style="background: var(--color-bg); max-width: 800px; max-height: 80vh; overflow-y: auto; border-radius: var(--border-radius); padding: var(--space-24); box-shadow: 0 10px 40px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-16);">
+          <h3 style="margin: 0;">详细错误报告</h3>
+          <button onclick="document.getElementById('errorReportModal').remove()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-bg-secondary); border-radius: var(--border-radius);">
+          <div>总记录数: ${errorTracker.totalRecords}</div>
+          <div>成功导入: ${errorTracker.totalRecords - errorTracker.skippedRecords}</div>
+          <div>跳过记录: ${errorTracker.skippedRecords}</div>
+          <div>成功率: ${errorTracker.successRate}%</div>
+        </div>
+        
+        ${errorList ? `<h4 style="color: var(--color-error); margin: var(--space-16) 0 var(--space-12) 0;">错误 (${errorTracker.errors.length})</h4>${errorList}` : ''}
+        ${warningList ? `<h4 style="color: var(--color-warning); margin: var(--space-16) 0 var(--space-12) 0;">警告 (${errorTracker.warnings.length})</h4>${warningList}` : ''}
+        
+        <div style="margin-top: var(--space-16); text-align: right;">
+          <button onclick="exportErrorReport()" class="btn-secondary" style="margin-right: var(--space-8);">导出错误报告</button>
+          <button onclick="document.getElementById('errorReportModal').remove()" class="btn-primary">关闭</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function exportErrorReport() {
+  const report = {
+    summary: {
+      totalRecords: errorTracker.totalRecords,
+      successfulRecords: errorTracker.totalRecords - errorTracker.skippedRecords,
+      skippedRecords: errorTracker.skippedRecords,
+      successRate: errorTracker.successRate + '%',
+      timestamp: new Date().toISOString()
+    },
+    errors: errorTracker.errors,
+    warnings: errorTracker.warnings
+  };
+  
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `error-report-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showToast('错误报告已导出', 'success');
+}
 
 // Progress bar utilities
 function showProgress(message, percent, options = {}) {
