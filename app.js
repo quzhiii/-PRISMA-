@@ -2338,7 +2338,17 @@ function displayResults(results) {
   // Render rules overview in Step5 if exists
   const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
   if (rulesOverviewFinal) {
-    rulesOverviewFinal.innerHTML = renderFilterRulesHTML(results.rules || filterRules);
+    // 暂时复用renderFilterRulesOverview的逻辑，直接设置innerHTML
+    const tempContainer = document.createElement('div');
+    tempContainer.id = 'filterRulesOverview';
+    const originalContainer = document.getElementById('filterRulesOverview');
+    if (originalContainer) {
+      const parent = originalContainer.parentNode;
+      parent.insertBefore(tempContainer, originalContainer);
+      renderFilterRulesOverview(results.rules || filterRules);
+      rulesOverviewFinal.innerHTML = tempContainer.innerHTML;
+      parent.removeChild(tempContainer);
+    }
   }
   
   updateStep4EntryLock();
