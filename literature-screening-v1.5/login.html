@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRISMA文献筛选 - 用户登录</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: var(--space-24);
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: var(--space-32);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: var(--space-32);
+        }
+        
+        .login-title {
+            font-size: var(--font-size-2xl);
+            font-weight: var(--font-weight-bold);
+            color: var(--color-text);
+            margin-bottom: var(--space-8);
+        }
+        
+        .login-subtitle {
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-base);
+        }
+        
+        .form-group {
+            margin-bottom: var(--space-20);
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-8);
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: var(--space-12);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-base);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(33, 128, 141, 0.1);
+        }
+        
+        .role-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-12);
+            margin-bottom: var(--space-20);
+        }
+        
+        .role-option {
+            position: relative;
+        }
+        
+        .role-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .role-label {
+            display: block;
+            padding: var(--space-16);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: var(--font-weight-semibold);
+        }
+        
+        .role-option input[type="radio"]:checked + .role-label {
+            border-color: var(--color-primary);
+            background: rgba(33, 128, 141, 0.1);
+            color: var(--color-primary);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: var(--space-16);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-semibold);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: var(--space-24) 0;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--color-border);
+        }
+        
+        .divider-text {
+            padding: 0 var(--space-16);
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-sm);
+        }
+        
+        .quick-actions {
+            text-align: center;
+        }
+        
+        .link-btn {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: var(--font-weight-semibold);
+            font-size: var(--font-size-sm);
+        }
+        
+        .link-btn:hover {
+            text-decoration: underline;
+        }
+        
+        .project-info {
+            background: var(--color-bg-1);
+            padding: var(--space-16);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-20);
+        }
+        
+        .project-name {
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text);
+            margin-bottom: var(--space-4);
+        }
+        
+        .project-details {
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-sm);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1 class="login-title">🔬 双人审查登录</h1>
+                <p class="login-subtitle">请选择您的身份并输入项目信息</p>
+            </div>
+            
+            <!-- 项目信息显示（如果已有项目） -->
+            <div id="project-info" class="project-info hidden">
+                <div class="project-name" id="project-name">项目名称</div>
+                <div class="project-details">
+                    文献数量: <span id="project-count">0</span> 篇 | 
+                    创建者: <span id="project-creator">未知</span>
+                </div>
+            </div>
+            
+            <form id="login-form">
+                <!-- 角色选择 -->
+                <div class="form-group">
+                    <label class="form-label">选择您的角色</label>
+                    <div class="role-selector">
+                        <div class="role-option">
+                            <input type="radio" name="role" value="reviewer-a" id="role-a" checked>
+                            <label for="role-a" class="role-label">
+                                👨‍🔬 主审查员<br>
+                                <small style="font-weight: normal;">负责创建项目</small>
+                            </label>
+                        </div>
+                        <div class="role-option">
+                            <input type="radio" name="role" value="reviewer-b" id="role-b">
+                            <label for="role-b" class="role-label">
+                                👩‍🔬 副审查员<br>
+                                <small style="font-weight: normal;">加入已有项目</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 用户名 -->
+                <div class="form-group">
+                    <label for="username" class="form-label">您的姓名</label>
+                    <input type="text" id="username" name="username" class="form-input" 
+                           placeholder="请输入您的真实姓名" required>
+                </div>
+                
+                <!-- 项目ID -->
+                <div class="form-group">
+                    <label for="project-id" class="form-label" id="project-id-label">项目ID</label>
+                    <input type="text" id="project-id" name="project-id" class="form-input" 
+                           placeholder="输入或生成项目ID" required>
+                    <small id="project-id-help" style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                        主审查员：系统会自动生成项目ID<br>
+                        副审查员：请输入主审查员提供的项目ID（如果项目不存在，可继续登录等待项目创建）
+                    </small>
+                </div>
+                
+                <button type="submit" class="login-btn" id="login-btn">
+                    🚀 开始审查
+                </button>
+            </form>
+            
+            <div class="divider">
+                <div class="divider-text">或者</div>
+            </div>
+            
+            <div class="quick-actions">
+                <a href="index.html" class="link-btn">
+                    📝 单人审查模式
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 角色切换逻辑
+        const roleRadios = document.querySelectorAll('input[name="role"]');
+        const projectIdLabel = document.getElementById('project-id-label');
+        const projectIdInput = document.getElementById('project-id');
+        const projectIdHelp = document.getElementById('project-id-help');
+        const loginBtn = document.getElementById('login-btn');
+        
+        roleRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'reviewer-a') {
+                    projectIdLabel.textContent = '项目ID（自动生成）';
+                    projectIdInput.placeholder = '系统将自动生成唯一ID';
+                    projectIdInput.value = generateProjectId();
+                    projectIdInput.readOnly = true;
+                    loginBtn.innerHTML = '🚀 创建项目并开始审查';
+                } else {
+                    projectIdLabel.textContent = '项目ID（请输入）';
+                    projectIdInput.placeholder = '请输入主审查员提供的项目ID';
+                    projectIdInput.value = '';
+                    projectIdInput.readOnly = false;
+                    loginBtn.innerHTML = '🚀 加入项目并开始审查';
+                }
+            });
+        });
+        
+        // 生成项目ID
+        function generateProjectId() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substring(2, 8);
+            return `PRISMA-${timestamp}-${random}`.toUpperCase();
+        }
+        
+        // 初始化
+        document.getElementById('role-a').checked = true;
+        document.getElementById('project-id').value = generateProjectId();
+        document.getElementById('project-id').readOnly = true;
+        
+        // 表单提交
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const role = formData.get('role');
+            const username = formData.get('username');
+            const projectId = formData.get('project-id');
+            
+            if (!username.trim() || !projectId.trim()) {
+                alert('请填写完整信息！');
+                return;
+            }
+            
+            // 保存用户会话信息
+            const userSession = {
+                role: role,
+                username: username.trim(),
+                projectId: projectId.trim(),
+                loginTime: new Date().toISOString(),
+                isMainReviewer: role === 'reviewer-a'
+            };
+            
+            // 存储到sessionStorage（会话级别，关闭浏览器即清除）
+            sessionStorage.setItem('prisma_user_session', JSON.stringify(userSession));
+            
+            // 如果是副审查员，提示用户项目状态但不阻止登录
+            if (role === 'reviewer-b') {
+                const projectExists = checkProjectExists(projectId);
+                if (!projectExists) {
+                    // 不阻止登录，但给出提示
+                    const proceed = confirm('项目ID不存在或尚未创建。\n\n您可以：\n1. 继续登录（系统会在主应用中再次检查）\n2. 返回检查项目ID\n\n是否继续登录？');
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            }
+            
+            // 跳转到主应用
+            window.location.href = 'index.html';
+        });
+        
+        // 检查项目是否存在（简化版，实际项目中需要服务器端验证）
+        function checkProjectExists(projectId) {
+            // 检查localStorage中是否有该项目的数据
+            const existingProjects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            return existingProjects.hasOwnProperty(projectId);
+        }
+        
+        // 监听项目ID输入，实时验证
+        document.getElementById('project-id').addEventListener('input', function() {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const loginBtn = document.getElementById('login-btn');
+            
+            if (role === 'reviewer-b' && this.value.trim()) {
+                const projectExists = checkProjectExists(this.value.trim());
+                if (projectExists) {
+                    this.style.borderColor = '#10b981';
+                    this.style.background = 'rgba(34, 197, 94, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    loginBtn.innerHTML = '✅ 项目已找到 - 加入审查';
+                    loadProjectInfo(this.value.trim());
+                } else {
+                    this.style.borderColor = '#f59e0b';
+                    this.style.background = 'rgba(245, 158, 11, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    loginBtn.innerHTML = '⚠️ 项目未找到 - 尝试加入';
+                    hideProjectInfo();
+                }
+            } else if (role === 'reviewer-b') {
+                // 重置样式
+                this.style.borderColor = '';
+                this.style.background = '';
+                loginBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                loginBtn.innerHTML = '🚀 加入项目并开始审查';
+                hideProjectInfo();
+            }
+        });
+        
+        // 加载项目信息
+        function loadProjectInfo(projectId) {
+            const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            const project = projects[projectId];
+            
+            if (project) {
+                document.getElementById('project-name').textContent = project.name || '未命名项目';
+                document.getElementById('project-count').textContent = project.literatureCount || 0;
+                document.getElementById('project-creator').textContent = project.creator || '未知';
+                document.getElementById('project-info').classList.remove('hidden');
+            }
+        }
+        
+        // 隐藏项目信息
+        function hideProjectInfo() {
+            document.getElementById('project-info').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
