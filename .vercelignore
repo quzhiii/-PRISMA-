@@ -1,0 +1,7 @@
+# Vercel ignore file
+literature-screening-v1.3/
+literature-screening-v1.4/
+literature-screening-v30/
+.venv/
+*.pyc
+__pycache__/
