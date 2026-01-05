@@ -1338,9 +1338,125 @@ function displayUploadInfo() {
   } else {
     mappingDiv.innerHTML = '<div style="color: var(--color-warning);">未检测到标准字段映射，请在规则配置中确认</div>';
   }
+  
+  // v1.6: Add deduplication strategy explanation button
+  const uploadInfo = document.getElementById('uploadInfo');
+  if (uploadInfo && !document.getElementById('dedupStrategyBtn')) {
+    const dedupBtn = document.createElement('button');
+    dedupBtn.id = 'dedupStrategyBtn';
+    dedupBtn.className = 'btn-secondary';
+    dedupBtn.textContent = '🔍 查看去重策略说明';
+    dedupBtn.style.marginTop = 'var(--space-12)';
+    dedupBtn.onclick = showDedupStrategy;
+    uploadInfo.insertBefore(dedupBtn, uploadInfo.children[1]);
+  }
 
   displayPreviewTable();
   document.getElementById('uploadInfo').classList.remove('hidden');
+}
+
+// v1.6: Show deduplication strategy explanation
+function showDedupStrategy() {
+  const modal = `
+    <div id="dedupStrategyModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="if(event.target.id==='dedupStrategyModal') this.remove()">
+      <div style="background: var(--color-bg); max-width: 700px; max-height: 80vh; overflow-y: auto; border-radius: var(--border-radius); padding: var(--space-24); box-shadow: 0 10px 40px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-16);">
+          <h3 style="margin: 0;">去重策略说明</h3>
+          <button onclick="document.getElementById('dedupStrategyModal').remove()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: var(--space-24);">
+          <h4 style="color: var(--color-primary); margin-bottom: var(--space-12);">🎯 去重策略</h4>
+          <div style="background: var(--color-bg-secondary); padding: var(--space-16); border-radius: var(--border-radius); margin-bottom: var(--space-16);">
+            <div style="margin-bottom: var(--space-12);">
+              <strong>策略1：DOI精确匹配（最高优先级）</strong>
+              <p style="margin: var(--space-4) 0 0 var(--space-16); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                如果两篇文献的DOI完全相同，判定为重复。DOI匹配时不区分大小写。
+              </p>
+            </div>
+            <div>
+              <strong>策略2：标题归一化匹配</strong>
+              <p style="margin: var(--space-4) 0 0 var(--space-16); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                对于没有DOI的文献，将标题归一化后进行比对。归一化规则：移除标点符号、移除多余空格、转换为小写。
+              </p>
+            </div>
+          </div>
+          
+          <h4 style="color: var(--color-primary); margin-bottom: var(--space-12);">📋 标题归一化示例</h4>
+          <div style="background: var(--color-bg-secondary); padding: var(--space-16); border-radius: var(--border-radius); margin-bottom: var(--space-16); font-family: monospace; font-size: var(--font-size-sm);">
+            <div style="margin-bottom: var(--space-8);">
+              原标题: "The Effect of Acupuncture: A Systematic Review!"<br>
+              归一化后: "the effect of acupuncture a systematic review"
+            </div>
+            <div>
+              原标题: "中医针灸的疗效：系统综述"<br>
+              归一化后: "中医针灸的疗效系统综述"
+            </div>
+          </div>
+          
+          <h4 style="color: var(--color-primary); margin-bottom: var(--space-12);">⚙️ 阈值设置</h4>
+          <div style="background: var(--color-bg-secondary); padding: var(--space-16); border-radius: var(--border-radius);">
+            <div style="margin-bottom: var(--space-8);">
+              <strong>DOI优先级：</strong> 100%（有DOI时始终优先使用）
+            </div>
+            <div>
+              <strong>标题相似度阈值：</strong> 100%（归一化后完全匹配才视为重复）
+            </div>
+          </div>
+        </div>
+        
+        ${window.dedupExplanations ? `
+        <div style="margin-bottom: var(--space-16);">
+          <h4 style="color: var(--color-primary); margin-bottom: var(--space-12);">📊 去重统计</h4>
+          <div style="background: var(--color-bg-secondary); padding: var(--space-16); border-radius: var(--border-radius);">
+            <div>通过DOI去重: ${window.dedupExplanations.filter(e => e.strategy === 'doi_exact' && !e.keepOriginal).length} 篇</div>
+            <div>通过标题去重: ${window.dedupExplanations.filter(e => e.strategy === 'title_normalized' && !e.keepOriginal).length} 篇</div>
+            <div>保留唯一记录: ${window.dedupExplanations.filter(e => e.keepOriginal).length} 篇</div>
+          </div>
+        </div>
+        ` : ''}
+        
+        <div style="text-align: right;">
+          ${window.dedupExplanations ? `<button onclick="exportDedupReport()" class="btn-secondary" style="margin-right: var(--space-8);">导出去重详情</button>` : ''}
+          <button onclick="document.getElementById('dedupStrategyModal').remove()" class="btn-primary">关闭</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+function exportDedupReport() {
+  if (!window.dedupExplanations) {
+    showToast('暂无去重数据', 'warning');
+    return;
+  }
+  
+  const report = {
+    strategy: {
+      step1: 'DOI精确匹配（最高优先级）',
+      step2: '标题归一化匹配',
+      normalizationRules: '移除标点、空格、转小写'
+    },
+    statistics: {
+      total: window.dedupExplanations.length,
+      doi_duplicates: window.dedupExplanations.filter(e => e.strategy === 'doi_exact' && !e.keepOriginal).length,
+      title_duplicates: window.dedupExplanations.filter(e => e.strategy === 'title_normalized' && !e.keepOriginal).length,
+      kept: window.dedupExplanations.filter(e => e.keepOriginal).length
+    },
+    details: window.dedupExplanations
+  };
+  
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dedup-report-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showToast('去重详情已导出', 'success');
 }
 
 function displayPreviewTable() {
@@ -2023,21 +2139,46 @@ function performScreening(data, rules) {
   const deduped = [];
   const duplicates = [];
   const doiMap = {}; // Track DOI duplicates
+  
+  // v1.6: Deduplication explanation tracker
+  const dedupExplanations = [];
 
-  normalized.forEach(row => {
+  normalized.forEach((row, index) => {
     const doi = getValue(row, 'doi');
     const title = row._normalized_title;
+    const originalTitle = getValue(row, 'title');
     
     // Strategy 1: Exact DOI match (highest priority)
     if (doi && doi.trim()) {
       const doiKey = `doi:${doi.toLowerCase().trim()}`;
       if (doiMap[doiKey]) {
         duplicates.push(row);
+        // v1.6: Record why it was marked as duplicate
+        dedupExplanations.push({
+          recordIndex: index,
+          title: originalTitle,
+          doi: doi,
+          normalizedTitle: title,
+          reason: 'DOI完全匹配',
+          strategy: 'doi_exact',
+          duplicateOf: doiKey,
+          keepOriginal: false
+        });
         return;
       } else {
         doiMap[doiKey] = true;
         deduped.push(row);
         seen.add(doiKey);
+        // v1.6: Record why it was kept
+        dedupExplanations.push({
+          recordIndex: index,
+          title: originalTitle,
+          doi: doi,
+          normalizedTitle: title,
+          reason: 'DOI唯一',
+          strategy: 'doi_exact',
+          keepOriginal: true
+        });
         return;
       }
     }
@@ -2046,11 +2187,36 @@ function performScreening(data, rules) {
     const titleKey = `title:${title}`;
     if (seen.has(titleKey)) {
       duplicates.push(row);
+      // v1.6: Record title-based duplicate
+      dedupExplanations.push({
+        recordIndex: index,
+        title: originalTitle,
+        doi: doi || '无',
+        normalizedTitle: title,
+        reason: '标题归一化后完全匹配',
+        strategy: 'title_normalized',
+        duplicateOf: titleKey,
+        keepOriginal: false,
+        normalizationRules: '移除标点、空格、转小写'
+      });
     } else {
       seen.add(titleKey);
       deduped.push(row);
+      // v1.6: Record why kept
+      dedupExplanations.push({
+        recordIndex: index,
+        title: originalTitle,
+        doi: doi || '无',
+        normalizedTitle: title,
+        reason: '标题唯一',
+        strategy: 'title_normalized',
+        keepOriginal: true
+      });
     }
   });
+  
+  // v1.6: Store dedup explanations for later display
+  window.dedupExplanations = dedupExplanations;
 
   // Apply time window - v3.0: improved year parsing
   const inTimeWindow = deduped.filter(row => {
