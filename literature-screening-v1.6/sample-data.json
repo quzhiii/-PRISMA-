@@ -1,0 +1,116 @@
+{
+  "description": "示例文献数据 - 中医治疗高血压的系统综述",
+  "format": "json",
+  "data": [
+    {
+      "title": "中医药治疗原发性高血压的Meta分析",
+      "authors": "张三; 李四; 王五",
+      "year": "2023",
+      "journal": "中国中医药信息杂志",
+      "abstract": "目的：系统评价中医药治疗原发性高血压的临床疗效。方法：检索PubMed、CNKI等数据库，纳入随机对照试验。结果：中医药联合西药治疗高血压优于单纯西药治疗。",
+      "keywords": "中医; 高血压; Meta分析",
+      "doi": "10.1234/tcm.2023.001",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "针刺治疗高血压的临床研究",
+      "authors": "赵六; 钱七",
+      "year": "2022",
+      "journal": "针刺研究",
+      "abstract": "观察针刺降压的临床疗效和安全性。选取120例高血压患者随机分为针刺组和对照组。结果显示针刺组血压下降明显。",
+      "keywords": "针刺; 高血压; 随机对照试验",
+      "doi": "10.1234/acup.2022.045",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "Traditional Chinese Medicine for Hypertension: A Systematic Review",
+      "authors": "Smith, J; Johnson, A; Brown, K",
+      "year": "2023",
+      "journal": "Journal of Hypertension",
+      "abstract": "Background: Traditional Chinese Medicine (TCM) has been used for hypertension treatment. We systematically reviewed the efficacy and safety of TCM for hypertension. Methods: We searched PubMed, Cochrane Library, and Embase. Results: TCM showed promising effects in reducing blood pressure.",
+      "keywords": "traditional Chinese medicine; hypertension; systematic review",
+      "doi": "10.1097/HJH.2023.12345",
+      "type": "JOUR",
+      "database": "PubMed"
+    },
+    {
+      "title": "中药复方治疗高血压的网状Meta分析",
+      "authors": "孙八; 周九; 吴十",
+      "year": "2024",
+      "journal": "中华中医药杂志",
+      "abstract": "采用网状Meta分析方法比较不同中药复方治疗高血压的疗效。纳入38项RCT研究，涉及3856例患者。",
+      "keywords": "中药复方; 高血压; 网状Meta分析",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "Acupuncture for Essential Hypertension: A Meta-analysis",
+      "authors": "Wang, L; Chen, M; Liu, Q",
+      "year": "2023",
+      "journal": "Complementary Therapies in Medicine",
+      "abstract": "Objective: To assess the effectiveness of acupuncture for essential hypertension. Methods: We performed a meta-analysis of randomized controlled trials. Results: Acupuncture significantly reduced both systolic and diastolic blood pressure.",
+      "keywords": "acupuncture; hypertension; meta-analysis",
+      "doi": "10.1016/j.ctim.2023.102890",
+      "type": "JOUR",
+      "database": "PubMed"
+    },
+    {
+      "title": "动物实验研究中医药对高血压大鼠的影响",
+      "authors": "郑十一",
+      "year": "2023",
+      "journal": "实验动物科学",
+      "abstract": "采用自发性高血压大鼠模型，观察中药提取物的降压作用。结果显示中药组大鼠血压明显降低。",
+      "keywords": "动物实验; 高血压; 中医药",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "中医药治疗高血压的研究进展（综述）",
+      "authors": "陈十二",
+      "year": "2022",
+      "journal": "中医药临床杂志",
+      "abstract": "本文综述了近年来中医药治疗高血压的临床和基础研究进展，包括中药、针灸、推拿等疗法。",
+      "keywords": "中医药; 高血压; 综述",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "天麻钩藤饮治疗高血压的随机对照研究",
+      "authors": "黄十三; 林十四",
+      "year": "2023",
+      "journal": "中药新药与临床药理",
+      "abstract": "目的：评价天麻钩藤饮治疗高血压的临床疗效。方法：采用随机对照设计，观察8周。结果：治疗组总有效率89.2%，对照组76.3%。",
+      "keywords": "天麻钩藤饮; 高血压; 随机对照试验",
+      "doi": "10.1234/tcm.2023.089",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "Herbal Medicine for Hypertension: An Overview",
+      "authors": "Lee, S; Kim, H",
+      "year": "2021",
+      "journal": "Current Hypertension Reports",
+      "abstract": "Herbal medicines have been widely used for hypertension management. This review summarizes the clinical evidence and mechanisms of action.",
+      "keywords": "herbal medicine; hypertension; review",
+      "doi": "10.1007/s11906-021-01234-5",
+      "type": "JOUR",
+      "database": "PubMed"
+    },
+    {
+      "title": "中医体质辨识在高血压防治中的应用",
+      "authors": "冯十五",
+      "year": "2024",
+      "journal": "中医杂志",
+      "abstract": "探讨中医体质辨识对高血压个体化治疗的指导意义。研究发现不同体质类型患者对中药的反应存在差异。",
+      "keywords": "中医体质; 高血压; 个体化治疗",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    }
+  ]
+}

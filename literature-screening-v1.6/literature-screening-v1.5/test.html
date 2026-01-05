@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器状态检查</title>
+</head>
+<body>
+    <h1>🟢 服务器正常运行</h1>
+    <p>当前时间：<span id="time"></span></p>
+    <p>服务器端口：8080</p>
+    
+    <h2>可用页面：</h2>
+    <ul>
+        <li><a href="index.html">主应用 (index.html)</a></li>
+        <li><a href="login.html">双人登录页面 (login.html)</a></li>
+        <li><a href="style.css">样式文件 (style.css)</a></li>
+        <li><a href="app.js">应用脚本 (app.js)</a></li>
+        <li><a href="sample-data.json">示例数据 (sample-data.json)</a></li>
+    </ul>
+    
+    <h2>测试链接：</h2>
+    <p><button onclick="testLogin()">测试登录页面</button></p>
+    <p><button onclick="testMain()">测试主应用</button></p>
+    
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleString('zh-CN');
+        
+        function testLogin() {
+            window.open('login.html', '_blank');
+        }
+        
+        function testMain() {
+            window.open('index.html', '_blank');
+        }
+    </script>
+</body>
+</html>

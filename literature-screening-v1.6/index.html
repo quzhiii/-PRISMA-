@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="文献筛选和PRISMA 2020流程图生成工具 - 支持多格式导入、智能去重、灵活筛选规则、3万篇大规模处理">
+  <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析,大规模处理">
+  <title>PRISMA文献筛选助手 v1.6</title>
+  <style>
+    :root {
+  /* Primitive Color Tokens */
+  --color-white: rgba(255, 255, 255, 1);
+  --color-black: rgba(0, 0, 0, 1);
+  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-100: rgba(255, 255, 253, 1);
+  --color-gray-200: rgba(245, 245, 245, 1);
+  --color-gray-300: rgba(167, 169, 169, 1);
+  --color-gray-400: rgba(119, 124, 124, 1);
+  --color-slate-500: rgba(98, 108, 113, 1);
+  --color-brown-600: rgba(94, 82, 64, 1);
+  --color-charcoal-700: rgba(31, 33, 33, 1);
+  --color-charcoal-800: rgba(38, 40, 40, 1);
+  --color-slate-900: rgba(19, 52, 59, 1);
+  --color-teal-300: rgba(50, 184, 198, 1);
+  --color-teal-400: rgba(45, 166, 178, 1);
+  --color-teal-500: rgba(33, 128, 141, 1);
+  --color-teal-600: rgba(29, 116, 128, 1);
+  --color-teal-700: rgba(26, 104, 115, 1);
+  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-red-400: rgba(255, 84, 89, 1);
+  --color-red-500: rgba(192, 21, 47, 1);
+  --color-orange-400: rgba(230, 129, 97, 1);
+  --color-orange-500: rgba(168, 75, 47, 1);
+
+  --color-brown-600-rgb: 94, 82, 64;
+  --color-teal-500-rgb: 33, 128, 141;
+  --color-slate-900-rgb: 19, 52, 59;
+  --color-slate-500-rgb: 98, 108, 113;
+  --color-red-500-rgb: 192, 21, 47;
+  --color-red-400-rgb: 255, 84, 89;
+  --color-orange-500-rgb: 168, 75, 47;
+  --color-orange-400-rgb: 230, 129, 97;
+
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-500);
+  --color-primary: var(--color-teal-500);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-700);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-btn-primary-text: var(--color-cream-50);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-error: var(--color-red-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: var(--color-orange-500);
+  --color-info: var(--color-slate-500);
+  --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+  --color-select-caret: rgba(var(--color-slate-900-rgb), 0.8);
+
+  --focus-ring: 0 0 0 3px var(--color-focus-ring);
+  --focus-outline: 2px solid var(--color-primary);
+
+  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 30px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 550;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-400-rgb: 119, 124, 124;
+    --color-teal-300-rgb: 50, 184, 198;
+    --color-gray-300-rgb: 167, 169, 169;
+    --color-gray-200-rgb: 245, 245, 245;
+
+    --color-bg-1: rgba(29, 78, 216, 0.15);
+    --color-bg-2: rgba(180, 83, 9, 0.15);
+    --color-bg-3: rgba(21, 128, 61, 0.15);
+    --color-bg-4: rgba(185, 28, 28, 0.15);
+    --color-bg-5: rgba(107, 33, 168, 0.15);
+    --color-bg-6: rgba(194, 65, 12, 0.15);
+    --color-bg-7: rgba(190, 24, 93, 0.15);
+    --color-bg-8: rgba(8, 145, 178, 0.15);
+
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: var(--color-gray-200);
+    --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+    --color-primary: var(--color-teal-300);
+    --color-primary-hover: var(--color-teal-400);
+    --color-primary-active: var(--color-teal-800);
+    --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+    --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+    --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-error: var(--color-red-400);
+    --color-success: var(--color-teal-300);
+    --color-warning: var(--color-orange-400);
+    --color-info: var(--color-gray-300);
+    --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+    --color-btn-primary-text: var(--color-slate-900);
+    --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
+  }
+}
+
+@font-face {
+  font-family: 'FKGroteskNeue';
+  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background: var(--color-background);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+  font-size: var(--font-size-base);
+}
+
+.app-container {
+  min-height: 100vh;
+  padding: var(--space-32);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--space-32);
+}
+
+.header h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-8);
+  color: var(--color-text);
+}
+
+.header p {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+}
+
+.steps-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-16);
+  margin-bottom: var(--space-32);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-secondary);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.step.active .step-circle {
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+}
+
+.step.completed .step-circle {
+  background: var(--color-success);
+  color: var(--color-btn-primary-text);
+}
+
+.step-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+.step.active .step-label {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.step-divider {
+  width: 40px;
+  height: 2px;
+  background: var(--color-border);
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-32);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-card-border);
+}
+
+.btn {
+  padding: var(--space-12) var(--space-24);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border: none;
+  transition: all var(--duration-normal) var(--ease-standard);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.btn-secondary:hover {
+  background: var(--color-secondary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upload-area {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-32);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-standard);
+  background: var(--color-bg-1);
+}
+
+.upload-area:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-3);
+}
+
+.upload-area.dragover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-3);
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-top: var(--space-24);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: var(--space-12);
+  text-align: left;
+  border-bottom: 1px solid var(--color-card-border-inner);
+  font-size: var(--font-size-sm);
+}
+
+th {
+  background: var(--color-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+tr:nth-child(even) {
+  background: var(--color-bg-1);
+}
+
+tr:hover {
+  background: var(--color-bg-2);
+}
+
+.form-group {
+  margin-bottom: var(--space-20);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-8);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.form-input, .form-textarea, .form-select {
+  width: 100%;
+  padding: var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+}
+
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  outline: var(--focus-outline);
+  border-color: var(--color-primary);
+}
+
+.form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-button {
+  padding: var(--space-12) var(--space-20);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.tab-button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-card.bg-1 { background: var(--color-bg-1); }
+.stat-card.bg-2 { background: var(--color-bg-2); }
+.stat-card.bg-3 { background: var(--color-bg-3); }
+.stat-card.bg-4 { background: var(--color-bg-4); }
+.stat-card.bg-5 { background: var(--color-bg-5); }
+.stat-card.bg-6 { background: var(--color-bg-6); }
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.toast {
+  position: fixed;
+  top: var(--space-20);
+  right: var(--space-20);
+  padding: var(--space-16) var(--space-20);
+  border-radius: var(--radius-base);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  animation: slideIn 0.3s var(--ease-standard);
+}
+
+.toast.success {
+  background: var(--color-success);
+  color: var(--color-btn-primary-text);
+}
+
+.toast.error {
+  background: var(--color-error);
+  color: var(--color-white);
+}
+
+.toast.warning {
+  background: var(--color-warning);
+  color: var(--color-white);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.loading-content {
+  background: var(--color-surface);
+  padding: var(--space-32);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--color-secondary);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto var(--space-16);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none !important;
+}
+
+.button-group {
+  display: flex;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
+.exclude-item, .keyword-item {
+  display: flex;
+  gap: var(--space-12);
+  align-items: flex-start;
+  margin-bottom: var(--space-12);
+  padding: var(--space-12);
+  background: var(--color-bg-1);
+  border-radius: var(--radius-base);
+}
+
+.exclude-item input, .exclude-item textarea {
+  flex: 1;
+}
+
+.btn-remove {
+  background: var(--color-error);
+  color: var(--color-white);
+  padding: var(--space-8) var(--space-12);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.btn-add {
+  background: var(--color-success);
+  color: var(--color-btn-primary-text);
+  padding: var(--space-8) var(--space-16);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-8);
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-24);
+}
+
+@media (max-width: 1024px) {
+  .two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+.svg-preview {
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+  background: var(--color-surface);
+  overflow: auto;
+  max-height: 600px;
+}
+
+.info-box {
+  background: var(--color-bg-2);
+  border-left: 4px solid var(--color-warning);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-20);
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+input[type="range"] {
+  flex: 1;
+  height: 6px;
+  background: var(--color-secondary);
+  border-radius: var(--radius-full);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-value {
+  min-width: 60px;
+  text-align: right;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-32);
+  padding-top: var(--space-24);
+  border-top: 1px solid var(--color-border);
+}
+
+.format-info {
+  background: var(--color-bg-1);
+  padding: var(--space-20);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-card-border);
+}
+
+.format-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-12);
+}
+
+.format-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  background: var(--color-surface);
+  border-radius: var(--radius-base);
+  border: 2px solid var(--color-card-border);
+  transition: all var(--duration-normal) var(--ease-standard);
+  cursor: help;
+}
+
+.format-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.format-badge[data-color="blue"] { border-color: #3b82f6; }
+.format-badge[data-color="cyan"] { border-color: #06b6d4; }
+.format-badge[data-color="red"] { border-color: #ef4444; }
+.format-badge[data-color="purple"] { border-color: #a855f7; }
+.format-badge[data-color="gray"] { border-color: #6b7280; }
+.format-badge[data-color="orange"] { border-color: #f97316; }
+.format-badge[data-color="green"] { border-color: #22c55e; }
+
+.format-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.format-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.format-source {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.format-tag {
+  display: inline-block;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+}
+
+.upload-progress {
+  margin-top: var(--space-16);
+  background: var(--color-surface);
+  border-radius: var(--radius-base);
+  padding: var(--space-16);
+  border: 1px solid var(--color-card-border);
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--color-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: var(--space-8);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+@keyframes successPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.success-animation {
+  animation: successPulse 0.6s var(--ease-standard);
+}
+
+.theme-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-16);
+  margin-top: var(--space-16);
+}
+
+@media (max-width: 768px) {
+  .theme-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
+.theme-option {
+  cursor: pointer;
+  position: relative;
+}
+
+.theme-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+  transition: all var(--duration-normal) var(--ease-standard);
+  min-height: 140px;
+}
+
+.theme-option:hover .theme-card {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-option input[type="radio"]:checked + .theme-card {
+  border-color: var(--color-primary);
+  border-width: 3px;
+  background: var(--color-bg-3);
+  box-shadow: var(--shadow-lg);
+}
+
+.theme-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-12);
+  color: var(--color-text);
+}
+
+.theme-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+  line-height: 1.6;
+}
+
+.theme-recommended {
+  position: relative;
+}
+
+.recommend-badge {
+  display: inline-block;
+  background: var(--color-success);
+  color: var(--color-btn-primary-text);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  margin-left: var(--space-8);
+}
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="header">
+      <h1>📚 PRISMA 文献筛选助手 v1.6</h1>
+      <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
+      
+      <!-- v1.1: Quick access to dual-review mode -->
+      <div style="margin-top: var(--space-16); text-align: center;">
+        <a href="login.html" style="
+          display: inline-block;
+          padding: var(--space-8) var(--space-16);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-decoration: none;
+          border-radius: var(--radius-lg);
+          font-weight: var(--font-weight-semibold);
+          font-size: var(--font-size-sm);
+          transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+          👥 双人协作审查模式
+        </a>
+      </div>
+    </div>
+
+    <div class="steps-indicator">
+      <div class="step active" id="step-indicator-1">
+        <div class="step-circle">1</div>
+        <span class="step-label">上传文件</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" id="step-indicator-2">
+        <div class="step-circle">2</div>
+        <span class="step-label">配置规则</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" id="step-indicator-3">
+        <div class="step-circle">3</div>
+        <span class="step-label">初步筛选结果（自动）</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" id="step-indicator-4">
+        <div class="step-circle">4</div>
+        <span class="step-label">全文人工审核</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" id="step-indicator-5">
+        <div class="step-circle">5</div>
+        <span class="step-label">最终结果</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div id="step1" class="card">
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 1: 上传文献数据文件</h2>
+      
+      <!-- v4.0: 新手帮助面板 -->
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">🎓 新手入门指南</h3>
+        <p style="margin-bottom: var(--space-8);"><strong>第一次使用？</strong>我们为您准备了：</p>
+        <div class="button-group" style="margin-top: var(--space-12);">
+          <button class="btn btn-primary" onclick="loadSampleData()" style="background: var(--color-success);">📦 加载示例数据（一键体验）</button>
+          <button class="btn btn-secondary" onclick="toggleDatabaseGuide()">📚 数据库导出教程</button>
+          <button class="btn btn-secondary" onclick="showVideoTutorial()">🎬 视频教程</button>
+        </div>
+      </div>
+
+      <!-- v4.0: 数据库导出教程（折叠面板） -->
+      <div id="databaseGuide" class="hidden" style="margin-bottom: var(--space-24); padding: var(--space-20); background: var(--color-bg-1); border-radius: var(--radius-lg); border: 2px solid var(--color-primary);">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-xl); color: var(--color-primary);">📖 常用数据库文献导出指南</h3>
+        
+        <details style="margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-surface); border-radius: var(--radius-base);">
+          <summary style="cursor: pointer; font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); padding: var(--space-8);">🔬 PubMed 导出步骤</summary>
+          <div style="padding: var(--space-12); margin-top: var(--space-8); border-top: 1px solid var(--color-border);">
+            <ol style="padding-left: var(--space-20); line-height: 1.8;">
+              <li>在PubMed搜索框输入检索式，点击"Search"</li>
+              <li>点击"Send to"按钮</li>
+              <li>选择"Citation manager"</li>
+              <li>点击"Create file"，下载<strong>.nbib文件</strong>（即RIS格式）</li>
+              <li>将下载的文件直接拖到上方上传区域</li>
+            </ol>
+            <p style="margin-top: var(--space-12); padding: var(--space-12); background: var(--color-bg-3); border-radius: var(--radius-sm);">💡 <strong>推荐格式：</strong>RIS (.nbib) - 包含完整摘要和关键词</p>
+          </div>
+        </details>
+
+        <details style="margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-surface); border-radius: var(--radius-base);">
+          <summary style="cursor: pointer; font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); padding: var(--space-8);">📚 知网(CNKI) 导出步骤</summary>
+          <div style="padding: var(--space-12); margin-top: var(--space-8); border-top: 1px solid var(--color-border);">
+            <ol style="padding-left: var(--space-20); line-height: 1.8;">
+              <li>在知网检索结果页面，勾选要导出的文献</li>
+              <li>点击"导出/参考文献"</li>
+              <li>选择<strong>"Endnote"格式</strong></li>
+              <li>点击"导出"，保存<strong>.enw文件</strong></li>
+              <li>将文件上传到本工具</li>
+            </ol>
+            <p style="margin-top: var(--space-12); padding: var(--space-12); background: var(--color-bg-3); border-radius: var(--radius-sm);">💡 <strong>推荐格式：</strong>Endnote (.enw) - 本工具已完美支持中文</p>
+          </div>
+        </details>
+
+        <details style="margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-surface); border-radius: var(--radius-base);">
+          <summary style="cursor: pointer; font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); padding: var(--space-8);">🌐 Web of Science 导出步骤</summary>
+          <div style="padding: var(--space-12); margin-top: var(--space-8); border-top: 1px solid var(--color-border);">
+            <ol style="padding-left: var(--space-20); line-height: 1.8;">
+              <li>在检索结果页面，勾选要导出的文献（最多500条）</li>
+              <li>点击"导出"按钮</li>
+              <li>文件格式选择<strong>"其他文件格式"</strong></li>
+              <li>记录内容选择"完整记录和引用的参考文献"</li>
+              <li>文件格式选择<strong>"纯文本"或"RIS"</strong></li>
+              <li>点击"导出"，下载文件</li>
+            </ol>
+            <p style="margin-top: var(--space-12); padding: var(--space-12); background: var(--color-bg-3); border-radius: var(--radius-sm);">💡 <strong>推荐格式：</strong>RIS - 数据最完整</p>
+          </div>
+        </details>
+
+        <details style="margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-surface); border-radius: var(--radius-base);">
+          <summary style="cursor: pointer; font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); padding: var(--space-8);">📖 Cochrane Library 导出步骤</summary>
+          <div style="padding: var(--space-12); margin-top: var(--space-8); border-top: 1px solid var(--color-border);">
+            <ol style="padding-left: var(--space-20); line-height: 1.8;">
+              <li>搜索并打开检索结果</li>
+              <li>勾选要导出的文献</li>
+              <li>点击"Export selected"</li>
+              <li>选择<strong>"RIS"格式</strong></li>
+              <li>下载并上传文件</li>
+            </ol>
+          </div>
+        </details>
+
+        <details style="padding: var(--space-12); background: var(--color-surface); border-radius: var(--radius-base);">
+          <summary style="cursor: pointer; font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); padding: var(--space-8);">🔧 使用文献管理软件（推荐）</summary>
+          <div style="padding: var(--space-12); margin-top: var(--space-8); border-top: 1px solid var(--color-border);">
+            <h4 style="margin-bottom: var(--space-8);">使用 Zotero（免费推荐）：</h4>
+            <ol style="padding-left: var(--space-20); line-height: 1.8; margin-bottom: var(--space-16);">
+              <li>将所有数据库的文献导入Zotero</li>
+              <li>选中要导出的文献</li>
+              <li>右键 → "导出条目"</li>
+              <li>格式选择<strong>"RIS"</strong></li>
+              <li>保存并上传到本工具</li>
+            </ol>
+            <p style="padding: var(--space-12); background: var(--color-bg-2); border-radius: var(--radius-sm);">⭐ <strong>优势：</strong>Zotero可以自动去重、管理文献，大大提高效率！</p>
+          </div>
+        </details>
+
+        <button class="btn btn-secondary" onclick="toggleDatabaseGuide()" style="margin-top: var(--space-12);">✖ 关闭教程</button>
+      </div>
+      
+      <div class="format-info" style="margin-bottom: var(--space-24);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">支持的文件格式</h3>
+        <div class="format-badges">
+          <div class="format-badge" data-color="red" title="推荐：⭐⭐⭐⭐⭐">
+            <span class="format-icon">🔖</span>
+            <div>
+              <div class="format-name">RIS</div>
+              <div class="format-source">Endnote, Zotero, Mendeley, PubMed</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="orange" title="推荐：⭐⭐⭐⭐⭐">
+            <span class="format-icon">🔖</span>
+            <div>
+              <div class="format-name">ENW <span style="background: var(--color-error); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">NEW</span></div>
+              <div class="format-source">知网 CNKI ✅</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="blue" title="推荐：⭐⭐⭐⭐⭐">
+            <span class="format-icon">📊</span>
+            <div>
+              <div class="format-name">CSV</div>
+              <div class="format-source">Excel, Google Sheets</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="cyan" title="推荐：⭐⭐⭐⭐">
+            <span class="format-icon">📋</span>
+            <div>
+              <div class="format-name">TSV</div>
+              <div class="format-source">Excel制表符、数据库</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="purple" title="推荐：⭐⭐⭐⭐">
+            <span class="format-icon">🔖</span>
+            <div>
+              <div class="format-name">RDF <span style="background: var(--color-error); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">NEW</span></div>
+              <div class="format-source">Zotero RDF/XML</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="green" title="推荐：⭐⭐⭐⭐">
+            <span class="format-icon">📖</span>
+            <div>
+              <div class="format-name">BibTeX</div>
+              <div class="format-source">Google Scholar、arXiv</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐⭐</div>
+            </div>
+          </div>
+          <div class="format-badge" data-color="gray" title="推荐：⭐⭐⭐">
+            <span class="format-icon">📄</span>
+            <div>
+              <div class="format-name">TXT</div>
+              <div class="format-source">简单文本</div>
+              <div style="font-size: 10px; color: var(--color-warning);">⭐⭐⭐</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.2: 隐私与安全声明 -->
+      <div class="info-box" style="margin-bottom: var(--space-20); background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;">
+        <div style="display: flex; align-items: center; gap: var(--space-12);">
+          <div style="font-size: 2rem;">🛡️</div>
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 var(--space-4) 0; font-size: var(--font-size-base); color: white;">本地离线处理，数据不上传服务器</h4>
+            <p style="margin: 0; font-size: var(--font-size-sm); opacity: 0.9;">
+              所有数据处理均在您的浏览器本地完成，绝对安全。您的研究数据保密性得到完全保障。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="upload-area" id="uploadArea">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto var(--space-16);">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <p style="font-size: var(--font-size-lg); margin-bottom: var(--space-8);">拖拽文件到此处，或点击上传</p>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">支持 .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf 格式</p>
+        <input type="file" id="fileInput" multiple accept=".csv,.tsv,.ris,.bib,.bibtex,.txt,.enw,.rdf" style="display: none;">
+      </div>
+
+      <div id="uploadInfo" class="hidden" style="margin-top: var(--space-24);">
+        <div class="info-box">
+          <h3 style="margin-bottom: var(--space-8); font-size: var(--font-size-lg);">📊 文件信息</h3>
+          <p><strong>文件格式:</strong> <span id="fileFormat" class="format-tag">未知</span></p>
+          <p><strong>格式来源:</strong> <span id="formatSource">-</span></p>
+          <p><strong>总记录数:</strong> <span id="totalRecords">0</span></p>
+          <p><strong>检测到的列:</strong> <span id="columnList"></span></p>
+          <p style="margin-top: var(--space-8);"><strong>列名映射:</strong></p>
+          <div id="columnMapping" style="margin-top: var(--space-8); font-size: var(--font-size-sm);"></div>
+        </div>
+
+        <h3 style="margin: var(--space-24) 0 var(--space-12); font-size: var(--font-size-lg);">数据预览 (前 50 行)</h3>
+        <div class="table-container">
+          <table id="previewTable">
+            <thead id="previewTableHead"></thead>
+            <tbody id="previewTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="resetApp()">重新上传</button>
+          <button class="btn btn-primary" onclick="goToStep2()">下一步: 配置规则 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Rules -->
+    <div id="step2" class="card hidden">
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 2: 配置筛选规则</h2>
+
+      <div class="two-column">
+        <div>
+          <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab('form')">可视化表单</button>
+            <button class="tab-button" onclick="switchTab('yaml')">YAML 编辑器</button>
+            <button class="tab-button" onclick="switchTab('format')">格式说明</button>
+            <button class="tab-button" onclick="switchTab('mapping')">字段映射</button>
+          </div>
+
+          <div id="formTab" class="tab-content active">
+            <div class="form-group">
+              <label class="form-label" style="font-weight: var(--font-weight-bold);">⏰ 时间窗口</label>
+              <div class="grid grid-2">
+                <div>
+                  <label class="form-label" style="font-size: var(--font-size-sm);">起始年份</label>
+                  <input type="number" class="form-input" id="startYear" value="2000" min="1900" max="2100">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: var(--font-size-sm);">结束年份</label>
+                  <input type="number" class="form-input" id="endYear" value="2030" min="1900" max="2100">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
+              <label class="form-label" style="font-weight: var(--font-weight-bold);">📌 包含关键词 (任一命中即候选) - 留空表示不过滤</label>
+              <div class="info-box" style="margin-bottom: var(--space-12); background: var(--color-bg-3); border-left: 4px solid var(--color-info);">
+                <p style="margin: 0; font-size: var(--font-size-sm);">💡 <strong>提示：</strong>如果留空，将保留所有文献进入下一步筛选。只有当您想按特定主题筛选时，才需要填写关键词。</p>
+              </div>
+              <textarea class="form-textarea" id="includeKeywords" rows="5" style="font-size: var(--font-size-sm);" placeholder="输入关键词，每行一个。留空则不进行关键词过滤。"></textarea>
+            </div>
+
+            <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
+              <label class="form-label" style="font-weight: var(--font-weight-bold);">❌ 排除关键词及理由</label>
+              <div id="excludeList" style="max-height: 250px; overflow-y: auto; margin-bottom: var(--space-12);"></div>
+              <button class="btn-add" onclick="addExcludeItem()">+ 添加排除规则</button>
+            </div>
+
+            <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
+              <label class="form-label" style="font-weight: var(--font-weight-bold);">🌐 语言 & 必填字段</label>
+              <div class="grid grid-2">
+                <div>
+                  <label style="font-size: var(--font-size-sm); margin-bottom: var(--space-8); display: block; font-weight: var(--font-weight-medium);">允许的语言</label>
+                  <div class="checkbox-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" value="english" checked> 英文
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" value="chinese" checked> 中文
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size: var(--font-size-sm); margin-bottom: var(--space-8); display: block; font-weight: var(--font-weight-medium);">必填字段 (至少一项)</label>
+                  <div class="checkbox-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" class="required-field" value="title" checked> Title
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" class="required-field" value="abstract" checked> Abstract
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
+              <label class="form-label" style="font-weight: var(--font-weight-bold);">⚙️ 高级参数</label>
+              <div>
+                <label class="form-label" style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">全文排除比例 (模拟比例)</label>
+                <div class="slider-container">
+                  <input type="range" id="ftExcludeRatio" min="0" max="1" step="0.05" value="0.2">
+                  <span class="slider-value" id="ftExcludeValue">20%</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="loadExampleRules()" style="margin-top: var(--space-16); width: 100%;">📋 加载示例规则</button>
+          </div>
+
+          <div id="yamlTab" class="tab-content">
+            <div class="form-group">
+              <label class="form-label">YAML 配置</label>
+              <textarea class="form-textarea" id="yamlEditor" rows="20" style="font-family: monospace;"></textarea>
+            </div>
+            <div class="button-group" style="margin-top: var(--space-12);">
+              <button class="btn btn-secondary" onclick="exportYAML()">📥 导出YAML</button>
+              <button class="btn btn-secondary" onclick="importYAML()">📤 导入YAML</button>
+            </div>
+          </div>
+
+          <div id="mappingTab" class="tab-content">
+            <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">ENW 字段映射 <span style="background: var(--color-error); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">NEW</span></h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>ENW字段</th><th>含义</th><th>映射到</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>TY</td><td>文献类型</td><td>type</td></tr>
+                  <tr><td>AU</td><td>作者</td><td>authors</td></tr>
+                  <tr><td>T1</td><td>标题</td><td>title</td></tr>
+                  <tr><td>T2</td><td>期刊</td><td>journal</td></tr>
+                  <tr><td>PY</td><td>出版年</td><td>year</td></tr>
+                  <tr><td>DO</td><td>DOI</td><td>doi</td></tr>
+                  <tr><td>AB</td><td>摘要</td><td>abstract</td></tr>
+                  <tr><td>KW</td><td>关键词</td><td>keywords</td></tr>
+                  <tr><td>VL</td><td>卷号</td><td>volume</td></tr>
+                  <tr><td>IS</td><td>期号</td><td>issue</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style="margin: var(--space-24) 0 var(--space-16); font-size: var(--font-size-lg);">RDF 字段映射 <span style="background: var(--color-error); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">NEW</span></h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>RDF字段</th><th>含义</th><th>映射到</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>dc:title</td><td>标题</td><td>title</td></tr>
+                  <tr><td>dc:creator</td><td>作者</td><td>authors</td></tr>
+                  <tr><td>dcterms:issued</td><td>发行年</td><td>year</td></tr>
+                  <tr><td>bib:publicationTitle</td><td>期刊</td><td>journal</td></tr>
+                  <tr><td>bib:volume</td><td>卷号</td><td>volume</td></tr>
+                  <tr><td>bib:issue</td><td>期号</td><td>issue</td></tr>
+                  <tr><td>dcterms:abstract</td><td>摘要</td><td>abstract</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="info-box" style="margin-top: var(--space-20);">
+              <h4 style="margin-bottom: var(--space-8);">💡 提示</h4>
+              <p>ENW 格式是知网 CNKI 的标准导出格式，系统会自动识别并映射字段。</p>
+              <p style="margin-top: var(--space-8);">RDF 格式是 Zotero 的 RDF/XML 导出格式，支持完整的元数据结构。</p>
+            </div>
+          </div>
+
+          <div id="formatTab" class="tab-content">
+            <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">RIS 字段说明</h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>RIS字段</th><th>含义</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>TY</td><td>文献类型</td></tr>
+                  <tr><td>AU</td><td>作者</td></tr>
+                  <tr><td>T1</td><td>标题</td></tr>
+                  <tr><td>T2</td><td>期刊</td></tr>
+                  <tr><td>PY</td><td>年份</td></tr>
+                  <tr><td>DO</td><td>DOI</td></tr>
+                  <tr><td>AB</td><td>摘要</td></tr>
+                  <tr><td>KW</td><td>关键词</td></tr>
+                  <tr><td>VL</td><td>卷号</td></tr>
+                  <tr><td>IS</td><td>期号</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style="margin: var(--space-24) 0 var(--space-16); font-size: var(--font-size-lg);">BibTeX 字段说明</h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>BibTeX字段</th><th>含义</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>title</td><td>标题</td></tr>
+                  <tr><td>author</td><td>作者</td></tr>
+                  <tr><td>journal</td><td>期刊</td></tr>
+                  <tr><td>year</td><td>年份</td></tr>
+                  <tr><td>doi</td><td>DOI</td></tr>
+                  <tr><td>abstract</td><td>摘要</td></tr>
+                  <tr><td>keywords</td><td>关键词</td></tr>
+                  <tr><td>volume</td><td>卷号</td></tr>
+                  <tr><td>number</td><td>期号</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style="margin: var(--space-24) 0 var(--space-16); font-size: var(--font-size-lg);">字段映射</h3>
+            <div class="info-box">
+              <p>系统会自动将不同格式的字段映射到标准字段：</p>
+              <ul style="margin-top: var(--space-8); padding-left: var(--space-20);">
+                <li><strong>title:</strong> RIS(T1/TI) → BibTeX(title) → CSV(title/Title)</li>
+                <li><strong>abstract:</strong> RIS(AB) → BibTeX(abstract) → CSV(abstract)</li>
+                <li><strong>year:</strong> RIS(PY) → BibTeX(year) → CSV(year)</li>
+                <li><strong>authors:</strong> RIS(AU) → BibTeX(author) → CSV(authors)</li>
+                <li><strong>journal:</strong> RIS(T2/JO) → BibTeX(journal) → CSV(journal)</li>
+                <li><strong>doi:</strong> RIS(DO) → BibTeX(doi) → CSV(doi)</li>
+              </ul>
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" onclick="loadExampleRules()" style="margin-top: var(--space-12);">加载示例规则</button>
+        </div>
+
+        <div>
+          <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">数据预览</h3>
+          <div class="table-container" style="max-height: 400px; overflow: auto;">
+            <table>
+              <thead id="rulesPreviewHead"></thead>
+              <tbody id="rulesPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="goToStep1()">← 返回上传</button>
+        <button class="btn btn-primary" onclick="startScreening()">开始筛选 →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div id="step3" class="card hidden">
+      <h2 style="margin-bottom: var(--space-12); font-size: var(--font-size-2xl);">步骤 3: 初步筛选结果（自动）</h2>
+
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-1); border-left: 4px solid var(--color-info);">
+        本页展示的是根据筛选规则自动生成的<strong>初步结果与 PRISMA 统计</strong>。下一步将进入<strong>全文人工审核</strong>。
+      </div>
+
+      <div class="button-group" style="margin-bottom: var(--space-24);">
+        <button class="btn btn-secondary" onclick="editRulesAndRerun()">修改筛选规则并重新运行</button>
+      </div>
+
+      <!-- v4.1: 项目保存/加载功能 -->
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-5); border-left: 4px solid var(--color-primary);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">💾 项目管理</h3>
+        <p style="margin-bottom: var(--space-12);">保存当前项目进度，防止意外丢失数据。下次可直接加载继续工作。</p>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="saveProject()" style="background: var(--color-success);">💾 保存项目</button>
+          <button class="btn btn-secondary" onclick="loadProject()">📂 加载项目</button>
+          <button class="btn btn-secondary" onclick="autoSaveToggle()">⚙️ 自动保存：<span id="autoSaveStatus">关闭</span></button>
+        </div>
+        <p id="lastSaveTime" style="margin-top: var(--space-8); font-size: var(--font-size-sm); color: var(--color-text-secondary);"></p>
+      </div>
+
+      <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">PRISMA 统计</h3>
+      <div class="grid grid-4" id="statsGrid">
+        <div class="stat-card bg-1">
+          <div class="stat-label">识别 (数据库)</div>
+          <div class="stat-value" id="stat-identified-db">0</div>
+        </div>
+        <div class="stat-card bg-2">
+          <div class="stat-label">识别 (其他来源)</div>
+          <div class="stat-value" id="stat-identified-other">0</div>
+        </div>
+        <div class="stat-card bg-3">
+          <div class="stat-label">去重后</div>
+          <div class="stat-value" id="stat-after-dupes">0</div>
+          <div class="stat-sublabel">
+            <small style="font-size: 0.75rem; opacity: 0.8;">
+              <a href="javascript:void(0)" onclick="showDeduplicationSettings()" style="color: inherit; text-decoration: underline;">⚙️ 去重设置</a>
+            </small>
+          </div>
+        </div>
+        <div class="stat-card bg-4">
+          <div class="stat-label">标题/摘要筛选</div>
+          <div class="stat-value" id="stat-screened">0</div>
+        </div>
+        <div class="stat-card bg-5">
+          <div class="stat-label">标题/摘要排除</div>
+          <div class="stat-value" id="stat-excluded-ta">0</div>
+        </div>
+        <div class="stat-card bg-6">
+          <div class="stat-label">全文评估</div>
+          <div class="stat-value" id="stat-fulltext">0</div>
+        </div>
+        <div class="stat-card bg-1">
+          <div class="stat-label">全文排除</div>
+          <div class="stat-value" id="stat-excluded-ft">0</div>
+        </div>
+        <div class="stat-card bg-3">
+          <div class="stat-label">✓ 最终纳入</div>
+          <div class="stat-value" id="stat-included">0</div>
+        </div>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">颜色主题选择</h3>
+      <div class="info-box" style="margin-bottom: var(--space-24);">
+        <p style="margin-bottom: var(--space-12); font-weight: var(--font-weight-semibold);">当前版本：v3.0 - 多文件上传、人工审核、真实数据统计</p>
+        <p style="margin-bottom: var(--space-16);">选择您偏好的流程图颜色主题：</p>
+        
+        <div class="theme-selector">
+          <label class="theme-option" data-theme="colorful">
+            <input type="radio" name="theme" value="colorful" />
+            <div class="theme-card">
+              <div class="theme-title">🎨 活力彩色</div>
+              <div class="theme-desc">✓ 演讲/汇报推荐</div>
+              <div class="theme-desc">✓ 网页展示最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 黑白打印效果差</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="blackwhite">
+            <input type="radio" name="theme" value="blackwhite" />
+            <div class="theme-card">
+              <div class="theme-title">⚫ 黑白</div>
+              <div class="theme-desc">✓ 学术期刊推荐</div>
+              <div class="theme-desc">✓ 黑白打印最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 网页显得过时</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="subtle">
+            <input type="radio" name="theme" value="subtle" checked />
+            <div class="theme-card theme-recommended">
+              <div class="theme-title">✨ 柔和 <span class="recommend-badge">推荐</span></div>
+              <div class="theme-desc">✓ 医学/政策推荐</div>
+              <div class="theme-desc">✓ 彩色黑白都适配</div>
+              <div class="theme-desc">✓ 最安全的选择</div>
+            </div>
+          </label>
+        </div>
+        
+        <button class="btn btn-secondary" onclick="updateThemePreview()" style="margin-top: var(--space-16);">🔄 更新预览</button>
+        
+        <div style="margin-top: var(--space-16); padding: var(--space-12); background: var(--color-bg-2); border-radius: var(--radius-base);">
+          <strong>💡 提示：</strong> 不确定选择？柔和方案最安全 ✓
+        </div>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">PRISMA 2020 流程图预览</h3>
+
+      <div class="info-box" style="margin-bottom: var(--space-16); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">PRISMA 导出模式</div>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8); margin-right: var(--space-16);">
+          <input type="radio" name="prismaMode" value="simple" />
+          简化版 PRISMA 流程图（教学/内部汇报）
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8);">
+          <input type="radio" name="prismaMode" value="prisma2020" checked />
+          标准化 PRISMA 2020 流程图（投稿推荐）
+        </label>
+      </div>
+
+      <div class="svg-preview" id="svgPreview"></div>
+
+      <div id="filterRulesOverview" style="margin-top: var(--space-16);"></div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">下载结果文件</h3>
+      
+      <div class="info-box" style="margin-bottom: var(--space-20);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">📁 可下载文件说明</h4>
+        <p><strong>Excel 文件：</strong> 采用 UTF-8 with BOM 编码，Excel 可直接打开，无需手动指定编码</p>
+        <p style="margin-top: var(--space-8);"><strong>流程图：</strong> 提供 3 个颜色主题版本（彩色、黑白、柔和），根据使用场景选择</p>
+        <p style="margin-top: var(--space-8); color: var(--color-success); font-weight: var(--font-weight-medium);">✅ 中文显示完美，永久解决乱码问题</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【推荐】数据文件</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('included')">📥 下载 - 纳入研究 (Excel)</button>
+          <button class="btn btn-primary" onclick="downloadFile('excluded')">📥 下载 - 排除研究 (Excel)</button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">所有文件均为 UTF-8 编码，Excel 可直接打开，无需手动指定编码</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【流程图】PRISMA 图表</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('svg-colorful')">📥 下载 - PRISMA 流程图（彩色版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-blackwhite')">📥 下载 - PRISMA 流程图（黑白版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-subtle')" style="border: 2px solid var(--color-success);">📥 下载 - PRISMA 流程图（柔和版）<span style="margin-left: 8px; font-size: 11px;">← 推荐</span></button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">当前选择：<span id="currentThemeLabel" style="font-weight: var(--font-weight-semibold); color: var(--color-primary);">柔和版</span></p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【其他】辅助文件</h4>
+        <div class="button-group">
+          <button class="btn btn-secondary" onclick="downloadFile('report')">📥 下载 - 筛选报告 (Markdown)</button>
+          <button class="btn btn-secondary" onclick="downloadAllFiles()">📦 下载 - 所有文件</button>
+        </div>
+      </div>
+
+      <div class="info-box" style="background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">🎨 颜色主题建议</h4>
+        <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.8;">
+          <li><strong>投稿医学期刊</strong> → 黑白版</li>
+          <li><strong>学术汇报演讲</strong> → 彩色版</li>
+          <li><strong>不确定选择</strong> → 柔和版（推荐 ✓）</li>
+        </ul>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="resetApp()">🔄 重新开始</button>
+        <button class="btn btn-primary" id="btnGoStep4" onclick="goToStep4()">下一步: 人工审核 →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Fulltext Manual Review (v1.1) -->
+    <div id="step4" class="card hidden">
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 4: 全文人工审核（最终）</h2>
+      
+      <!-- v1.1: 多用户协作信息 -->
+      <div class="info-box" style="margin-bottom: var(--space-24); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg); color: white;">👥 多用户协作审查</h3>
+        <div id="collaboration-status" class="grid grid-2" style="margin-bottom: var(--space-16);">
+          <div style="background: rgba(255,255,255,0.1); padding: var(--space-12); border-radius: 8px;">
+            <div style="font-weight: bold; margin-bottom: 4px;">👨‍🔬 主审查员</div>
+            <div id="reviewer-a-status">加载中...</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.1); padding: var(--space-12); border-radius: 8px;">
+            <div style="font-weight: bold; margin-bottom: 4px;">👩‍🔬 副审查员</div>
+            <div id="reviewer-b-status">加载中...</div>
+          </div>
+        </div>
+        <div class="button-group">
+          <button class="btn" onclick="saveProjectFile()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+            💾 导出协作项目
+          </button>
+          <button class="btn" onclick="showProjectStatus()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+            📊 查看详细状态
+          </button>
+        </div>
+        <p style="margin: var(--space-12) 0 0; font-size: var(--font-size-sm); color: rgba(255,255,255,0.9);">
+          💡 每位审查员在独立的浏览器会话中进行审查，系统会自动同步数据并计算一致性指标
+        </p>
+      </div>
+
+      <!-- v1.1: 一致性分析面板 -->
+      <div id="kappa-analysis" class="info-box hidden" style="margin-bottom: var(--space-24);">
+        <h3 style="margin-bottom: var(--space-16); font-size: var(--font-size-lg);">📊 审查员间一致性分析</h3>
+        <div id="kappa-results" class="grid grid-3"></div>
+        <button class="btn btn-primary" onclick="showDisagreements()" style="margin-top: var(--space-12);">
+          🔍 查看意见分歧文献 (<span id="disagreement-count">0</span>篇)
+        </button>
+      </div>
+      
+      <div class="info-box">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">审核说明</h3>
+        <p>共<strong id="fulltext-total">0</strong>篇文献需要人工审核。请逐篇查阅全文，记录排除原因（如有）。</p>
+      </div>
+
+      <!-- v1.3: 研究方法自动识别 -->
+      <div class="info-box" style="margin: var(--space-24) 0; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none;">
+        <div style="display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-12);">
+          <span style="font-size: 1.5rem;">🤖</span>
+          <div style="flex: 1;">
+            <h3 style="margin: 0 0 var(--space-4) 0; font-size: var(--font-size-lg); color: white;">智能识别研究方法</h3>
+            <p style="margin: 0; font-size: var(--font-size-sm); opacity: 0.9;">
+              基于标题和摘要自动识别研究设计类型（RCT、队列、病例对照等）
+            </p>
+          </div>
+          <button class="btn" onclick="autoIdentifyStudyDesigns()" style="background: white; color: #f5576c; font-weight: bold; white-space: nowrap;">
+            ✨ 一键识别
+          </button>
+        </div>
+        <div style="font-size: var(--font-size-sm); opacity: 0.9; padding: var(--space-8); background: rgba(0,0,0,0.1); border-radius: 4px;">
+          ⚠️ <strong>重要提示：</strong>研究方法识别为自动建议结果，仅供参考，请在全文核对后确认或修改。
+        </div>
+      </div>
+
+      <!-- v4.1: 批量操作和快捷键 -->
+      <div class="info-box" style="margin: var(--space-24) 0; background: var(--color-bg-6); border-left: 4px solid var(--color-warning);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">⚡ 快捷操作</h3>
+        <div class="grid grid-2" style="margin-bottom: var(--space-12);">
+          <div>
+            <h4 style="margin-bottom: var(--space-8); font-size: var(--font-size-base);">批量操作：</h4>
+            <div class="button-group">
+              <button class="btn btn-secondary" onclick="selectAllRecords()">☑️ 全选</button>
+              <button class="btn btn-secondary" onclick="deselectAllRecords()">⬜ 取消全选</button>
+              <button class="btn btn-primary" onclick="batchExclude()" style="background: var(--color-warning);">🗑️ 批量排除已选</button>
+            </div>
+          </div>
+          <div>
+            <h4 style="margin-bottom: var(--space-8); font-size: var(--font-size-base);">键盘快捷键：</h4>
+            <div style="font-size: var(--font-size-sm); line-height: 1.8;">
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">1-6</kbd> 快速选择排除理由</div>
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">Space</kbd> 跳过当前（保留）</div>
+              <div><kbd style="padding: 2px 6px; background: var(--color-secondary); border-radius: 4px;">↑/↓</kbd> 上下切换文献</div>
+            </div>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary);">💡 提示：使用快捷键可大幅提高审查效率</p>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin: var(--space-24) 0 var(--space-12);">
+        <h3 style="margin: 0; font-size: var(--font-size-lg);">排除原因模板</h3>
+        <button class="btn btn-secondary" onclick="toggleExclusionTemplateEditor()">✏ 编辑模板</button>
+      </div>
+
+      <div id="exclusion-template-editor" class="hidden" style="margin-bottom: var(--space-16);">
+        <div class="info-box" style="background: var(--color-bg-5); border-left: 4px solid var(--color-primary);">
+          <div style="margin-bottom: var(--space-12); color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+            支持按项目自定义。数字键 <strong>1–6</strong> 仅映射到模板前 6 条。
+          </div>
+          <div id="exclusion-template-list" style="display: flex; flex-direction: column; gap: var(--space-8);"></div>
+          <div class="button-group" style="margin-top: var(--space-12);">
+            <button class="btn btn-secondary" onclick="addExclusionTemplateRow()">+ 添加原因</button>
+            <button class="btn btn-secondary" onclick="restoreDefaultExclusionTemplate()">恢复默认模板</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="exclusion-template-buttons" class="button-group" style="margin-bottom: var(--space-24);"></div>
+
+      <div id="fulltext-review-table" class="table-container" style="max-height: 600px; overflow-y: auto;"></div>
+
+      <h3 style="margin: var(--space-24) 0 var(--space-12); font-size: var(--font-size-lg);">排除统计</h3>
+      <div class="grid grid-4">
+        <div class="stat-card">
+          <div class="stat-label">获取全文</div>
+          <div class="stat-value" id="fulltext-obtained">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">已排除</div>
+          <div class="stat-value" id="fulltext-excluded">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">最终纳入</div>
+          <div class="stat-value" id="fulltext-included">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">排除率</div>
+          <div class="stat-value" id="fulltext-rate">0%</div>
+        </div>
+      </div>
+
+      <div id="exclusion-reasons-summary" style="margin: var(--space-24) 0;"></div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="goToStep3()">← 返回结果预览</button>
+        <button class="btn btn-primary" onclick="finalizeFulltextReview()">完成审核，生成最终结果 →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Final Results -->
+    <div id="step5" class="card hidden">
+      <h2 style="margin-bottom: var(--space-20); font-size: var(--font-size-2xl);">步骤 5: 最终结果</h2>
+      
+      <div class="info-box" style="margin-bottom: var(--space-24); background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">✅ 文献筛选已完成</h3>
+        <p style="margin-bottom: var(--space-8);">恭喜！您已完成所有筛选步骤。以下是最终统计结果和可下载的文件。</p>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">📊 筛选统计摘要</h3>
+      
+      <div class="grid grid-4" style="margin-bottom: var(--space-32);">
+        <div class="stat-card">
+          <div class="stat-label">数据库识别</div>
+          <div class="stat-value" id="stat-identified-db-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">其他来源</div>
+          <div class="stat-value" id="stat-identified-other-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">去重后</div>
+          <div class="stat-value" id="stat-after-dupes-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">标题/摘要筛选</div>
+          <div class="stat-value" id="stat-screened-final">0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom: var(--space-32);">
+        <div class="stat-card">
+          <div class="stat-label">标题/摘要排除</div>
+          <div class="stat-value" id="stat-excluded-ta-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">全文评估</div>
+          <div class="stat-value" id="stat-fulltext-final">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">全文排除</div>
+          <div class="stat-value" id="stat-excluded-ft-final">0</div>
+        </div>
+        <div class="stat-card" style="background: var(--color-bg-3); border: 2px solid var(--color-success);">
+          <div class="stat-label" style="color: var(--color-success); font-weight: var(--font-weight-bold);">✓ 最终纳入</div>
+          <div class="stat-value" style="color: var(--color-success); font-size: var(--font-size-4xl);" id="stat-included-final">0</div>
+        </div>
+      </div>
+
+      <div class="info-box" style="margin-bottom: var(--space-24);">
+        <p style="margin-bottom: var(--space-12); font-weight: var(--font-weight-semibold);">当前版本：v1.6 - 工程化增强（进度可视化、容错机制、去重可解释、Kappa分析恢复）</p>
+        <p style="margin-bottom: var(--space-16);">选择您偏好的流程图颜色主题：</p>
+        
+        <div class="theme-selector">
+          <label class="theme-option" data-theme="colorful">
+            <input type="radio" name="themeFinal" value="colorful" />
+            <div class="theme-card">
+              <div class="theme-title">🎨 活力彩色</div>
+              <div class="theme-desc">✓ 演讲/汇报推荐</div>
+              <div class="theme-desc">✓ 网页展示最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 黑白打印效果差</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="blackwhite">
+            <input type="radio" name="themeFinal" value="blackwhite" />
+            <div class="theme-card">
+              <div class="theme-title">⚫ 黑白</div>
+              <div class="theme-desc">✓ 学术期刊推荐</div>
+              <div class="theme-desc">✓ 黑白打印最佳</div>
+              <div class="theme-desc" style="color: var(--color-text-secondary);">✗ 网页显得过时</div>
+            </div>
+          </label>
+          
+          <label class="theme-option" data-theme="subtle">
+            <input type="radio" name="themeFinal" value="subtle" checked />
+            <div class="theme-card theme-recommended">
+              <div class="theme-title">✨ 柔和 <span class="recommend-badge">推荐</span></div>
+              <div class="theme-desc">✓ 医学/政策推荐</div>
+              <div class="theme-desc">✓ 彩色黑白都适配</div>
+              <div class="theme-desc">✓ 最安全的选择</div>
+            </div>
+          </label>
+        </div>
+        
+        <button class="btn btn-secondary" onclick="updateThemePreviewFinal()" style="margin-top: var(--space-16);">🔄 更新预览</button>
+        
+        <div style="margin-top: var(--space-16); padding: var(--space-12); background: var(--color-bg-2); border-radius: var(--radius-base);">
+          <strong>💡 提示：</strong> 不确定选择？柔和方案最安全 ✓
+        </div>
+      </div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">PRISMA 2020 流程图预览</h3>
+
+      <div class="info-box" style="margin-bottom: var(--space-16); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">PRISMA 导出模式</div>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8); margin-right: var(--space-16);">
+          <input type="radio" name="prismaModeFinal" value="simple" />
+          简化版 PRISMA 流程图（教学/内部汇报）
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: var(--space-8);">
+          <input type="radio" name="prismaModeFinal" value="prisma2020" checked />
+          标准化 PRISMA 2020 流程图（投稿推荐）
+        </label>
+      </div>
+
+      <div class="svg-preview" id="svgPreviewFinal"></div>
+
+      <div id="filterRulesOverviewFinal" style="margin-top: var(--space-16);"></div>
+
+      <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">下载结果文件</h3>
+      
+      <div class="info-box" style="margin-bottom: var(--space-20);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">📁 可下载文件说明</h4>
+        <p><strong>Excel 文件：</strong> 采用 UTF-8 with BOM 编码，Excel 可直接打开，无需手动指定编码</p>
+        <p style="margin-top: var(--space-8);"><strong>流程图：</strong> 提供 3 个颜色主题版本（彩色、黑白、柔和），根据使用场景选择</p>
+        <p style="margin-top: var(--space-8); color: var(--color-success); font-weight: var(--font-weight-medium);">✅ 中文显示完美，永久解决乱码问题</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【推荐】数据文件</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('included')">📥 下载 - 纳入研究 (Excel)</button>
+          <button class="btn btn-primary" onclick="downloadFile('excluded')">📥 下载 - 排除研究 (Excel)</button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">所有文件均为 UTF-8 编码，Excel 可直接打开，无需手动指定编码</p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【流程图】PRISMA 图表</h4>
+        <div class="button-group">
+          <button class="btn btn-primary" onclick="downloadFile('svg-colorful')">📥 下载 - PRISMA 流程图（彩色版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-blackwhite')">📥 下载 - PRISMA 流程图（黑白版）</button>
+          <button class="btn btn-primary" onclick="downloadFile('svg-subtle')" style="border: 2px solid var(--color-success);">📥 下载 - PRISMA 流程图（柔和版）<span style="margin-left: 8px; font-size: 11px;">← 推荐</span></button>
+        </div>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">当前选择：<span id="currentThemeLabelFinal" style="font-weight: var(--font-weight-semibold); color: var(--color-primary);">柔和版</span></p>
+      </div>
+
+      <div style="margin-bottom: var(--space-16);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);">【其他】辅助文件</h4>
+        <div class="button-group">
+          <button class="btn btn-secondary" onclick="downloadFile('report')">📥 下载 - 筛选报告 (Markdown)</button>
+          <button class="btn btn-secondary" onclick="downloadAllFiles()">📦 下载 - 所有文件</button>
+        </div>
+      </div>
+
+      <div class="info-box" style="background: var(--color-bg-3); border-left: 4px solid var(--color-success);">
+        <h4 style="margin-bottom: var(--space-12); font-size: var(--font-size-base);">🎨 颜色主题建议</h4>
+        <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.8;">
+          <li><strong>投稿医学期刊</strong> → 黑白版</li>
+          <li><strong>学术汇报演讲</strong> → 彩色版</li>
+          <li><strong>不确定选择</strong> → 柔和版（推荐 ✓）</li>
+        </ul>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="resetApp()">🔄 重新开始</button>
+        <button class="btn btn-secondary" onclick="goToStep4()">← 返回人工审核</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.5 新增：Web Worker 和虚拟滚动 -->
+  <script src="virtual-list.js"></script>
+  <script>
+    // 初始化 Web Worker
+    const dbWorker = new Worker('db-worker.js');
+    const parserWorker = new Worker('parser-worker.js');
+    
+    // 创建 Promise 包装器，便于 async/await 调用
+    function workerSend(worker, message) {
+      return new Promise((resolve, reject) => {
+        const handler = (event) => {
+          worker.removeEventListener('message', handler);
+          resolve(event.data);
+        };
+        worker.addEventListener('message', handler);
+        worker.postMessage(message);
+      });
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

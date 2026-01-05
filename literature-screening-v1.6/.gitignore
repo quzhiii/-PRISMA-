@@ -1,0 +1,31 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test data
+test-data.csv
+test-manual.md
+
+# Development notes
+FILTER-FIX-NOTES.md
+IMPLEMENTATION-CHECKLIST.md
+V3.0-UPDATE-NOTES.md
+
+# Local server
+node_modules/
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+网页/
