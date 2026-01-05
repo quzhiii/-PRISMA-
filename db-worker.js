@@ -57,35 +57,36 @@ function batchInsertRecords(records, batchSize = 500) {
     const total = records.length;
     let inserted = 0;
     
-    for (let i = 0; i < total; i += batchSize) {
-      const batch = records.slice(i, i + batchSize);
+    try {
+      for (let i = 0; i < total; i += batchSize) {
+        const batch = records.slice(i, i + batchSize);
+        
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const objectStore = transaction.objectStore(STORE_NAME);
+        
+        batch.forEach(record => {
+          objectStore.add(record);
+        });
+        
+        await new Promise((res, rej) => {
+          transaction.onerror = () => rej(transaction.error);
+          transaction.oncomplete = () => {
+            inserted += batch.length;
+            // 每批都发送进度报告
+            self.postMessage({
+              type: 'IMPORT_PROGRESS',
+              inserted,
+              total
+            });
+            res();
+          };
+        });
+      }
       
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const objectStore = transaction.objectStore(STORE_NAME);
-      
-      batch.forEach(record => {
-        objectStore.add(record);
-      });
-      
-      transaction.oncomplete = () => {
-        inserted += batch.length;
-        // 定期发送进度报告
-        if (inserted % (batchSize * 2) === 0) {
-          self.postMessage({
-            type: 'IMPORT_PROGRESS',
-            inserted,
-            total
-          });
-        }
-      };
-      
-      await new Promise((res, rej) => {
-        transaction.onerror = () => rej(transaction.error);
-        transaction.oncomplete = () => res();
-      });
+      resolve({ imported: inserted });
+    } catch (error) {
+      reject(error);
     }
-    
-    resolve({ imported: inserted });
   });
 }
 

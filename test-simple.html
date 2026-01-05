@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>简单测试 - V1.5</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    button { padding: 10px 20px; margin: 10px; }
+    .result { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>V1.5 基础功能测试</h1>
+  
+  <div>
+    <button onclick="testWorkers()">1. 测试 Workers 初始化</button>
+    <div id="result1" class="result"></div>
+  </div>
+  
+  <div>
+    <button onclick="testIndexedDB()">2. 测试 IndexedDB</button>
+    <div id="result2" class="result"></div>
+  </div>
+  
+  <div>
+    <button onclick="testVirtualList()">3. 测试虚拟列表</button>
+    <div id="result3" class="result"></div>
+  </div>
+
+  <script>
+    let dbWorker = null;
+    let parserWorker = null;
+    
+    function testWorkers() {
+      const result = document.getElementById('result1');
+      result.innerHTML = '正在初始化 Workers...';
+      
+      try {
+        dbWorker = new Worker('db-worker.js');
+        parserWorker = new Worker('parser-worker.js');
+        
+        dbWorker.onmessage = (e) => {
+          result.innerHTML += '<br/>✅ DB Worker 收到消息: ' + JSON.stringify(e.data);
+        };
+        
+        dbWorker.onerror = (e) => {
+          result.innerHTML += '<br/>❌ DB Worker 错误: ' + e.message;
+        };
+        
+        parserWorker.onmessage = (e) => {
+          result.innerHTML += '<br/>✅ Parser Worker 收到消息: ' + JSON.stringify(e.data);
+        };
+        
+        parserWorker.onerror = (e) => {
+          result.innerHTML += '<br/>❌ Parser Worker 错误: ' + e.message;
+        };
+        
+        setTimeout(() => {
+          result.innerHTML += '<br/>✅ Workers 创建成功！';
+        }, 100);
+        
+      } catch (e) {
+        result.innerHTML = '❌ 错误: ' + e.message + '<br/>' + e.stack;
+      }
+    }
+    
+    function testIndexedDB() {
+      const result = document.getElementById('result2');
+      result.innerHTML = '正在测试 IndexedDB...';
+      
+      if (!dbWorker) {
+        result.innerHTML = '❌ 请先初始化 Workers';
+        return;
+      }
+      
+      // 发送初始化消息
+      dbWorker.postMessage({ type: 'INIT_DB' });
+      
+      dbWorker.onmessage = (e) => {
+        if (e.data.type === 'DB_READY') {
+          result.innerHTML = '✅ IndexedDB 初始化成功！';
+          
+          // 测试插入
+          setTimeout(() => {
+            const testRecords = [
+              { title: 'Test 1', year: 2020 },
+              { title: 'Test 2', year: 2021 },
+              { title: 'Test 3', year: 2022 }
+            ];
+            
+            dbWorker.postMessage({
+              type: 'IMPORT_RECORDS',
+              data: { records: testRecords }
+            });
+          }, 100);
+        } else if (e.data.type === 'IMPORT_COMPLETE') {
+          result.innerHTML += '<br/>✅ 导入完成: ' + JSON.stringify(e.data.result);
+        } else if (e.data.type === 'ERROR') {
+          result.innerHTML += '<br/>❌ 错误: ' + e.data.error;
+        }
+      };
+    }
+    
+    function testVirtualList() {
+      const result = document.getElementById('result3');
+      
+      // 检查 virtual-list.js 是否加载
+      if (typeof VirtualList === 'undefined') {
+        // 动态加载
+        const script = document.createElement('script');
+        script.src = 'virtual-list.js';
+        script.onload = () => {
+          result.innerHTML = '✅ VirtualList 类加载成功！<br/>类型: ' + typeof VirtualList;
+        };
+        script.onerror = () => {
+          result.innerHTML = '❌ 无法加载 virtual-list.js';
+        };
+        document.head.appendChild(script);
+      } else {
+        result.innerHTML = '✅ VirtualList 已加载！';
+      }
+    }
+    
+    // 页面加载时自动测试
+    window.onload = () => {
+      console.log('页面加载完成');
+      document.getElementById('result1').innerHTML = '点击按钮开始测试';
+      document.getElementById('result2').innerHTML = '等待测试';
+      document.getElementById('result3').innerHTML = '等待测试';
+    };
+  </script>
+</body>
+</html>
