@@ -2748,13 +2748,13 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
   }
 
   // PRISMA 2020-like layout
-  const width = 900;
+  const width = 1000;
   const height = 1400;
-  const boxW = 360;
+  const boxW = 320;
   const boxH = 72;
 
-  const xCenter = (width - boxW) / 2;
-  const xRight = width - boxW - 40;
+  const xCenter = 50;
+  const xRight = xCenter + boxW + 60;
   const xLeft = 40;
 
   const y0 = 60;
