@@ -2935,7 +2935,7 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
 
   // PRISMA 2020-like layout
   const width = 900;
-  const height = 1400;
+  const height = 1500;
   const boxW = 360;
   const boxH = 72;
 
@@ -2944,7 +2944,7 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
   const xLeft = 40;
 
   const y0 = 60;
-  const gapY = 115;
+  const gapY = 145;
 
   const yId = y0;
   const yRemoved = yId + gapY;
