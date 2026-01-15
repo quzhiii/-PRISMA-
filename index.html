@@ -850,8 +850,8 @@ input[type="range"]::-moz-range-thumb {
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>📚 PRISMA 文献筛选助手 v1.6</h1>
-      <p>双人审查协作 • Cohen's Kappa分析 • 自动化筛选 • PRISMA 2020流程图</p>
+      <h1>📚 PRISMA 文献筛选助手 v1.7</h1>
+      <p>智能去重 • 关键词优先级保护 • 自动化筛选 • PRISMA 2020流程图</p>
       
       <!-- v1.1: Quick access to dual-review mode -->
       <div style="margin-top: var(--space-16); text-align: center;">
@@ -1137,6 +1137,20 @@ input[type="range"]::-moz-range-thumb {
                 <p style="margin: 0; font-size: var(--font-size-sm);">💡 <strong>提示：</strong>如果留空，将保留所有文献进入下一步筛选。只有当您想按特定主题筛选时，才需要填写关键词。</p>
               </div>
               <textarea class="form-textarea" id="includeKeywords" rows="5" style="font-size: var(--font-size-sm);" placeholder="输入关键词，每行一个。留空则不进行关键词过滤。"></textarea>
+              
+              <!-- v1.7: 关键词优先级保护机制 -->
+              <div class="info-box" style="margin-top: var(--space-12); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                <label class="checkbox-label" style="cursor: pointer; display: flex; align-items: center; gap: var(--space-12);">
+                  <input type="checkbox" id="includePriorityToggle" checked style="width: 20px; height: 20px; cursor: pointer;">
+                  <div style="flex: 1;">
+                    <div style="font-weight: var(--font-weight-bold); margin-bottom: var(--space-4);">🛡️ 启用保护机制：包含关键词优先于排除关键词</div>
+                    <div style="font-size: var(--font-size-sm); opacity: 0.9;">
+                      <strong>v1.7 新功能：</strong>当一篇文献同时命中"包含"和"排除"关键词时，系统会优先保留该文献，防止误杀重要研究。
+                      <br>示例：文章包含 "acupuncture"（包含词），也包含 "protocol"（排除词），则仍然保留该文章。
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
@@ -1818,5 +1832,8 @@ input[type="range"]::-moz-range-thumb {
     }
   </script>
   <script src="app.js"></script>
+  
+  <!-- v1.7 Patch (Must be loaded after app.js) -->
+  <script src="v1.7-core-patch.js"></script>
 </body>
 </html>
