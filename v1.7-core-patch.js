@@ -16,31 +16,29 @@ let dedupStats = {
  * 核心功能 1: 增强的筛选逻辑（关键词优先级）
  * 替换原 performScreening 函数
  */
-function performScreeningV17() {
-  if (uploadedData.length === 0) {
+function performScreeningV17(data, rulesParam) {
+  // Handle both old calling convention (data, rules) and new (no params)
+  const inputData = data || uploadedData;
+  let rules = rulesParam;
+  
+  if (!rules) {
+    try {
+      rules = jsyaml.load(document.getElementById('yamlEditor').value);
+      filterRules = rules;
+    } catch (e) {
+      console.error('YAML 格式错误:', e);
+      showToast('YAML 格式错误: ' + e.message, 'error');
+      return null;
+    }
+  }
+  
+  if (!inputData || inputData.length === 0) {
     showToast('没有数据可筛选', 'error');
-    return;
+    return null;
   }
-
-  showLoading('正在进行智能筛选...');
-
-  // Get rules
-  let rules = {};
-  try {
-    rules = jsyaml.load(document.getElementById('yamlEditor').value);
-    filterRules = rules; // Persist rules
-  } catch (e) {
-    hideLoading();
-    showToast('YAML 格式错误: ' + e.message, 'error');
-    return;
-  }
-
-  // Persist current project state (v1.4)
-  persistCurrentProjectState();
-
-  setTimeout(() => {
-    // 1. Pre-processing
-    const processedData = uploadedData.map(row => {
+  
+  // 1. Pre-processing
+  const processedData = inputData.map(row => {
       // Normalize fields
       const yearStr = (row.year || row.PY || row.publication_year || '').toString();
       
@@ -229,50 +227,49 @@ function performScreeningV17() {
         afterTA.push(row);
       }
     });
+// Save results (but don't display yet - let caller handle that)
+  const results = {
+    counts: {
+      identified_db: dedupStats.originalCount,
+      identified_other: 0,
+      duplicates: duplicates.length,
+      after_dupes: deduped.length,
+      screened: deduped.length,
+      excluded_ta: deduped.length - afterTA.length,
+      fulltext: afterTA.length,
+      excluded_ft: 0,
+      included: afterTA.length,
+      protected: protectedCount
+    },
+    duplicates: duplicates,
+    included: afterTA,
+    excluded: excluded_ta,
+    rules: rules,
+    sourceDistribution: {} // Placeholder for v3.0 compatibility
+  };
 
-    // Save results
-    screeningResults = {
-      counts: {
-        identified_db: dedupStats.originalCount, // Simplified for now
-        identified_other: 0,
-        duplicates: duplicates.length,
-        after_dupes: deduped.length,
-        screened: deduped.length, // Screened = after deduplication
-        excluded_ta: deduped.length - afterTA.length, // Total excluded in screening
-        fulltext: afterTA.length,
-        excluded_ft: 0,
-        included: afterTA.length,
-        protected: protectedCount // v1.7 Stat
-      },
-      duplicates: duplicates,
-      included: afterTA, // Candidates for fulltext review
-      excluded: excluded_ta,
-      rules: rules
-    };
-
-    // Auto-identify study designs (v1.3)
-    screeningResults.included.forEach(record => {
-      if (!record.studyDesign) {
-        record.studyDesign = guessStudyDesign(record);
-      }
-    });
-
-    // Initialize fulltext review state if empty
-    if (!screeningResults.excluded_fulltext) {
-      screeningResults.excluded_fulltext = [];
+  // Auto-identify study designs (v1.3)
+  results.included.forEach(record => {
+    if (!record.studyDesign) {
+      record.studyDesign = guessStudyDesign(record);
     }
+  });
 
-    displayResults(screeningResults);
-    hideLoading();
-    goToStep(3);
-    
-    if (protectedCount > 0) {
-      showToast(`✨ ${protectedCount} 篇包含关键词的文献已被保护，免受排除规则误杀`, 'success');
-    } else {
-      showToast('筛选完成', 'success');
-    }
+  // Initialize fulltext review state if empty
+  if (!results.excluded_fulltext) {
+    results.excluded_fulltext = [];
+  }
 
-  }, 100);
+  // Store globally
+  screeningResults = results;
+  
+  // Show protection message if applicable
+  if (protectedCount > 0) {
+    console.log(`✨ ${protectedCount} 篇包含关键词的文献已被保护`);
+  }
+
+  return rngResults for compatibility
+  return screeningResults;
 }
 
 /**
