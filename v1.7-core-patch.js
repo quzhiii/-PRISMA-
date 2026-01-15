@@ -333,7 +333,7 @@ function displayUploadInfoV17() {
     </div>
   `;
 
-  renderPreviewTable();
+  displayPreviewTable();
   infoDiv.classList.remove('hidden');
 }
 
