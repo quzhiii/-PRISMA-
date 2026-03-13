@@ -8,6 +8,7 @@ const PARSERS = {
   csv: parseCSV,
   tsv: parseTSV,
   ris: parseRIS,
+  nbib: parseRIS,
   enw: parseENW,
   bibtex: parseBibTeX,
   rdf: parseRDF,

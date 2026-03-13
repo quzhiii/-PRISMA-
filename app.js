@@ -8,6 +8,24 @@ let fileFormat = 'unknown';
 let formatSource = 'Unknown';
 let currentTheme = 'subtle';
 
+// Runtime mode state (Task 8)
+const RUNTIME_MODE = {
+  SINGLE: 'single',
+  DUAL_MAIN: 'dual-main',
+  DUAL_SECONDARY: 'dual-secondary'
+};
+
+let runtimeMode = RUNTIME_MODE.SINGLE;
+let runtimeSession = null;
+
+// v1.1 collaboration globals (explicit declarations to avoid runtime ReferenceError)
+let currentUserSession = null;
+let isDualReviewMode = false;
+let currentReviewer = 'A';
+let reviewerNames = { A: '审查员A', B: '审查员B' };
+let dualReviewResults = { A: {}, B: {}, final: {} };
+let projectData = null;
+
 // v1.5: Smart batch import system (4 mechanisms)
 const SMART_IMPORT_CONFIG = {
   MAX_CHUNK_SIZE: 5000,        // 单批次最大记录数
@@ -280,10 +298,109 @@ function autoIdentifyStudyDesigns() {
   showToast(`✅ 已自动识别 ${identifiedCount}/${screeningResults.included.length} 篇文献的研究方法（建议人工核对）`, 'success');
 }
 
+function readRuntimeSessionFromStorage() {
+  const raw = sessionStorage.getItem('prisma_user_session');
+  if (!raw) return null;
+
+  let session;
+  try {
+    session = JSON.parse(raw);
+  } catch (error) {
+    console.warn('[mode] prisma_user_session is not valid JSON — falling back to single', error);
+    return null;
+  }
+
+  if (typeof session.role !== 'string' || typeof session.isMainReviewer !== 'boolean') {
+    console.warn('[mode] prisma_user_session missing required fields — falling back to single', session);
+    return null;
+  }
+
+  if (session.role !== 'reviewer-a' && session.role !== 'reviewer-b') {
+    console.warn('[mode] prisma_user_session role is invalid — falling back to single', session);
+    return null;
+  }
+
+  return session;
+}
+
+function detectRuntimeMode() {
+  const session = readRuntimeSessionFromStorage();
+  if (!session) {
+    runtimeSession = null;
+    return RUNTIME_MODE.SINGLE;
+  }
+
+  runtimeSession = session;
+  return session.isMainReviewer ? RUNTIME_MODE.DUAL_MAIN : RUNTIME_MODE.DUAL_SECONDARY;
+}
+
+function toggleDisplay(element, isVisible) {
+  if (!element) return;
+  element.style.display = isVisible ? '' : 'none';
+}
+
+function applyModeGating(mode) {
+  const collaborationStatus = document.getElementById('collaboration-status');
+  const collaborationPanel = collaborationStatus ? collaborationStatus.closest('.info-box') : null;
+  const reviewerAStatus = document.getElementById('reviewer-a-status');
+  const reviewerBStatus = document.getElementById('reviewer-b-status');
+  const kappaPanel = document.getElementById('kappa-analysis');
+  const exportButtons = document.querySelectorAll('button[onclick="saveProjectFile()"]');
+  const statusButtons = document.querySelectorAll('button[onclick="showProjectStatus()"]');
+  const disagreementButtons = document.querySelectorAll('button[onclick="showDisagreements()"]');
+
+  const isSingleMode = mode === RUNTIME_MODE.SINGLE;
+  const isDualMainMode = mode === RUNTIME_MODE.DUAL_MAIN;
+  const isDualSecondaryMode = mode === RUNTIME_MODE.DUAL_SECONDARY;
+
+  toggleDisplay(collaborationPanel, !isSingleMode);
+  toggleDisplay(collaborationStatus, !isSingleMode);
+  toggleDisplay(reviewerAStatus ? reviewerAStatus.parentElement : null, !isSingleMode);
+  toggleDisplay(reviewerBStatus ? reviewerBStatus.parentElement : null, !isSingleMode);
+
+  if (kappaPanel && isSingleMode) {
+    kappaPanel.style.display = 'none';
+  } else if (kappaPanel && !isSingleMode) {
+    kappaPanel.style.display = '';
+  }
+
+  exportButtons.forEach(btn => {
+    toggleDisplay(btn, isDualMainMode);
+  });
+
+  statusButtons.forEach(btn => {
+    toggleDisplay(btn, !isSingleMode);
+  });
+
+  disagreementButtons.forEach(btn => {
+    toggleDisplay(btn, isDualMainMode);
+  });
+
+  if (runtimeSession) {
+    if (isDualMainMode && reviewerAStatus) {
+      reviewerAStatus.textContent = `${runtimeSession.username || '主审查员'}（当前登录）`;
+    }
+    if (isDualSecondaryMode && reviewerBStatus) {
+      reviewerBStatus.textContent = `${runtimeSession.username || '副审查员'}（当前登录）`;
+    }
+  }
+}
+
+function initializeRuntimeContext(mode) {
+  currentUserSession = mode === RUNTIME_MODE.SINGLE ? null : runtimeSession;
+  isDualReviewMode = mode !== RUNTIME_MODE.SINGLE;
+  currentReviewer = currentUserSession?.role === 'reviewer-b' ? 'B' : 'A';
+}
+
 // Initialize
 function init() {
+  runtimeMode = detectRuntimeMode();
+  initializeRuntimeContext(runtimeMode);
+
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
+
+  applyModeGating(runtimeMode);
 
   if (!uploadArea || !fileInput) {
     console.error('Upload elements not found');
@@ -358,11 +475,16 @@ function init() {
 
   // v1.4: Ensure Step4 entry button reflects readiness
   updateStep4EntryLock();
+
+  if (currentUserSession) {
+    loadProjectData();
+    updateCollaborationStatus();
+  }
 }
 
 // v3.0: Handle multiple file uploads
 function handleMultipleFiles(files) {
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
   const validFiles = files.filter(file => {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     return validExts.includes(ext);
@@ -710,7 +832,7 @@ function clearImportProgress() {
  * 集成4大机制的智能上传函数
  */
 async function handleMultipleFilesV15(files) {
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
   const validFiles = files.filter(file => {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     return validExts.includes(ext);
@@ -842,6 +964,7 @@ async function handleMultipleFilesV15(files) {
 function detectSource(ext) {
   switch (ext) {
     case '.ris': return 'PubMed/Scopus/Endnote';
+    case '.nbib': return 'PubMed';
     case '.enw': return 'CNKI';
     case '.rdf': return 'Zotero';
     case '.csv':
@@ -855,10 +978,10 @@ function detectSource(ext) {
 // File handling
 function handleFile(file) {
   const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
   
   if (!validExts.includes(ext)) {
-    showToast('不支持的文件格式，请上传 CSV, TSV, RIS, BibTeX, TXT, ENW 或 RDF 文件', 'error');
+    showToast('不支持的文件格式，请上传 CSV, TSV, RIS, BibTeX, TXT, ENW, NBIB 或 RDF 文件', 'error');
     return;
   }
 
@@ -905,6 +1028,7 @@ function parseFileContent(text, ext) {
       records = parseTSVContent(text);
       break;
     case '.ris':
+    case '.nbib':
       records = parseRISContent(text);
       break;
     case '.bib':
@@ -987,14 +1111,20 @@ function parseRISContent(text) {
   
   const fieldMap = {
     'TY': 'type', 'T1': 'title', 'TI': 'title', 'AU': 'authors', 'T2': 'journal',
-    'JO': 'journal', 'PY': 'year', 'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords',
-    'VL': 'volume', 'IS': 'issue'
+    'JO': 'journal', 'TA': 'journal', 'PY': 'year', 'DP': 'year', 'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords',
+    'VL': 'volume', 'VI': 'volume', 'IS': 'issue', 'IP': 'issue'
   };
 
   for (let line of lines) {
     line = line.trim();
-    if (line.startsWith('ER')) {
+    
+    // Handle record delimiters: ER marker or blank line (for NBIB compatibility)
+    if (line.startsWith('ER') || line === '') {
       if (Object.keys(currentRecord).length > 0) {
+        // NBIB files may not have explicit TY field; default to JOUR for journal articles
+        if (!currentRecord.type) {
+          currentRecord.type = 'JOUR';
+        }
         records.push(currentRecord);
         currentRecord = {};
       }
@@ -1009,6 +1139,12 @@ function parseRISContent(text) {
             currentRecord[mappedField] = value;
           } else {
             currentRecord[mappedField] += '; ' + value;
+          }
+        } else if (mappedField === 'year') {
+          // Extract 4-digit year from NBIB DP format (e.g., "2024" from "20240221")
+          if (!currentRecord[mappedField]) {
+            const yearMatch = value.match(/\d{4}/);
+            currentRecord[mappedField] = yearMatch ? yearMatch[0] : value;
           }
         } else {
           currentRecord[mappedField] = value;
@@ -1174,8 +1310,9 @@ function parseFile(text, ext) {
       parseTSV(text);
       break;
     case '.ris':
+    case '.nbib':
       fileFormat = 'RIS';
-      formatSource = 'Endnote, Zotero, Mendeley';
+      formatSource = ext === '.nbib' ? 'PubMed (.nbib)' : 'Endnote, Zotero, Mendeley';
       parseRIS(text);
       break;
     case '.bib':
@@ -1727,6 +1864,16 @@ function getProjectStorageKey(projectId) {
 
 function ensureProjectId() {
   if (currentProjectId) return currentProjectId;
+
+  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
+    ? runtimeSession.projectId.trim()
+    : '';
+  if (sessionProjectId) {
+    currentProjectId = sessionProjectId;
+    localStorage.setItem('prisma_current_project_id', currentProjectId);
+    return currentProjectId;
+  }
+
   const savedId = localStorage.getItem('prisma_current_project_id');
   if (savedId) {
     currentProjectId = savedId;
@@ -1738,7 +1885,10 @@ function ensureProjectId() {
 }
 
 function startNewProjectSession() {
-  currentProjectId = generateProjectId();
+  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
+    ? runtimeSession.projectId.trim()
+    : '';
+  currentProjectId = sessionProjectId || generateProjectId();
   localStorage.setItem('prisma_current_project_id', currentProjectId);
 
   // Reset project-scoped pieces
@@ -1794,15 +1944,37 @@ function restoreProjectState(snapshot) {
 }
 
 function loadCurrentProjectStateFromLocalStorage() {
+  const candidateIds = [];
+  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
+    ? runtimeSession.projectId.trim()
+    : '';
+  if (sessionProjectId) candidateIds.push(sessionProjectId);
+
   const savedId = localStorage.getItem('prisma_current_project_id');
-  if (!savedId) return false;
-  const raw = localStorage.getItem(getProjectStorageKey(savedId));
+  if (savedId && !candidateIds.includes(savedId)) candidateIds.push(savedId);
+
+  if (candidateIds.length === 0) return false;
+
+  let raw = null;
+  let matchedProjectId = null;
+  for (const projectId of candidateIds) {
+    const snapshotRaw = localStorage.getItem(getProjectStorageKey(projectId));
+    if (snapshotRaw) {
+      raw = snapshotRaw;
+      matchedProjectId = projectId;
+      break;
+    }
+  }
+
   if (!raw) return false;
 
   try {
     const snapshot = JSON.parse(raw);
     if (!snapshot || !snapshot.projectId) return false;
     currentProjectId = snapshot.projectId;
+    if (matchedProjectId !== snapshot.projectId) {
+      localStorage.setItem('prisma_current_project_id', snapshot.projectId);
+    }
     restoreProjectState(snapshot);
     return true;
   } catch (e) {
@@ -3999,6 +4171,7 @@ function checkAndCalculateKappa() {
       const stats = calculateReliabilityStats(reviewerADecisions, reviewerBDecisions);
       displayKappaResults(stats);
       document.getElementById('kappa-analysis').classList.remove('hidden');
+      applyModeGating(runtimeMode);
       
       // Show notification
       showToast('🎉 双人审查已完成！一致性分析已生成。', 'success');
@@ -4581,6 +4754,11 @@ function displayKappaResults(stats) {
 }
 
 function showDisagreements() {
+  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
+    showToast('仅主审查员可查看并处理意见分歧', 'warning');
+    return;
+  }
+
   if (!isDualReviewMode || !screeningResults) return;
   
   const fulltext = screeningResults.included;
@@ -4604,6 +4782,11 @@ function showDisagreements() {
 }
 
 function displayDisagreementResolution(disagreements) {
+  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
+    showToast('仅主审查员可处理分歧协商', 'warning');
+    return;
+  }
+
   if (disagreements.length === 0) {
     showToast('🎉 恭喜！所有文献审查结果一致，无需协商！', 'success');
     return;
@@ -5041,6 +5224,11 @@ function showDeduplicationSettings() {
 
 // Enhanced save/load functions for multi-user projects
 function saveProjectFile() {
+  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
+    showToast('仅主审查员可导出协作项目', 'warning');
+    return;
+  }
+
   saveProjectData();
   
   const projectExport = {
