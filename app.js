@@ -2196,6 +2196,19 @@ function editRulesAndRerun() {
   scrollToStep(2);
 }
 
+function returnToRulesConfig() {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传文献数据', 'warning');
+    return;
+  }
+
+  goToStep2();
+  if (filterRules) {
+    setFormRules(filterRules);
+  }
+  scrollToStep(2);
+}
+
 function setManualReviewDraftDecision(idx, decision) {
   if (!screeningResults) return;
   if (!screeningResults.manualReviewDraft || typeof screeningResults.manualReviewDraft !== 'object') {
@@ -2794,6 +2807,7 @@ function renderFilterRulesOverview(rules) {
   const ftRatio = typeof rules.fulltext_exclude_ratio === 'number' && !Number.isNaN(rules.fulltext_exclude_ratio)
     ? Math.round(rules.fulltext_exclude_ratio * 100) + '%'
     : '未设置';
+  const ftRatioNote = '仅用于规划与说明，不会自动排除全文文献';
 
   const includeHtml = includeAny.length
     ? includeAny.map(kw => `<li>${escapeHTML(String(kw))}</li>`).join('')
@@ -2822,6 +2836,7 @@ function renderFilterRulesOverview(rules) {
         <div>
           <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">全文排除比例参数</div>
           <div style="color: var(--color-text-secondary);">${escapeHTML(String(ftRatio))}</div>
+          <div style="margin-top: var(--space-6); font-size: var(--font-size-sm); color: var(--color-text-secondary);">${escapeHTML(ftRatioNote)}</div>
         </div>
       </div>
       <div class="grid grid-2" style="gap: var(--space-16); margin-top: var(--space-16);">
@@ -2845,6 +2860,35 @@ function renderFilterRulesOverview(rules) {
         </div>
       </div>
     </div>
+  `;
+}
+
+function renderScreeningDiagnostics(results) {
+  const container = document.getElementById('screeningDiagnostics');
+  if (!container) return;
+
+  const stats = results?.diagnostics;
+  if (!stats) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+
+  const items = [
+    ['时间窗口过滤', stats.excluded_time_window || 0],
+    ['包含关键词未命中', stats.excluded_include_keywords || 0],
+    ['必填字段缺失', stats.excluded_required_fields || 0],
+    ['语言不匹配', stats.excluded_language || 0],
+    ['命中排除关键词', stats.excluded_by_keyword || 0]
+  ];
+
+  container.style.display = '';
+  container.innerHTML = `
+    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">标题/摘要阶段排除明细</div>
+    <p style="margin-bottom: var(--space-12); color: var(--color-text-secondary);">这里展示的是第 3 步各类规则分别排除了多少文献。这样可以区分“命中排除关键词”和“年份/语言/字段要求未通过”。</p>
+    <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.8;">
+      ${items.map(([label, value]) => `<li><strong>${escapeHTML(label)}</strong>：${escapeHTML(String(value))}</li>`).join('')}
+    </ul>
   `;
 }
 
@@ -2881,6 +2925,7 @@ function displayResults(results) {
   }
 
   renderFilterRulesOverview(results.rules || filterRules);
+  renderScreeningDiagnostics(results);
   
   // Render rules overview in Step5 if exists
   const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
@@ -3112,9 +3157,9 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
   }
 
   // PRISMA 2020-like layout
-  const width = 900;
+  const width = 1120;
   const height = 1500;
-  const boxW = 360;
+  const boxW = 320;
   const boxH = 72;
 
   const xCenter = (width - boxW) / 2;

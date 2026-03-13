@@ -1190,10 +1190,15 @@ input[type="range"]::-moz-range-thumb {
             <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
               <label class="form-label" style="font-weight: var(--font-weight-bold);">⚙️ 高级参数</label>
               <div>
-                <label class="form-label" style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">全文排除比例 (模拟比例)</label>
+                <label class="form-label" style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">全文排除比例（规划参数，不会自动删除文献）</label>
                 <div class="slider-container">
                   <input type="range" id="ftExcludeRatio" min="0" max="1" step="0.05" value="0.2">
                   <span class="slider-value" id="ftExcludeValue">20%</span>
+                </div>
+                <div class="info-box" style="margin-top: var(--space-12); background: var(--color-bg-1); border-left: 4px solid var(--color-info);">
+                  <strong>使用说明</strong>
+                  <p style="margin-top: var(--space-8); margin-bottom: 0;">该参数当前用于记录您预估的全文阶段排除比例，便于提前规划人工审核工作量与报告说明，<strong>不会在系统里自动排除任何全文文献</strong>。</p>
+                  <p style="margin-top: var(--space-8); margin-bottom: 0;">建议使用：您已有领域经验，想预估全文阶段大约还会排除多少文献时。<br>不建议使用：您希望系统按该比例自动删除文献时，此时请保持 0%，并在第 4 步人工审核后得到真实全文排除数。</p>
                 </div>
               </div>
             </div>
@@ -1344,6 +1349,7 @@ input[type="range"]::-moz-range-thumb {
       </div>
 
       <div class="button-group" style="margin-bottom: var(--space-24);">
+        <button class="btn btn-secondary" onclick="returnToRulesConfig()">← 返回配置规则</button>
         <button class="btn btn-secondary" onclick="editRulesAndRerun()">修改筛选规则并重新运行</button>
       </div>
 
@@ -1399,6 +1405,8 @@ input[type="range"]::-moz-range-thumb {
           <div class="stat-value" id="stat-included">0</div>
         </div>
       </div>
+
+      <div id="screeningDiagnostics" class="info-box" style="margin-top: var(--space-20); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);"></div>
 
       <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">颜色主题选择</h3>
       <div class="info-box" style="margin-bottom: var(--space-24);">
