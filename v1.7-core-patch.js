@@ -22,8 +22,17 @@ function performScreeningV17(data, rulesParam) {
   let rules = rulesParam;
   
   if (!rules) {
+    const yamlParser = (typeof jsyaml !== 'undefined' && jsyaml && typeof jsyaml.load === 'function')
+      ? jsyaml
+      : (window.jsyaml && typeof window.jsyaml.load === 'function' ? window.jsyaml : null);
+
+    if (!yamlParser) {
+      showToast('缺少 YAML 解析器，无法执行筛选', 'error');
+      return null;
+    }
+
     try {
-      rules = jsyaml.load(document.getElementById('yamlEditor').value);
+      rules = yamlParser.load(document.getElementById('yamlEditor').value);
       filterRules = rules;
     } catch (e) {
       console.error('YAML 格式错误:', e);
@@ -268,7 +277,6 @@ function performScreeningV17(data, rulesParam) {
     console.log(`✨ ${protectedCount} 篇包含关键词的文献已被保护`);
   }
 
-  return rngResults for compatibility
   return screeningResults;
 }
 
@@ -411,12 +419,57 @@ function exportDedupedData() {
     });
     
     // Export to CSV
-    const csvContent = convertToCSV(deduped);
+    const csvContent = buildCSVFromRecords(deduped);
     downloadFile(csvContent, 'deduped_records.csv', 'text/csv');
     
     hideLoading();
     showToast(`已导出去重数据 (${deduped.length}条)`, 'success');
   }, 100);
+}
+
+function buildCSVFromRecords(records) {
+  if (!Array.isArray(records) || records.length === 0) {
+    return '';
+  }
+
+  const headers = [...new Set(records.flatMap(row => Object.keys(row || {})))];
+  const escapeCell = (value) => {
+    const text = value == null ? '' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const lines = [headers.join(',')];
+  records.forEach((row) => {
+    lines.push(headers.map((header) => escapeCell(row[header])).join(','));
+  });
+
+  return lines.join('\n');
+}
+
+function showDedupDetails() {
+  const stats = runQuickDedupStats();
+  const details = [
+    `原始记录: ${uploadedData.length}`,
+    `去重后记录: ${stats.unique}`,
+    `重复记录: ${stats.duplicates}`,
+    `DOI重复: ${stats.doiDupes}`,
+    `标题重复: ${stats.titleDupes}`
+  ].join('\n');
+
+  if (typeof showModal === 'function') {
+    showModal(`
+      <div style="padding: var(--space-20); background: white; border-radius: 8px; max-width: 520px; margin: 20px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">🔍 去重详情</h3>
+        <pre style="margin:0; white-space:pre-wrap; line-height:1.8; font-family:monospace;">${details}</pre>
+        <div style="text-align:right; margin-top: var(--space-16);">
+          <button class="btn btn-primary" onclick="closeModal()">关闭</button>
+        </div>
+      </div>
+    `);
+    return;
+  }
+
+  alert(details);
 }
 
 // v1.7 Step 2 UI Injection
@@ -442,16 +495,20 @@ function injectStep2PriorityToggle() {
 // Override original functions
 window.performScreening = performScreeningV17;
 window.displayUploadInfo = displayUploadInfoV17;
+window.showDedupDetails = showDedupDetails;
 
 const originalGoToStep2 = window.goToStep2;
-window.goToStep2 = function() {
-  if (typeof setStep === 'function') {
+window.goToStep2 = function(...args) {
+  if (typeof originalGoToStep2 === 'function') {
+    originalGoToStep2.apply(this, args);
+  } else if (typeof setStep === 'function') {
     setStep(2);
   } else {
-    // Fallback if setStep not available
     document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById('step2').classList.remove('hidden');
-    updateStepIndicator(2);
+    document.getElementById('step2')?.classList.remove('hidden');
+    if (typeof updateStepIndicator === 'function') {
+      updateStepIndicator(2);
+    }
   }
   injectStep2PriorityToggle();
 };
