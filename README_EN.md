@@ -1,8 +1,35 @@
-# PRISMA Literature Screening Assistant v1.6
+# PRISMA Literature Screening Assistant v1.7
 
 English | [简体中文](./README.md)
 
-A powerful literature screening and PRISMA 2020 flow diagram generation tool to help researchers efficiently complete literature screening for systematic reviews and meta-analyses. **v1.6 Engineering Enhancement: Progress Visualization, Fault Tolerance, Explainable Deduplication.**
+A powerful literature screening and PRISMA 2020 flow diagram generation tool to help researchers efficiently complete literature screening for systematic reviews and meta-analyses. **v1.7 adds verified fixes for PubMed `.nbib` import, single/dual review mode gating, and post-dedup workflow continuity.**
+
+## Verified v1.7.x Fixes (2026-03)
+
+### 1. PubMed `.nbib` import is now fully wired
+- Upload accept list includes `.nbib`
+- Main-thread and worker parsing paths both recognize `.nbib`
+- PubMed exports can now enter the same screening pipeline as RIS imports
+
+### 2. Single / dual review mode gating is fixed
+- The app now reads `prisma_user_session` from `sessionStorage`
+- Runtime mode correctly resolves to:
+  - `single`
+  - `dual-main`
+  - `dual-secondary`
+- Collaboration-only actions are gated by reviewer role
+
+### 3. Post-dedup progression no longer gets stuck
+- Step 2 / Step 4 integration in `v1.7-core-patch.js` was hardened
+- Dedup detail viewing and dedup-only CSV export remain available
+- Verified browser flow now reaches manual full-text review (Step 4)
+
+### 4. Regression status
+- `node tests/run-all-regressions.js` → **5/5 PASS**
+- Browser verification covered:
+  - `.nbib` upload and preview
+  - Step 1 → Step 4 progression
+  - runtime mode detection and session wiring
 
 ## Core Features
 
@@ -52,7 +79,7 @@ A powerful literature screening and PRISMA 2020 flow diagram generation tool to 
 
 ### Multi-format Support
 - **CSV/TSV**: Comma/tab-separated formats
-- **RIS/ENW**: Endnote/Zotero/Mendeley export formats
+- **RIS/NBIB/ENW**: Endnote/Zotero/Mendeley/PubMed export formats
 - **BibTeX**: LaTeX bibliography management format
 - **RDF**: Zotero RDF/XML format
 - **TXT**: Plain text line-by-line parsing
