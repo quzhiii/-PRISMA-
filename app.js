@@ -447,7 +447,7 @@ function init() {
   renderExclusionTemplateEditor();
 
   // v1.4: Restore last opened project (per-project persistence)
-  const restored = loadCurrentProjectStateFromLocalStorage();
+  const restored = shouldAutoRestoreProjectState() ? loadCurrentProjectStateFromLocalStorage() : false;
   if (restored) {
     // If we have data, ensure UI gets refreshed
     if (uploadedData && uploadedData.length > 0) {
@@ -479,6 +479,8 @@ function init() {
   if (currentUserSession) {
     loadProjectData();
     updateCollaborationStatus();
+  } else {
+    setStep(1);
   }
 }
 
@@ -1941,6 +1943,10 @@ function restoreProjectState(snapshot) {
   } else {
     exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
   }
+}
+
+function shouldAutoRestoreProjectState() {
+  return !!currentUserSession;
 }
 
 function loadCurrentProjectStateFromLocalStorage() {
