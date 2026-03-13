@@ -1,0 +1,28 @@
+TAP version 13
+# Subtest: missing string fields default to empty string in included studies
+ok 1 - missing string fields default to empty string in included studies
+  ---
+  duration_ms: 1.7544
+  type: 'test'
+  ...
+# Subtest: missing string fields default to empty string in excluded studies
+ok 2 - missing string fields default to empty string in excluded studies
+  ---
+  duration_ms: 0.2765
+  type: 'test'
+  ...
+# Subtest: year=0 is coerced to null in shaped records
+ok 3 - year=0 is coerced to null in shaped records
+  ---
+  duration_ms: 0.2064
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 75.295
