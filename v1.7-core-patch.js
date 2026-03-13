@@ -48,12 +48,17 @@ function performScreeningV17(data, rulesParam) {
   
   // 1. Pre-processing
   const processedData = inputData.map(row => {
+      const mappedTitle = getValue(row, 'title') || row.title || row.TI || row.T1 || '';
+      const mappedAbstract = getValue(row, 'abstract') || row.abstract || row.AB || '';
+      const mappedKeywords = getValue(row, 'keywords') || row.keywords || row.KW || '';
+      const mappedYear = getValue(row, 'year') || row.year || row.PY || row.DP || row.publication_year || '';
+
       // Normalize fields
-      const yearStr = (row.year || row.PY || row.publication_year || '').toString();
+      const yearStr = String(mappedYear || '');
       
       // Determine language
       let lang = 'unknown';
-      const text = (row.title + ' ' + row.abstract).toLowerCase();
+      const text = `${mappedTitle} ${mappedAbstract}`.toLowerCase();
       if (/[\u4e00-\u9fa5]/.test(text)) {
         lang = 'chinese';
       } else {
@@ -62,7 +67,10 @@ function performScreeningV17(data, rulesParam) {
 
       return {
         ...row,
-        _normalized_title: normalizeTitle(row.title || ''),
+        _normalized_title: normalizeTitle(mappedTitle || ''),
+        _mapped_title: mappedTitle,
+        _mapped_abstract: mappedAbstract,
+        _mapped_keywords: mappedKeywords,
         _year_str: yearStr,
         _lang: lang
       };
@@ -125,10 +133,14 @@ function performScreeningV17(data, rulesParam) {
     dedupStats.afterDedupCount = deduped.length;
 
     // 3. Time window filter
+    const timeWindowRejected = [];
     const inTimeWindow = deduped.filter(row => {
       // Logic for year extraction
       const yearValue = row._year_str;
-      if (!yearValue) return false;
+      if (!yearValue) {
+        timeWindowRejected.push(row);
+        return false;
+      }
       
       let year = parseInt(yearValue);
       // Try extracting 4-digit year if parseInt fails or returns weird value
@@ -137,7 +149,11 @@ function performScreeningV17(data, rulesParam) {
         if (match) year = parseInt(match[0]);
       }
       
-      return year >= rules.time_window.start_year && year <= rules.time_window.end_year;
+      const inRange = year >= rules.time_window.start_year && year <= rules.time_window.end_year;
+      if (!inRange) {
+        timeWindowRejected.push(row);
+      }
+      return inRange;
     });
 
     // 4. Include keywords filter (Step 2)
@@ -148,11 +164,12 @@ function performScreeningV17(data, rulesParam) {
     const includePriority = document.getElementById('includePriorityToggle')?.checked ?? true;
 
     if (validKeywords.length > 0) {
+      const includeRejected = [];
       withIncludeKW = inTimeWindow.filter(row => {
         const text = (
-          (row.title || '') + ' ' + 
-          (row.abstract || '') + ' ' + 
-          (row.keywords || '')
+          (row._mapped_title || '') + ' ' + 
+          (row._mapped_abstract || '') + ' ' + 
+          (row._mapped_keywords || '')
         ).toLowerCase();
         
         // Check if matches ANY include keyword
@@ -163,8 +180,10 @@ function performScreeningV17(data, rulesParam) {
           row._matches_include = true;
         }
         
+        if (!matches) includeRejected.push(row);
         return matches;
       });
+      rules.__includeRejectedCount = includeRejected.length;
     } else {
       // If no include keywords, mark all as matching (implicitly)
       // But for priority logic, we only protect if EXPLICITLY matched
@@ -175,20 +194,26 @@ function performScreeningV17(data, rulesParam) {
     let withRequiredFields = withIncludeKW;
     const mappedRequiredFields = (rules.required_one_of || []).filter(field => columnMapping[field]);
 
+    let requiredRejectedCount = 0;
     if (mappedRequiredFields.length > 0) {
       withRequiredFields = withIncludeKW.filter(row => {
-        return mappedRequiredFields.some(field => {
+        const keep = mappedRequiredFields.some(field => {
           const value = getValue(row, field);
           return value && value.trim().length > 0;
         });
+        if (!keep) requiredRejectedCount++;
+        return keep;
       });
     }
 
     // 6. Language filter
     let withLanguage = withRequiredFields;
+    let languageRejectedCount = 0;
     if (rules.language?.allow?.length > 0) {
       withLanguage = withRequiredFields.filter(row => {
-        return rules.language.allow.includes(row._lang);
+        const keep = rules.language.allow.includes(row._lang);
+        if (!keep) languageRejectedCount++;
+        return keep;
       });
     }
 
@@ -198,9 +223,9 @@ function performScreeningV17(data, rulesParam) {
     let protectedCount = 0; // v1.7 Stat
 
     withLanguage.forEach(row => {
-      const title = row.title || '';
-      const abstract = row.abstract || '';
-      const keywords = row.keywords || '';
+      const title = row._mapped_title || '';
+      const abstract = row._mapped_abstract || '';
+      const keywords = row._mapped_keywords || '';
       const text = (title + ' ' + abstract + ' ' + keywords).toLowerCase();
       
       let excluded = false;
@@ -238,24 +263,31 @@ function performScreeningV17(data, rulesParam) {
     });
 // Save results (but don't display yet - let caller handle that)
   const results = {
-    counts: {
-      identified_db: dedupStats.originalCount,
-      identified_other: 0,
-      duplicates: duplicates.length,
-      after_dupes: deduped.length,
-      screened: deduped.length,
-      excluded_ta: deduped.length - afterTA.length,
-      fulltext: afterTA.length,
-      excluded_ft: 0,
-      included: afterTA.length,
-      protected: protectedCount
-    },
+      counts: {
+        identified_db: dedupStats.originalCount,
+        identified_other: 0,
+        duplicates: duplicates.length,
+        after_dupes: deduped.length,
+        screened: deduped.length,
+        excluded_ta: timeWindowRejected.length + (rules.__includeRejectedCount || 0) + requiredRejectedCount + languageRejectedCount + excluded_ta.length,
+        fulltext: afterTA.length,
+        excluded_ft: 0,
+        included: afterTA.length,
+        protected: protectedCount
+      },
     duplicates: duplicates,
     included: afterTA,
     excluded: excluded_ta,
     rules: rules,
-    sourceDistribution: {} // Placeholder for v3.0 compatibility
-  };
+      sourceDistribution: {}, // Placeholder for v3.0 compatibility
+      diagnostics: {
+        excluded_time_window: timeWindowRejected.length,
+        excluded_include_keywords: rules.__includeRejectedCount || 0,
+        excluded_required_fields: requiredRejectedCount,
+        excluded_language: languageRejectedCount,
+        excluded_by_keyword: excluded_ta.length
+      }
+    };
 
   // Auto-identify study designs (v1.3)
   results.included.forEach(record => {
