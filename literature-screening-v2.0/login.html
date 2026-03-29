@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" id="metaDescription" content="Dual-review login for PRISMA literature screening workflow.">
+    <title>PRISMA Literature Screening - Dual Review Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <div class="site-shell">
+        <div class="page-frame">
+            <header class="site-nav">
+                <a class="brand" href="index.html">
+                    <span class="brand-mark" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PRISMA logo">
+                            <title>PRISMA logo</title>
+                            <path d="M4 16.5L12 4l8 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 16.5h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            <circle cx="12" cy="16.5" r="2.3" fill="currentColor"/>
+                        </svg>
+                    </span>
+                    <span class="brand-copy">
+                        <span class="brand-title"><span class="zh">PRISMA 文献筛选</span><span class="en">PRISMA Literature Screening</span></span>
+                        <span class="brand-subtitle"><span class="zh">双人复核入口</span><span class="en">Dual-review access</span></span>
+                    </span>
+                </a>
+                <div class="nav-actions">
+                    <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</button>
+                <a class="ghost-link" href="workspace.html" data-lang-link="workspace.html"><span class="zh">单人复核</span><span class="en">Single Review</span></a>
+                </div>
+            </header>
+
+            <main class="login-layout">
+                <section class="login-hero hero-panel">
+                    <div>
+                        <div class="eyebrow"><span class="zh">双人复核</span><span class="en">Dual Review</span></div>
+                        <h1 class="login-title">
+                            <span class="zh">双人复核协作入口</span>
+                            <span class="en">Dual-review collaboration entry</span>
+                        </h1>
+                        <p class="hero-description">
+                            <span class="zh">主复核员 / 副复核员分工、项目 ID、分歧识别和一致性分析都从这个入口开始。</span>
+                            <span class="en">Primary and secondary reviewer roles, project IDs, disagreement handling, and agreement analysis all start here.</span>
+                        </p>
+                        <div class="hero-tag-row">
+                            <div class="hero-tag">
+                                <strong><span class="zh">角色分工</span><span class="en">Roles</span></strong>
+                                <span><span class="zh">主复核员 / 副复核员独立进入</span><span class="en">Primary / secondary access</span></span>
+                            </div>
+                            <div class="hero-tag">
+                                <strong><span class="zh">项目连接</span><span class="en">Project link</span></strong>
+                                <span><span class="zh">用项目 ID 保持同一轮复核</span><span class="en">Keep one review cycle with a project ID</span></span>
+                            </div>
+                            <div class="hero-tag">
+                                <strong><span class="zh">一致性分析</span><span class="en">Agreement</span></strong>
+                                <span><span class="zh">为 Kappa 和分歧处理做准备</span><span class="en">Prepare for Kappa and reconciliation</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <section class="login-card">
+                    <div class="card-kicker"><span class="zh">双人复核入口</span><span class="en">Dual Review Access</span></div>
+                    <h2 class="panel-title" style="margin-bottom: 8px;"><span class="zh">进入双人复核</span><span class="en">Access Dual Review</span></h2>
+                    <p class="login-subtitle" style="margin: 0 0 16px;"><span class="zh">选择角色并通过项目 ID 进入同一轮复核。</span><span class="en">Choose your role and enter the same review cycle with the project ID.</span></p>
+
+                    <div id="project-info" class="project-info hidden">
+                        <div class="project-name" id="project-name">项目名称</div>
+                        <div class="project-details">
+                            <span class="zh">文献数量</span><span class="en">Records</span>: <span id="project-count">0</span>
+                            <span style="margin: 0 6px;">|</span>
+                            <span class="zh">创建者</span><span class="en">Creator</span>: <span id="project-creator">未知</span>
+                        </div>
+                    </div>
+
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label class="form-label"><span class="zh">选择您的角色</span><span class="en">Choose your role</span></label>
+                            <div class="role-selector">
+                                <div class="role-option">
+                                    <input type="radio" name="role" value="reviewer-a" id="role-a" checked>
+                                    <label for="role-a" class="role-label">
+                                        <strong><span class="zh">主复核员</span><span class="en">Primary Reviewer</span></strong><br>
+                                        <small><span class="zh">创建项目并启动这一轮筛选</span><span class="en">Creates the project and starts this review cycle</span></small>
+                                    </label>
+                                </div>
+                                <div class="role-option">
+                                    <input type="radio" name="role" value="reviewer-b" id="role-b">
+                                    <label for="role-b" class="role-label">
+                                        <strong><span class="zh">副复核员</span><span class="en">Secondary Reviewer</span></strong><br>
+                                        <small><span class="zh">加入主复核员已建立的项目</span><span class="en">Joins the project created by the primary reviewer</span></small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="username" class="form-label"><span class="zh">您的姓名</span><span class="en">Your name</span></label>
+                            <input type="text" id="username" name="username" class="form-input" placeholder="请输入您的真实姓名 / Enter your full name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="project-id" class="form-label" id="project-id-label">项目ID</label>
+                            <input type="text" id="project-id" name="project-id" class="form-input" placeholder="输入或生成项目ID / Enter or generate project ID" required>
+                            <small id="project-id-help" class="muted-text" style="display: block; margin-top: 8px;">
+                                <span class="zh">主复核员：系统会自动生成项目 ID，用于标记本轮复核。<br>副复核员：请输入主复核员提供的项目 ID；如果项目尚未创建，仍可继续登录等待同步。</span>
+                                <span class="en">Primary reviewer: the system auto-generates the project ID for this review cycle.<br>Secondary reviewer: enter the ID shared by the primary reviewer. If the project is not found yet, you can still continue and wait for sync.</span>
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary login-btn" id="login-btn"><span class="zh">创建项目并开始复核</span><span class="en">Create project and start review</span></button>
+                    </form>
+
+                    <div class="divider"><span><span class="zh">或者</span><span class="en">or</span></span></div>
+
+                    <div class="quick-actions">
+                        <a href="workspace.html" class="link-btn" data-lang-link="workspace.html"><span class="zh">进入单人复核模式</span><span class="en">Continue in single-review mode</span></a>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function getCurrentLang() {
+            const params = new URLSearchParams(window.location.search);
+            const paramLang = params.get('lang');
+            if (paramLang === 'zh' || paramLang === 'en') {
+                localStorage.setItem('prisma_lang', paramLang);
+                return paramLang;
+            }
+            const storedLang = localStorage.getItem('prisma_lang');
+            if (storedLang === 'zh' || storedLang === 'en') {
+                return storedLang;
+            }
+            return 'zh';
+        }
+
+        function syncLangLinks(lang) {
+            document.querySelectorAll('[data-lang-link]').forEach((link) => {
+                const base = link.getAttribute('data-lang-link');
+                link.href = `${base}?lang=${lang}`;
+            });
+        }
+
+        function applyLangVisibility() {
+            const lang = document.documentElement.lang;
+            const isZh = lang === 'zh';
+            document.querySelectorAll('.zh').forEach((el) => {
+                el.hidden = !isZh;
+            });
+            document.querySelectorAll('.en').forEach((el) => {
+                el.hidden = isZh;
+            });
+            document.title = isZh ? 'PRISMA 双人复核入口' : 'PRISMA Dual Review Login';
+            const metaDescription = document.getElementById('metaDescription');
+            if (metaDescription) {
+                metaDescription.content = isZh
+                    ? 'PRISMA 文献筛选双人复核入口，支持主复核员、副复核员、项目 ID 与一致性分析场景。'
+                    : 'PRISMA dual-review entry for primary and secondary reviewers, project IDs, and agreement-analysis workflows.';
+            }
+            document.getElementById('langToggle').textContent = isZh ? 'EN' : '中';
+            syncLangLinks(lang);
+        }
+
+        window.toggleLang = function toggleLang() {
+            const isZh = document.documentElement.lang === 'zh';
+            const nextLang = isZh ? 'en' : 'zh';
+            document.documentElement.lang = nextLang;
+            localStorage.setItem('prisma_lang', nextLang);
+            applyLangVisibility();
+            syncRoleLanguage();
+        };
+    </script>
+
+    <script>
+        // 角色切换逻辑
+        const roleRadios = document.querySelectorAll('input[name="role"]');
+        const projectIdLabel = document.getElementById('project-id-label');
+        const projectIdInput = document.getElementById('project-id');
+        /* biome-ignore lint/correctness/noUnusedVariables: preserved from original v1.7 login logic */
+        const projectIdHelp = document.getElementById('project-id-help');
+        const loginBtn = document.getElementById('login-btn');
+        
+        roleRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const isZh = document.documentElement.lang === 'zh';
+                if (this.value === 'reviewer-a') {
+                    projectIdLabel.textContent = isZh ? '项目ID（自动生成）' : 'Project ID (Auto-generated)';
+                    projectIdInput.placeholder = isZh ? '系统将自动生成唯一ID' : 'The system will generate a unique ID';
+                    projectIdInput.value = generateProjectId();
+                    projectIdInput.readOnly = true;
+                    loginBtn.innerHTML = isZh ? '创建项目并开始复核' : 'Create project and start review';
+                } else {
+                    projectIdLabel.textContent = isZh ? '项目ID（请输入）' : 'Project ID (Required)';
+                    projectIdInput.placeholder = isZh ? '请输入主复核员提供的项目ID' : 'Enter the project ID from the primary reviewer';
+                    projectIdInput.value = '';
+                    projectIdInput.readOnly = false;
+                    loginBtn.innerHTML = isZh ? '加入项目并开始复核' : 'Join project and start review';
+                }
+            });
+        });
+        
+        // 生成项目ID
+        function generateProjectId() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substring(2, 8);
+            return `PRISMA-${timestamp}-${random}`.toUpperCase();
+        }
+        
+        // 初始化
+        document.getElementById('role-a').checked = true;
+        document.getElementById('project-id').value = generateProjectId();
+        document.getElementById('project-id').readOnly = true;
+        
+        // 表单提交
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const role = formData.get('role');
+            const username = formData.get('username');
+            const projectId = formData.get('project-id');
+            
+            if (!username.trim() || !projectId.trim()) {
+                alert(document.documentElement.lang === 'zh' ? '请填写完整信息！' : 'Please complete all required fields.');
+                return;
+            }
+            
+            // 保存用户会话信息
+            const userSession = {
+                role: role,
+                username: username.trim(),
+                projectId: projectId.trim(),
+                loginTime: new Date().toISOString(),
+                isMainReviewer: role === 'reviewer-a',
+                language: document.documentElement.lang
+            };
+            
+            // 存储到sessionStorage（会话级别，关闭浏览器即清除）
+            sessionStorage.setItem('prisma_user_session', JSON.stringify(userSession));
+            
+            // 如果是副审查员，提示用户项目状态但不阻止登录
+            if (role === 'reviewer-b') {
+                const projectExists = checkProjectExists(projectId);
+                if (!projectExists) {
+                    // 不阻止登录，但给出提示
+                    const proceed = confirm(document.documentElement.lang === 'zh'
+                        ? '项目ID不存在或尚未创建。\n\n您可以：\n1. 继续登录（系统会在主应用中再次检查）\n2. 返回检查项目ID\n\n是否继续登录？'
+                        : 'The project ID does not exist or has not been created yet.\n\nYou can:\n1. Continue login and check again in the main app\n2. Go back and verify the project ID\n\nContinue?');
+                    if (!proceed) {
+                        return;
+                    }
+                }
+            }
+            
+            // 跳转到主应用
+            window.location.href = `workspace.html?lang=${document.documentElement.lang}`;
+        });
+        
+        // 检查项目是否存在（简化版，实际项目中需要服务器端验证）
+        function checkProjectExists(projectId) {
+            // 检查localStorage中是否有该项目的数据
+            const existingProjects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            /* biome-ignore lint/suspicious/noPrototypeBuiltins: preserve original v1.7 login logic */
+            return existingProjects.hasOwnProperty(projectId);
+        }
+        
+        // 监听项目ID输入，实时验证
+        document.getElementById('project-id').addEventListener('input', function() {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const loginBtn = document.getElementById('login-btn');
+            
+            if (role === 'reviewer-b' && this.value.trim()) {
+                const projectExists = checkProjectExists(this.value.trim());
+                if (projectExists) {
+                    this.style.borderColor = '#10b981';
+                    this.style.background = 'rgba(34, 197, 94, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                loginBtn.innerHTML = document.documentElement.lang === 'zh' ? '✓ 项目已找到 - 加入复核' : '✓ Project found - join review';
+                    loadProjectInfo(this.value.trim());
+                } else {
+                    this.style.borderColor = '#f59e0b';
+                    this.style.background = 'rgba(245, 158, 11, 0.05)';
+                    loginBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    loginBtn.innerHTML = document.documentElement.lang === 'zh' ? '! 项目未找到 - 尝试加入' : '! Project not found - try joining';
+                    hideProjectInfo();
+                }
+            } else if (role === 'reviewer-b') {
+                // 重置样式
+                this.style.borderColor = '';
+                this.style.background = '';
+                loginBtn.style.background = 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)';
+                loginBtn.innerHTML = document.documentElement.lang === 'zh' ? '加入项目并开始复核' : 'Join project and start review';
+                hideProjectInfo();
+            }
+        });
+        
+        // 加载项目信息
+        function loadProjectInfo(projectId) {
+            const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+            const project = projects[projectId];
+            const isZh = document.documentElement.lang === 'zh';
+            
+            if (project) {
+                document.getElementById('project-name').textContent = project.name || (isZh ? '未命名项目' : 'Untitled project');
+                document.getElementById('project-count').textContent = Number.isFinite(project.literatureCount)
+                    ? project.literatureCount
+                    : (Array.isArray(project.uploadedData) ? project.uploadedData.length : 0);
+                document.getElementById('project-creator').textContent = project.creator || (isZh ? '未知' : 'Unknown');
+                document.getElementById('project-info').classList.remove('hidden');
+            }
+        }
+        
+        // 隐藏项目信息
+        function hideProjectInfo() {
+            document.getElementById('project-info').classList.add('hidden');
+        }
+    </script>
+
+    <script>
+        function syncRoleLanguage() {
+            const isZh = document.documentElement.lang === 'zh';
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const label = document.getElementById('project-id-label');
+            const input = document.getElementById('project-id');
+            const help = document.getElementById('project-id-help');
+            const button = document.getElementById('login-btn');
+            const usernameInput = document.getElementById('username');
+
+            usernameInput.placeholder = isZh ? '请输入您的真实姓名' : 'Enter your full name';
+
+            if (role === 'reviewer-a') {
+                label.textContent = isZh ? '项目ID（自动生成）' : 'Project ID (Auto-generated)';
+                input.placeholder = isZh ? '系统将自动生成唯一ID' : 'The system will generate a unique ID';
+                button.innerHTML = isZh ? '创建项目并开始复核' : 'Create project and start review';
+            } else {
+                label.textContent = isZh ? '项目ID（请输入）' : 'Project ID (Required)';
+                input.placeholder = isZh ? '请输入主复核员提供的项目ID' : 'Enter the project ID from the primary reviewer';
+                const projectExists = input.value.trim() ? checkProjectExists(input.value.trim()) : false;
+                if (!input.value.trim()) {
+                    button.innerHTML = isZh ? '加入项目并开始复核' : 'Join project and start review';
+                } else if (projectExists) {
+                    button.innerHTML = isZh ? '✓ 项目已找到 - 加入复核' : '✓ Project found - join review';
+                } else {
+                    button.innerHTML = isZh ? '! 项目未找到 - 尝试加入' : '! Project not found - try joining';
+                }
+            }
+
+            help.innerHTML = isZh
+                    ? '主复核员：系统会自动生成项目 ID，用于标记本轮复核。<br>副复核员：请输入主复核员提供的项目 ID；如果项目尚未创建，仍可继续登录等待同步。'
+                : 'Primary reviewer: the system auto-generates the project ID for this review cycle.<br>Secondary reviewer: enter the ID shared by the primary reviewer. If the project does not exist yet, you can still continue and wait for sync.';
+        }
+
+        roleRadios.forEach((radio) => {
+            radio.addEventListener('change', syncRoleLanguage);
+        });
+        document.getElementById('project-id').addEventListener('input', syncRoleLanguage);
+        document.documentElement.lang = getCurrentLang();
+        applyLangVisibility();
+        syncRoleLanguage();
+    </script>
+</body>
+</html>

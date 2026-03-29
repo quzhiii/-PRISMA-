@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" id="metaDescription" content="Professional PRISMA landing page for literature screening, dual review, and PRISMA 2020 workflow overview.">
+  <title>PRISMA Literature Screening - Overview</title>
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+  <div class="site-shell">
+    <div class="page-frame">
+      <header class="site-nav">
+        <a class="brand" href="index.html">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PRISMA logo">
+              <title>PRISMA logo</title>
+              <path d="M4 16.5L12 4l8 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 16.5h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="12" cy="16.5" r="2.3" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-title"><span class="zh">PRISMA 文献筛选</span><span class="en">PRISMA Literature Screening</span></span>
+            <span class="brand-subtitle"><span class="zh">概览与入口页</span><span class="en">Overview and entry page</span></span>
+          </span>
+        </a>
+        <div class="nav-actions">
+          <a class="ghost-link" href="index.html" data-lang-link="index.html"><span class="zh">首页</span><span class="en">Home</span></a>
+          <a class="ghost-link" href="workspace.html" data-lang-link="workspace.html"><span class="zh">工作台</span><span class="en">Workspace</span></a>
+          <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="landing-hero">
+          <div>
+            <div class="eyebrow"><span class="zh">产品概览</span><span class="en">Product Overview</span></div>
+            <h1 class="hero-title">
+              <span class="zh">PRISMA 文献筛选工作台概览。</span>
+              <span class="en">Overview of the PRISMA literature screening workspace.</span>
+            </h1>
+            <p class="hero-description">
+              <span class="zh">用于概览产品定位、工作流结构与使用入口，便于研究团队、协作者与汇报对象快速建立整体认知。</span>
+              <span class="en">Provides a concise overview of product positioning, workflow structure, and access paths for research teams, collaborators, and stakeholders.</span>
+            </p>
+            <div class="hero-actions">
+              <a class="cta-link primary" href="workspace.html" data-lang-link="workspace.html"><span class="zh">进入工作台</span><span class="en">Open Workspace</span></a>
+              <a class="cta-link secondary" href="login.html" data-lang-link="login.html"><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></a>
+            </div>
+          </div>
+          <div class="hero-metrics">
+            <div class="hero-metric">
+              <strong>30k+</strong>
+              <span><span class="zh">记录级处理容量</span><span class="en">Record-scale processing</span></span>
+            </div>
+            <div class="hero-metric">
+              <strong>PRISMA</strong>
+              <span><span class="zh">面向标准化系统综述</span><span class="en">Aligned with standardized reviews</span></span>
+            </div>
+            <div class="hero-metric">
+              <strong>Local</strong>
+              <span><span class="zh">本地处理，隐私优先</span><span class="en">Local-first and privacy-first</span></span>
+            </div>
+            <div class="hero-metric">
+              <strong>Bi</strong>
+              <span><span class="zh">中英文双语入口</span><span class="en">Bilingual entry layer</span></span>
+            </div>
+          </div>
+        </section>
+
+        <section style="margin-top: var(--space-32);">
+          <div class="section-heading">
+            <div>
+              <h2><span class="zh">三类典型使用场景</span><span class="en">Three common usage scenarios</span></h2>
+              <p><span class="zh">这里更偏向“你为什么使用它、在什么场景下使用它”，而首页更偏向快速进入。</span><span class="en">This page explains why and when to use the system, while the main homepage stays focused on faster entry.</span></p>
+            </div>
+          </div>
+          <div class="route-grid">
+            <article class="route-card priority">
+              <div>
+                <div class="route-top">
+                  <span class="route-badge"><span class="zh">场景 A</span><span class="en">Scenario A</span></span>
+                  <span class="pill"><span class="zh">单人复核</span><span class="en">Single Review</span></span>
+                </div>
+                <h3><span class="zh">单人筛选与项目试运行</span><span class="en">Single-review screening and pilot runs</span></h3>
+                <p class="route-meta"><span class="zh">适合已准备好数据库导出文件并希望直接进入筛选流程的单人项目。</span><span class="en">Suitable for single-review projects that are ready to enter the screening workflow.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><span class="zh">直接进入工作台，不额外打断流程</span><span class="en">Enter the workspace directly without extra setup</span></li>
+                <li><span class="zh">适合快速试跑、方法探索和个人项目</span><span class="en">Works well for fast trials, method exploration, and solo projects</span></li>
+                <li><span class="zh">保留原有筛选逻辑与导出结构</span><span class="en">Keeps the existing logic and export structure untouched</span></li>
+              </ul>
+              <div class="route-actions">
+                <a class="cta-link secondary" href="workspace.html" data-lang-link="workspace.html"><span class="zh">打开工作台</span><span class="en">Open Workspace</span></a>
+              </div>
+            </article>
+            <article class="route-card">
+              <div>
+                <div class="route-top">
+                  <span class="route-badge"><span class="zh">场景 B</span><span class="en">Scenario B</span></span>
+                  <span class="pill"><span class="zh">双人复核</span><span class="en">Dual Review</span></span>
+                </div>
+                <h3><span class="zh">双人复核与一致性分析</span><span class="en">Dual review and agreement analysis</span></h3>
+                <p class="route-meta"><span class="zh">适合需要角色分工、项目 ID 与一致性分析的正式复核项目。</span><span class="en">Suitable for formal review projects that require role separation, project IDs, and agreement analysis.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><span class="zh">适合主审和副审分工推进</span><span class="en">Supports coordinated primary and secondary review</span></li>
+                <li><span class="zh">承接现有本地会话与项目数据逻辑</span><span class="en">Builds on the current local session and project model</span></li>
+                <li><span class="zh">更贴近正式论文复核流程</span><span class="en">Closer to formal evidence-review practice</span></li>
+              </ul>
+              <div class="route-actions">
+                  <a class="cta-link secondary" href="login.html" data-lang-link="login.html"><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></a>
+              </div>
+            </article>
+            <article class="route-card">
+              <div>
+                <div class="route-top">
+                  <span class="route-badge"><span class="zh">场景 C</span><span class="en">Scenario C</span></span>
+                  <span class="pill"><span class="zh">培训与汇报</span><span class="en">Training and Reporting</span></span>
+                </div>
+                <h3><span class="zh">方法培训、汇报与对外介绍</span><span class="en">Method training, reporting, and external walkthroughs</span></h3>
+                <p class="route-meta"><span class="zh">适合用于导师汇报、团队介绍与方法培训场景。</span><span class="en">Suitable for supervisor reporting, team introduction, and method-training scenarios.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><span class="zh">更适合教学和项目介绍语境</span><span class="en">Better suited for teaching and project explanation</span></li>
+                <li><span class="zh">先讲清楚，再引导进入首页或工作台</span><span class="en">Explain first, then route people to the homepage or workspace</span></li>
+                <li><span class="zh">弱化与首页的入口竞争</span><span class="en">Reduces overlap with the main homepage</span></li>
+              </ul>
+              <div class="route-actions">
+                <a class="cta-link secondary" href="index.html" data-lang-link="index.html"><span class="zh">回到首页</span><span class="en">Return Home</span></a>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section style="margin-top: var(--space-32);">
+          <div class="section-heading">
+            <div>
+              <h2><span class="zh">工作台核心能力</span><span class="en">Workspace capabilities</span></h2>
+              <p><span class="zh">概览工作台在正式筛选项目中的核心能力。</span><span class="en">Summarizes the workspace capabilities used in formal screening projects.</span></p>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <div class="feature-icon">R</div>
+              <h3><span class="zh">多源记录导入</span><span class="en">Multi-source import</span></h3>
+              <p><span class="zh">支持 RIS、NBIB、CSV、BibTeX、ENW、RDF、TXT 等常见格式。</span><span class="en">Import RIS, NBIB, CSV, BibTeX, ENW, RDF, TXT, and related source exports.</span></p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">D</div>
+              <h3><span class="zh">去重与规则筛选</span><span class="en">Deduplication and rules</span></h3>
+              <p><span class="zh">DOI 精确匹配与标题归一化结合，支持关键词与时间窗口规则。</span><span class="en">Combine DOI matching, normalized titles, and configurable rule sets across screening stages.</span></p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">F</div>
+              <h3><span class="zh">全文复核与导出</span><span class="en">Full-text review and export</span></h3>
+              <p><span class="zh">支持全文复核、排除理由记录，以及 PRISMA 2020 图表与结果导出。</span><span class="en">Supports full-text review, exclusion reasons, and publication-facing exports including PRISMA diagrams.</span></p>
+            </article>
+          </div>
+        </section>
+
+        <section style="margin-top: var(--space-32);">
+          <div class="section-heading">
+            <div>
+              <h2><span class="zh">工作流概览</span><span class="en">Workflow Overview</span></h2>
+              <p><span class="zh">以五个阶段展示正式筛选与复核流程。</span><span class="en">Shows the formal screening and review workflow in five stages.</span></p>
+            </div>
+          </div>
+          <div class="workflow-grid" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
+            <article class="workflow-step">
+              <div class="workflow-index">STEP 01</div>
+              <h3><span class="zh">导入记录</span><span class="en">Import Records</span></h3>
+              <p><span class="zh">导入多源文件并校验字段。</span><span class="en">Import source files and validate fields.</span></p>
+            </article>
+            <article class="workflow-step">
+              <div class="workflow-index">STEP 02</div>
+              <h3><span class="zh">筛选标准</span><span class="en">Screening Criteria</span></h3>
+              <p><span class="zh">设定纳入、排除、语言和时间条件。</span><span class="en">Define inclusion, exclusion, language, and year criteria.</span></p>
+            </article>
+            <article class="workflow-step">
+              <div class="workflow-index">STEP 03</div>
+              <h3><span class="zh">初筛结果</span><span class="en">Screening Summary</span></h3>
+              <p><span class="zh">执行筛选统计并生成流程图预览。</span><span class="en">Generate the screening summary and diagram preview.</span></p>
+            </article>
+            <article class="workflow-step">
+              <div class="workflow-index">STEP 04</div>
+              <h3><span class="zh">全文复核</span><span class="en">Full-Text Review</span></h3>
+              <p><span class="zh">逐条进行全文复核并记录排除原因。</span><span class="en">Review full-text decisions and record exclusion reasons.</span></p>
+            </article>
+            <article class="workflow-step">
+              <div class="workflow-index">STEP 05</div>
+              <h3><span class="zh">结果导出</span><span class="en">Export Deliverables</span></h3>
+              <p><span class="zh">导出文献清单、流程图与筛选报告。</span><span class="en">Export study tables, diagrams, and the screening report.</span></p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer-row">
+        <span><span class="zh">PRISMA Literature Screening v2.0 概览页</span><span class="en">PRISMA Literature Screening v2.0 Overview</span></span>
+        <a class="mini-link" href="https://github.com/quzhiii/-PRISMA-" target="_blank" rel="noreferrer">GitHub</a>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    function getCurrentLang() {
+      const params = new URLSearchParams(window.location.search);
+      const paramLang = params.get('lang');
+      if (paramLang === 'zh' || paramLang === 'en') {
+        localStorage.setItem('prisma_lang', paramLang);
+        return paramLang;
+      }
+      const storedLang = localStorage.getItem('prisma_lang');
+      if (storedLang === 'zh' || storedLang === 'en') {
+        return storedLang;
+      }
+      return 'zh';
+    }
+
+    function syncLangLinks(lang) {
+      document.querySelectorAll('[data-lang-link]').forEach((link) => {
+        const base = link.getAttribute('data-lang-link');
+        link.href = `${base}?lang=${lang}`;
+      });
+    }
+
+    function applyLangVisibility() {
+      const lang = document.documentElement.lang;
+      const isZh = lang === 'zh';
+      document.querySelectorAll('.zh').forEach((el) => {
+        el.hidden = !isZh;
+      });
+      document.querySelectorAll('.en').forEach((el) => {
+        el.hidden = isZh;
+      });
+      document.title = isZh ? 'PRISMA 概览与导览页' : 'PRISMA Overview Page';
+      const metaDescription = document.getElementById('metaDescription');
+      if (metaDescription) {
+        metaDescription.content = isZh
+          ? 'PRISMA 文献筛选概览页，帮助研究团队理解产品价值、协作模式与工作流入口。'
+          : 'PRISMA overview page that helps research teams understand product value, collaboration mode, and workflow entry points.';
+      }
+      document.getElementById('langToggle').textContent = isZh ? 'EN' : '中';
+      syncLangLinks(lang);
+    }
+
+    window.toggleLang = function toggleLang() {
+      const isZh = document.documentElement.lang === 'zh';
+      const nextLang = isZh ? 'en' : 'zh';
+      document.documentElement.lang = nextLang;
+      localStorage.setItem('prisma_lang', nextLang);
+      applyLangVisibility();
+    };
+
+    document.documentElement.lang = getCurrentLang();
+    applyLangVisibility();
+  </script>
+</body>
+</html>

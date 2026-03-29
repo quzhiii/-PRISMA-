@@ -1,0 +1,789 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" id="metaDescription" content="Professional PRISMA literature screening workspace with automatic filtering, full-text review, and PRISMA 2020 export.">
+  <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
+  <title>PRISMA Literature Screening v2.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+  <div class="site-shell">
+    <div class="app-container">
+      <header class="site-nav">
+        <a class="brand" href="index.html">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PRISMA logo">
+              <title>PRISMA logo</title>
+              <path d="M4 16.5L12 4l8 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 16.5h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="12" cy="16.5" r="2.3" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-title"><span class="zh">PRISMA 文献筛选</span><span class="en">PRISMA Literature Screening</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.0</span><span class="en">Research-grade workspace v2.0</span></span>
+          </span>
+        </a>
+        <div class="nav-actions">
+          <a class="ghost-link" href="index.html" data-lang-link="index.html"><span class="zh">首页</span><span class="en">Home</span></a>
+          <a class="ghost-link" href="login.html" data-lang-link="login.html"><span class="zh">双人复核</span><span class="en">Dual Review</span></a>
+          <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</button>
+        </div>
+      </header>
+
+      <div class="steps-indicator workspace-steps">
+        <div class="step active" id="step-indicator-1">
+          <div class="step-circle">1</div>
+          <span class="step-label"><span class="zh">导入记录</span><span class="en">Import</span></span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step-indicator-2">
+          <div class="step-circle">2</div>
+          <span class="step-label"><span class="zh">筛选标准</span><span class="en">Criteria</span></span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step-indicator-3">
+          <div class="step-circle">3</div>
+          <span class="step-label"><span class="zh">初筛结果</span><span class="en">Screening</span></span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step-indicator-4">
+          <div class="step-circle">4</div>
+          <span class="step-label"><span class="zh">全文复核</span><span class="en">Review</span></span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step-indicator-5">
+          <div class="step-circle">5</div>
+          <span class="step-label"><span class="zh">结果导出</span><span class="en">Export</span></span>
+        </div>
+      </div>
+
+        <div id="step1" class="card workspace-step-card">
+          <div class="card-header">
+            <div>
+              <div class="card-kicker step-badge">STEP 01</div>
+              <h2 class="card-title"><span class="zh">导入文献记录</span><span class="en">Import Records</span></h2>
+              <p class="section-subtitle"><span class="zh">导入本轮筛选所需的数据文件并核对字段。</span><span class="en">Import the source files for this screening cycle and verify the mapped fields.</span></p>
+            </div>
+          </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone">
+          <div class="task-start-copy">
+            <h3><span class="zh">导入文献记录</span><span class="en">Import literature records</span></h3>
+            <p><span class="zh">上传真实项目文件，或使用示例数据快速检查流程与字段映射。</span><span class="en">Upload project files or use sample data to verify the workflow and field mapping.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">上传真实数据库导出文件</span><span class="en">Upload real database exports</span></li>
+              <li><span class="zh">或先用示例数据体验流程</span><span class="en">Or use sample data first</span></li>
+              <li><span class="zh">确认字段和去重结果</span><span class="en">Check mapping and dedupe</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><span class="zh">上传真实项目文件</span><span class="en">Upload real project files</span></button>
+            <button type="button" class="btn btn-secondary" onclick="loadSampleData()"><span class="zh">加载示例数据</span><span class="en">Load Sample Data</span></button>
+            <button type="button" class="btn btn-secondary" onclick="toggleDatabaseGuide()"><span class="zh">查看数据库导出教程</span><span class="en">View Export Guide</span></button>
+            <button type="button" class="btn btn-secondary" onclick="showVideoTutorial()"><span class="zh">打开视频教程</span><span class="en">Open Video Guide</span></button>
+          </div>
+        </div>
+
+        <div id="databaseGuide" class="hidden surface-panel workspace-side-panel secondary-info-zone" style="margin-bottom: var(--space-20);">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title" style="font-size: 24px;"><span class="zh">常用数据库导出指南</span><span class="en">Common Database Export Guide</span></h3>
+              <p class="section-subtitle"><span class="zh">建议优先使用 RIS、NBIB、ENW 或 BibTeX。</span><span class="en">Prefer RIS, NBIB, ENW, or BibTeX when available.</span></p>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="toggleDatabaseGuide()"><span class="zh">关闭</span><span class="en">Close</span></button>
+          </div>
+
+          <div class="grid-2">
+            <details open>
+              <summary style="padding: 14px 16px; font-weight: 700;">PubMed / NBIB</summary>
+              <div style="padding: 0 16px 16px; color: var(--color-text-secondary);">
+                <ol>
+                  <li><span class="zh">检索结果页点击 “Send to”</span><span class="en">Use “Send to” on the results page</span></li>
+                  <li><span class="zh">选择 Citation manager</span><span class="en">Choose Citation manager</span></li>
+                  <li><span class="zh">下载 `.nbib` 文件并直接上传</span><span class="en">Download the `.nbib` file and upload it directly</span></li>
+                </ol>
+              </div>
+            </details>
+            <details>
+              <summary style="padding: 14px 16px; font-weight: 700;">CNKI / ENW</summary>
+              <div style="padding: 0 16px 16px; color: var(--color-text-secondary);">
+                <ol>
+                  <li><span class="zh">导出/参考文献</span><span class="en">Use Export / Reference</span></li>
+                  <li><span class="zh">选择 Endnote 格式</span><span class="en">Choose Endnote format</span></li>
+                  <li><span class="zh">保存 `.enw` 后上传</span><span class="en">Save `.enw` and upload it</span></li>
+                </ol>
+              </div>
+            </details>
+            <details>
+              <summary style="padding: 14px 16px; font-weight: 700;">Web of Science</summary>
+              <div style="padding: 0 16px 16px; color: var(--color-text-secondary);">
+                <ol>
+                  <li><span class="zh">选择 Other file formats</span><span class="en">Choose Other file formats</span></li>
+                  <li><span class="zh">导出完整记录</span><span class="en">Export full record</span></li>
+                  <li><span class="zh">优先使用 RIS</span><span class="en">Prefer RIS output</span></li>
+                </ol>
+              </div>
+            </details>
+            <details>
+              <summary style="padding: 14px 16px; font-weight: 700;">Zotero / BibTeX / RDF</summary>
+              <div style="padding: 0 16px 16px; color: var(--color-text-secondary);">
+                <ol>
+                  <li><span class="zh">在 Zotero 中选中文献</span><span class="en">Select items in Zotero</span></li>
+                  <li><span class="zh">导出条目</span><span class="en">Export items</span></li>
+                  <li><span class="zh">选择 RIS、BibTeX 或 RDF/XML</span><span class="en">Choose RIS, BibTeX, or RDF/XML</span></li>
+                </ol>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="upload-area workspace-dropzone" id="uploadArea" tabindex="0">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-bottom: 12px;" role="img" aria-label="Upload icon">
+            <title>Upload files</title>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p style="font-size: 18px; margin: 0 0 8px;"><span class="zh">拖拽文件到此处，或点击上传</span><span class="en">Drag files here or click to upload</span></p>
+          <p class="muted-text" style="margin: 0;"><span class="zh">支持 .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf, .nbib</span><span class="en">Supports .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf, and .nbib</span></p>
+          <input type="file" id="fileInput" multiple accept=".csv,.tsv,.ris,.bib,.bibtex,.txt,.enw,.rdf,.nbib" style="display: none;">
+        </div>
+
+        <div id="uploadInfo" class="hidden" style="margin-top: var(--space-24);">
+          <div class="grid-2 workspace-data-grid">
+            <div class="info-box workspace-info-panel">
+              <h3><span class="zh">文件信息</span><span class="en">File Details</span></h3>
+              <p><strong><span class="zh">文件格式</span><span class="en">Format</span>:</strong> <span id="fileFormat" class="format-tag">-</span></p>
+              <p><strong><span class="zh">格式来源</span><span class="en">Source</span>:</strong> <span id="formatSource">-</span></p>
+              <p><strong><span class="zh">总记录数</span><span class="en">Records</span>:</strong> <span id="totalRecords">0</span></p>
+              <p><strong><span class="zh">检测到的列</span><span class="en">Detected columns</span>:</strong> <span id="columnList"></span></p>
+            </div>
+            <div class="surface-panel workspace-side-panel secondary-info-zone">
+              <h3 style="margin-top: 0;"><span class="zh">字段映射</span><span class="en">Field Mapping</span></h3>
+              <div id="columnMapping" class="muted-text"></div>
+            </div>
+          </div>
+
+          <h3 class="panel-title" style="font-size: 22px; margin: 24px 0 12px;"><span class="zh">数据预览</span><span class="en">Preview</span></h3>
+          <div class="table-container">
+            <table id="previewTable">
+              <thead id="previewTableHead"></thead>
+              <tbody id="previewTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn-secondary" onclick="resetApp()"><span class="zh">重新上传</span><span class="en">Reset Upload</span></button>
+            <button type="button" class="btn btn-primary" onclick="goToStep2()"><span class="zh">下一步：配置规则</span><span class="en">Next: Configure Rules</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="step2" class="card hidden workspace-step-card">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge">STEP 02</div>
+              <h2 class="card-title"><span class="zh">设置筛选标准</span><span class="en">Set Screening Criteria</span></h2>
+              <p class="section-subtitle"><span class="zh">配置纳入、排除与保护条件，作为初筛执行标准。</span><span class="en">Configure inclusion, exclusion, and protection rules for the screening summary.</span></p>
+          </div>
+        </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone" style="margin-bottom: var(--space-20);">
+          <div class="task-start-copy">
+            <h3><span class="zh">配置本轮筛选标准</span><span class="en">Configure screening criteria</span></h3>
+            <p><span class="zh">优先完成纳入词、排除词与研究边界设置，再生成初筛结果。</span><span class="en">Complete inclusion, exclusion, and scope settings before generating the screening summary.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">先写纳入词，再补排除词</span><span class="en">Start with inclusion, then exclusion</span></li>
+              <li><span class="zh">确认年份、语言和必填字段</span><span class="en">Check year, language, and required fields</span></li>
+              <li><span class="zh">需要复用时再切到 YAML</span><span class="en">Use YAML only when needed</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-primary" onclick="loadExampleRules()"><span class="zh">加载示例规则</span><span class="en">Load Example Rules</span></button>
+            <button type="button" class="btn btn-secondary" onclick="switchTab('yaml')"><span class="zh">切到 YAML</span><span class="en">Open YAML</span></button>
+          </div>
+
+          <div class="workspace-main-column">
+            <div class="tab-buttons">
+              <button type="button" class="tab-button active" onclick="switchTab('form')"><span class="zh">可视化表单</span><span class="en">Visual Form</span></button>
+              <button type="button" class="tab-button" onclick="switchTab('yaml')"><span class="zh">YAML 编辑器</span><span class="en">YAML Editor</span></button>
+              <button type="button" class="tab-button" onclick="switchTab('format')"><span class="zh">格式说明</span><span class="en">Format Notes</span></button>
+              <button type="button" class="tab-button" onclick="switchTab('mapping')"><span class="zh">字段映射</span><span class="en">Field Mapping</span></button>
+            </div>
+
+            <div id="formTab" class="tab-content active">
+              <div class="surface-panel workspace-form-panel" style="margin-bottom: 16px;">
+                <label class="form-label"><span class="zh">时间窗口</span><span class="en">Time Window</span></label>
+                <div class="grid-2">
+                  <div>
+                    <label class="form-label" style="font-size: 13px;"><span class="zh">起始年份</span><span class="en">Start Year</span></label>
+                    <input type="number" class="form-input" id="startYear" value="2000" min="1900" max="2100">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size: 13px;"><span class="zh">结束年份</span><span class="en">End Year</span></label>
+                    <input type="number" class="form-input" id="endYear" value="2030" min="1900" max="2100">
+                  </div>
+                </div>
+              </div>
+
+              <div class="surface-panel workspace-form-panel" style="margin-bottom: 16px;">
+                <label class="form-label"><span class="zh">包含关键词</span><span class="en">Include Keywords</span></label>
+                <p class="muted-text" style="margin-top: 0;"><span class="zh">每行一个关键词；留空则不过滤。</span><span class="en">One keyword per line; leave blank to skip inclusion filtering.</span></p>
+                <textarea class="form-textarea" id="includeKeywords" rows="6" placeholder="acupuncture&#10;systematic review"></textarea>
+                <div class="info-box" style="margin-top: 12px;">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="includePriorityToggle" checked>
+                    <span><strong><span class="zh">启用保护机制</span><span class="en">Enable priority protection</span></strong><br><span class="zh">包含关键词优先于排除关键词，避免误杀重要研究。</span><span class="en">Inclusion keywords take priority over exclusion keywords to avoid losing critical studies.</span></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="surface-panel workspace-form-panel" style="margin-bottom: 16px;">
+                <label class="form-label"><span class="zh">排除关键词及理由</span><span class="en">Exclude Keywords and Reasons</span></label>
+                <div id="excludeList"></div>
+                <button type="button" class="btn-add" onclick="addExcludeItem()"><span class="zh">+ 添加排除规则</span><span class="en">+ Add exclusion rule</span></button>
+              </div>
+
+              <div class="surface-panel workspace-form-panel" style="margin-bottom: 16px;">
+                <label class="form-label"><span class="zh">语言与必填字段</span><span class="en">Languages and Required Fields</span></label>
+                <div class="grid-2">
+                  <div>
+                    <div class="form-label" style="font-size: 13px;"><span class="zh">允许语言</span><span class="en">Allowed languages</span></div>
+                    <div class="checkbox-group">
+                      <label class="checkbox-label"><input type="checkbox" value="english" checked> English</label>
+                      <label class="checkbox-label"><input type="checkbox" value="chinese" checked> 中文</label>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="form-label" style="font-size: 13px;"><span class="zh">必填字段（至少一项）</span><span class="en">Required fields (at least one)</span></div>
+                    <div class="checkbox-group">
+                      <label class="checkbox-label"><input type="checkbox" class="required-field" value="title" checked> Title</label>
+                      <label class="checkbox-label"><input type="checkbox" class="required-field" value="abstract" checked> Abstract</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="surface-panel workspace-form-panel">
+                <label class="form-label"><span class="zh">全文排除比例（规划参数）</span><span class="en">Full-text exclusion ratio (planning only)</span></label>
+                <div class="slider-container">
+                  <input type="range" id="ftExcludeRatio" min="0" max="1" step="0.05" value="0.2">
+                  <span class="slider-value" id="ftExcludeValue">20%</span>
+                </div>
+                <p class="muted-text" style="margin-bottom: 0;"><span class="zh">该参数仅用于预估工作量，不会自动删除任何全文文献。</span><span class="en">This value is only used for planning and will not automatically exclude any full-text records.</span></p>
+              </div>
+
+            </div>
+
+            <div id="yamlTab" class="tab-content">
+              <label class="form-label" for="yamlEditor"><span class="zh">YAML 配置</span><span class="en">YAML Configuration</span></label>
+              <textarea class="form-textarea" id="yamlEditor" rows="20" style="font-family: var(--font-family-mono);"></textarea>
+              <div class="button-group" style="margin-top: 12px;">
+                <button type="button" class="btn btn-secondary" onclick="exportYAML()"><span class="zh">导出 YAML</span><span class="en">Export YAML</span></button>
+                <button type="button" class="btn btn-secondary" onclick="importYAML()"><span class="zh">导入 YAML</span><span class="en">Import YAML</span></button>
+              </div>
+            </div>
+
+            <div id="formatTab" class="tab-content">
+              <div class="surface-panel" style="margin-bottom: 16px;">
+                <h3 style="margin-top: 0;">RIS</h3>
+                <div class="table-container">
+                  <table>
+                    <thead><tr><th>Field</th><th><span class="zh">说明</span><span class="en">Meaning</span></th></tr></thead>
+                    <tbody>
+                      <tr><td>TY</td><td>Type</td></tr>
+                      <tr><td>AU</td><td>Authors</td></tr>
+                      <tr><td>T1</td><td>Title</td></tr>
+                      <tr><td>AB</td><td>Abstract</td></tr>
+                      <tr><td>PY</td><td>Year</td></tr>
+                      <tr><td>DO</td><td>DOI</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="surface-panel">
+                <h3 style="margin-top: 0;">BibTeX</h3>
+                <div class="table-container">
+                  <table>
+                    <thead><tr><th>Field</th><th><span class="zh">说明</span><span class="en">Meaning</span></th></tr></thead>
+                    <tbody>
+                      <tr><td>title</td><td>Title</td></tr>
+                      <tr><td>author</td><td>Authors</td></tr>
+                      <tr><td>journal</td><td>Journal</td></tr>
+                      <tr><td>year</td><td>Year</td></tr>
+                      <tr><td>doi</td><td>DOI</td></tr>
+                      <tr><td>abstract</td><td>Abstract</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div id="mappingTab" class="tab-content">
+              <div class="surface-panel" style="margin-bottom: 16px;">
+                <h3 style="margin-top: 0;">ENW</h3>
+                <div class="table-container">
+                  <table>
+                    <thead><tr><th>Field</th><th><span class="zh">映射</span><span class="en">Maps to</span></th></tr></thead>
+                    <tbody>
+                      <tr><td>T1</td><td>title</td></tr>
+                      <tr><td>AB</td><td>abstract</td></tr>
+                      <tr><td>PY</td><td>year</td></tr>
+                      <tr><td>AU</td><td>authors</td></tr>
+                      <tr><td>T2</td><td>journal</td></tr>
+                      <tr><td>DO</td><td>doi</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="surface-panel">
+                <h3 style="margin-top: 0;">RDF</h3>
+                <div class="table-container">
+                  <table>
+                    <thead><tr><th>Field</th><th><span class="zh">映射</span><span class="en">Maps to</span></th></tr></thead>
+                    <tbody>
+                      <tr><td>dc:title</td><td>title</td></tr>
+                      <tr><td>dc:creator</td><td>authors</td></tr>
+                      <tr><td>dcterms:issued</td><td>year</td></tr>
+                      <tr><td>bib:publicationTitle</td><td>journal</td></tr>
+                      <tr><td>dcterms:abstract</td><td>abstract</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="workspace-side-column">
+            <div class="surface-panel workspace-preview-panel">
+              <h3 style="margin-top: 0;"><span class="zh">标准预览</span><span class="en">Criteria Preview</span></h3>
+              <div class="table-container" style="max-height: 420px;">
+                <table>
+                  <thead id="rulesPreviewHead"></thead>
+                  <tbody id="rulesPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep1()"><span class="zh">返回上传</span><span class="en">Back to Upload</span></button>
+          <button type="button" class="btn btn-primary" onclick="startScreening()"><span class="zh">开始筛选</span><span class="en">Start Screening</span></button>
+        </div>
+      </div>
+
+      <div id="step3" class="card hidden workspace-step-card">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge">STEP 03</div>
+              <h2 class="card-title"><span class="zh">初筛结果</span><span class="en">Screening Summary</span></h2>
+              <p class="section-subtitle"><span class="zh">核对筛选统计与流程图预览，再决定是否进入全文复核。</span><span class="en">Review the screening counts and PRISMA preview before continuing to full-text review.</span></p>
+          </div>
+        </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone" style="margin-bottom: var(--space-20);">
+          <div class="task-start-copy">
+            <h3><span class="zh">确认结果后进入下一步。</span><span class="en">Review results before proceeding.</span></h3>
+            <p><span class="zh">如果统计或保留结果异常，建议返回规则配置调整后再运行。</span><span class="en">If the counts or retained set look abnormal, return to the rules and rerun.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">先看统计，再看图</span><span class="en">Check stats first</span></li>
+              <li><span class="zh">异常时返回规则配置</span><span class="en">Return to rules if needed</span></li>
+              <li><span class="zh">确认后进入全文复核</span><span class="en">Then enter full-text review</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-secondary" onclick="returnToRulesConfig()"><span class="zh">返回规则配置</span><span class="en">Back to Rules</span></button>
+            <button type="button" class="btn btn-primary" id="btnGoStep4" onclick="goToStep4()"><span class="zh">确认并进入全文复核</span><span class="en">Confirm and start full-text review</span></button>
+          </div>
+        </div>
+
+        <div class="button-group" style="margin-bottom: 20px;">
+          <button type="button" class="btn btn-secondary" onclick="returnToRulesConfig()"><span class="zh">返回筛选标准</span><span class="en">Back to Criteria</span></button>
+          <button type="button" class="btn btn-secondary" onclick="editRulesAndRerun()"><span class="zh">修改规则并重新运行</span><span class="en">Edit Rules and Rerun</span></button>
+        </div>
+
+        <div class="info-box workspace-info-panel auxiliary-zone" style="margin-bottom: 20px;">
+          <h3><span class="zh">项目会话</span><span class="en">Project Session</span></h3>
+          <p><span class="zh">保存当前工作区状态，便于恢复、共享与继续处理。</span><span class="en">Save the current workspace state so it can be resumed, shared, or continued later.</span></p>
+          <div class="button-group" style="margin-top: 12px;">
+            <button type="button" class="btn btn-primary" onclick="saveProject()"><span class="zh">保存项目</span><span class="en">Save Project</span></button>
+            <button type="button" class="btn btn-secondary" onclick="loadProject()"><span class="zh">加载项目</span><span class="en">Load Project</span></button>
+            <button type="button" class="btn btn-secondary" onclick="autoSaveToggle()"><span class="zh">自动保存</span><span class="en">Auto Save</span>：<span id="autoSaveStatus">关闭</span></button>
+          </div>
+          <p id="lastSaveTime" class="muted-text" style="margin-top: 10px;"></p>
+        </div>
+
+        <div class="grid-4 workspace-stat-grid" id="statsGrid">
+          <div class="stat-card"><div class="stat-label"><span class="zh">数据库识别</span><span class="en">Database identified</span></div><div class="stat-value" id="stat-identified-db">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">其他来源</span><span class="en">Other sources</span></div><div class="stat-value" id="stat-identified-other">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">去重后</span><span class="en">After deduplication</span></div><div class="stat-value" id="stat-after-dupes">0</div><div class="stat-note"><a href="javascript:void(0)" onclick="showDeduplicationSettings()"><span class="zh">查看去重设置</span><span class="en">View deduplication settings</span></a></div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">标题/摘要筛选</span><span class="en">Title/abstract screened</span></div><div class="stat-value" id="stat-screened">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">标题/摘要排除</span><span class="en">Title/abstract excluded</span></div><div class="stat-value" id="stat-excluded-ta">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">全文评估</span><span class="en">Full-text assessed</span></div><div class="stat-value" id="stat-fulltext">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">全文排除</span><span class="en">Full-text excluded</span></div><div class="stat-value" id="stat-excluded-ft">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">最终纳入</span><span class="en">Included</span></div><div class="stat-value" id="stat-included">0</div></div>
+        </div>
+        <div id="dedupReviewSummary"></div>
+
+        <div id="screeningDiagnostics" class="info-box workspace-info-panel" style="margin-top: 20px;"></div>
+
+        <div class="two-column workspace-main-grid" style="margin-top: 24px;">
+          <div class="surface-panel workspace-side-panel secondary-info-zone">
+            <div class="panel-header panel-header-compact">
+              <div>
+                <h3 class="panel-title panel-title-md"><span class="zh">&#x56FE;&#x8868;&#x4E3B;&#x9898;</span><span class="en">Diagram Theme</span></h3>
+                <p class="section-subtitle"><span class="zh">&#x8FD9;&#x91CC;&#x53EA;&#x8C03;&#x6574; PRISMA &#x6D41;&#x7A0B;&#x56FE;&#x7684;&#x5448;&#x73B0;&#x98CE;&#x683C;&#xFF0C;&#x4E0D;&#x4F1A;&#x6539;&#x53D8;&#x53BB;&#x91CD;&#x3001;&#x7B5B;&#x9009;&#x6216;&#x6700;&#x7EC8;&#x7EDF;&#x8BA1;&#x7ED3;&#x679C;&#x3002;</span><span class="en">This only changes the PRISMA diagram presentation. It does not alter deduplication, screening, or final counts.</span></p>
+              </div>
+            </div>
+            <div class="theme-selector">
+              <label class="theme-option" data-theme="colorful">
+                <input type="radio" name="theme" value="colorful">
+                <div class="theme-card"><strong><span class="zh">&#x5F69;&#x8272;&#x7248;</span><span class="en">Colorful</span></strong><p><span class="zh">&#x9002;&#x5408;&#x6F14;&#x8BB2;&#x4E0E;&#x7F51;&#x9875;&#x5C55;&#x793A;</span><span class="en">Best for presentations</span></p></div>
+              </label>
+              <label class="theme-option" data-theme="blackwhite">
+                <input type="radio" name="theme" value="blackwhite">
+                <div class="theme-card"><strong><span class="zh">&#x9ED1;&#x767D;&#x7248;</span><span class="en">Black & White</span></strong><p><span class="zh">&#x9002;&#x5408;&#x671F;&#x520A;&#x6253;&#x5370;</span><span class="en">Best for print</span></p></div>
+              </label>
+              <label class="theme-option" data-theme="subtle">
+                <input type="radio" name="theme" value="subtle" checked>
+                <div class="theme-card"><strong><span class="zh">&#x67D4;&#x548C;&#x7248;</span><span class="en">Subtle</span></strong><span class="recommend-badge"><span class="zh">&#x63A8;&#x8350;</span><span class="en">Recommended</span></span><p><span class="zh">&#x9002;&#x5408;&#x5927;&#x591A;&#x6570;&#x533B;&#x5B66;&#x4E0E;&#x653F;&#x7B56;&#x573A;&#x666F;</span><span class="en">Balanced for most research contexts</span></p></div>
+              </label>
+            </div>
+            <div class="button-group" style="margin-top: 16px;">
+              <button type="button" class="btn btn-secondary" onclick="updateThemePreview()"><span class="zh">&#x66F4;&#x65B0;&#x9884;&#x89C8;</span><span class="en">Refresh Preview</span></button>
+            </div>
+            <div class="info-box" style="margin-top: 16px;">
+              <label class="checkbox-label"><input type="radio" name="prismaMode" value="simple"><span><span class="zh">&#x7B80;&#x5316;&#x7248; PRISMA</span><span class="en">Simple PRISMA</span></span></label>
+              <label class="checkbox-label" style="margin-top: 10px;"><input type="radio" name="prismaMode" value="prisma2020" checked><span><span class="zh">&#x6807;&#x51C6; PRISMA 2020</span><span class="en">Standard PRISMA 2020</span></span></label>
+            </div>
+          </div>
+          <div class="surface-panel workspace-side-panel secondary-info-zone preview-actions-panel">
+            <div class="panel-header panel-header-compact">
+              <div>
+                <h3 class="panel-title panel-title-md"><span class="zh">&#x5BFC;&#x51FA;&#x9884;&#x89C8;</span><span class="en">Export Preview</span></h3>
+                <p class="section-subtitle"><span class="zh">&#x8FD9;&#x91CC;&#x662F;&#x9884;&#x6F14;&#x73AF;&#x8282;&#xFF1A;&#x53EF;&#x4EE5;&#x5148;&#x5355;&#x72EC;&#x68C0;&#x67E5;&#x7EB3;&#x5165;&#x8868;&#x3001;&#x6392;&#x9664;&#x8868;&#x3001;SVG &#x6216;&#x62A5;&#x544A;&#x662F;&#x5426;&#x7B26;&#x5408;&#x9884;&#x671F;&#x3002;</span><span class="en">Use this area to spot-check included/excluded tables, SVG, or report outputs before the final export step.</span></p>
+              </div>
+            </div>
+            <div class="button-group" style="margin-top: 16px;">
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('included')"><span class="zh">&#x7EB3;&#x5165;&#x7814;&#x7A76;</span><span class="en">Included Studies</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('excluded')"><span class="zh">&#x6392;&#x9664;&#x7814;&#x7A76;</span><span class="en">Excluded Studies</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-colorful')"><span class="zh">&#x5BFC;&#x51FA; SVG&#xFF08;&#x5F69;&#x8272;&#x7248;&#xFF09;</span><span class="en">SVG Colorful</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-blackwhite')"><span class="zh">&#x5BFC;&#x51FA; SVG&#xFF08;&#x9ED1;&#x767D;&#x7248;&#xFF09;</span><span class="en">SVG B/W</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-subtle')"><span class="zh">&#x5BFC;&#x51FA; SVG&#xFF08;&#x67D4;&#x548C;&#x7248;&#xFF09;</span><span class="en">SVG Subtle</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">&#x7B5B;&#x9009;&#x62A5;&#x544A;</span><span class="en">Report</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">&#x5168;&#x90E8;&#x4E0B;&#x8F7D;</span><span class="en">Download All</span></button>
+            </div>
+            <p class="muted-text" style="margin-top: 12px;"><span class="zh">&#x5982;&#x679C;&#x4F60;&#x8FD8;&#x5728;&#x6838;&#x67E5;&#x7ED3;&#x679C;&#x662F;&#x5426;&#x5408;&#x7406;&#xFF0C;&#x5EFA;&#x8BAE;&#x5148;&#x770B;&#x7EDF;&#x8BA1;&#x5361;&#x7247;&#x548C; PRISMA &#x9884;&#x89C8;&#xFF1B;Step 5 &#x518D;&#x8FDB;&#x884C;&#x6B63;&#x5F0F;&#x5BFC;&#x51FA;&#x3002;</span><span class="en">If you are still validating the result, review the stats cards and PRISMA preview first. Use Step 5 for the formal export.</span></p>
+            <p class="muted-text" style="margin-top: 12px;"><span class="zh">&#x5F53;&#x524D;&#x4E3B;&#x9898;&#xFF1A;</span><span class="en">Current theme:</span> <span id="currentThemeLabel">&#x67D4;&#x548C;&#x7248;</span></p>
+          </div>
+        </div>
+
+        <h3 class="panel-title" style="font-size: 24px; margin: 24px 0 12px;"><span class="zh">PRISMA 2020 流程图预览</span><span class="en">PRISMA 2020 Preview</span></h3>
+        <div class="svg-preview" id="svgPreview"></div>
+        <div id="filterRulesOverview" style="margin-top: 16px;"></div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="returnToRulesConfig()"><span class="zh">返回规则</span><span class="en">Back to Rules</span></button>
+          <button type="button" class="btn btn-secondary" onclick="resetApp()"><span class="zh">重新开始</span><span class="en">Restart</span></button>
+        </div>
+      </div>
+
+      <div id="step4" class="card hidden workspace-step-card">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge">STEP 04</div>
+            <h2 class="card-title"><span class="zh">全文复核</span><span class="en">Full-text Review</span></h2>
+            <p class="section-subtitle"><span class="zh">处理全文判断、排除理由与协作复核结果。</span><span class="en">Review full-text decisions, exclusion reasons, and collaboration outcomes.</span></p>
+          </div>
+        </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone" style="margin-bottom: var(--space-20);">
+          <div class="task-start-copy">
+            <h3><span class="zh">开始全文复核</span><span class="en">Start full-text review</span></h3>
+            <p><span class="zh">对保留下来的文献进行全文判断，并记录排除理由。</span><span class="en">Review retained records at full-text level and document exclusion reasons.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">先看协作状态</span><span class="en">Check collaboration state</span></li>
+              <li><span class="zh">逐条记录排除理由</span><span class="en">Record reasons clearly</span></li>
+              <li><span class="zh">确认后再生成最终结果</span><span class="en">Generate results after review</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-secondary" onclick="showProjectStatus()"><span class="zh">查看项目状态</span><span class="en">View Project Status</span></button>
+            <button type="button" class="btn btn-primary" onclick="finalizeFulltextReview()"><span class="zh">完成复核并生成结果</span><span class="en">Finalize review and generate results</span></button>
+          </div>
+        </div>
+
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px;">
+          <h3><span class="zh">协作状态</span><span class="en">Collaboration Status</span></h3>
+          <div id="collaboration-status" class="grid-2">
+            <div class="surface-panel"><strong><span class="zh">主审查员</span><span class="en">Primary Reviewer</span></strong><div id="reviewer-a-status">加载中...</div></div>
+            <div class="surface-panel"><strong><span class="zh">副审查员</span><span class="en">Secondary Reviewer</span></strong><div id="reviewer-b-status">加载中...</div></div>
+          </div>
+          <div class="button-group" style="margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="saveProjectFile()"><span class="zh">导出协作项目</span><span class="en">Export Collaboration Project</span></button>
+            <button type="button" class="btn btn-secondary" onclick="showProjectStatus()"><span class="zh">查看详细状态</span><span class="en">View Project Status</span></button>
+          </div>
+        </div>
+
+        <div id="kappa-analysis" class="info-box hidden workspace-info-panel secondary-info-zone" style="margin-bottom: 20px;">
+          <h3><span class="zh">&#x4E00;&#x81F4;&#x6027;&#x5206;&#x6790;</span><span class="en">Agreement Analysis</span></h3>
+          <div id="kappa-results" class="grid-3"></div>
+          <button type="button" class="btn btn-primary" onclick="showDisagreements()" style="margin-top: 12px;"><span class="zh">&#x67E5;&#x770B;&#x5206;&#x6B67;&#x6587;&#x732E;</span><span class="en">View Disagreements</span> (<span id="disagreement-count">0</span>)</button>
+        </div>
+
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px;">
+          <h3><span class="zh">&#x5BA1;&#x6838;&#x8BF4;&#x660E;</span><span class="en">Review Guidance</span></h3>
+          <p><span class="zh">&#x9700;&#x8981;&#x4EBA;&#x5DE5;&#x5BA1;&#x6838;&#x7684;&#x5168;&#x6587;&#x6587;&#x732E;&#xFF1A;</span><span class="en">Full-text records requiring review:</span> <strong id="fulltext-total">0</strong></p>
+        </div>
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
+          <h3><span class="zh">&#x7814;&#x7A76;&#x8BBE;&#x8BA1;&#x8BC6;&#x522B;</span><span class="en">Study Design Identification</span></h3>
+          <p><span class="zh">&#x201C;&#x81EA;&#x52A8;&#x6807;&#x6CE8;&#x7814;&#x7A76;&#x8BBE;&#x8BA1;&#x201D;&#x7684;&#x610F;&#x601D;&#x662F;&#xFF1A;&#x7CFB;&#x7EDF;&#x4F1A;&#x626B;&#x63CF;&#x6807;&#x9898;&#x548C;&#x6458;&#x8981;&#x91CC;&#x7684;&#x5173;&#x952E;&#x8BCD;&#xFF0C;&#x5C1D;&#x8BD5;&#x7ED9;&#x6BCF;&#x6761;&#x6587;&#x732E;&#x8865;&#x4E0A;&#x53EF;&#x80FD;&#x7684;&#x7814;&#x7A76;&#x7C7B;&#x578B;&#x6807;&#x7B7E;&#xFF0C;&#x4F8B;&#x5982; RCT&#x3001;&#x961F;&#x5217;&#x7814;&#x7A76;&#x3001;&#x7CFB;&#x7EDF;&#x7EFC;&#x8FF0;&#x3002;</span><span class="en">Auto-label Study Designs scans titles and abstracts and adds likely study design tags, such as RCT, cohort study, or systematic review.</span></p>
+          <p class="muted-text" style="margin-top: 8px;"><span class="zh">&#x8FD9;&#x53EA;&#x662F;&#x8F85;&#x52A9;&#x6807;&#x6CE8;&#xFF0C;&#x4E0D;&#x4F1A;&#x81EA;&#x52A8;&#x51B3;&#x5B9A;&#x7EB3;&#x5165;&#x3001;&#x6392;&#x9664;&#x6216;&#x4FEE;&#x6539;&#x4F60;&#x7684;&#x5BA1;&#x6838;&#x51B3;&#x5B9A;&#xFF0C;&#x4ECD;&#x9700;&#x4F60;&#x5728;&#x4EBA;&#x5DE5;&#x590D;&#x6838;&#x65F6;&#x786E;&#x8BA4;&#x3002;</span><span class="en">This is support only. It does not automatically include, exclude, or override your review decisions.</span></p>
+          <button type="button" class="btn btn-primary" onclick="autoIdentifyStudyDesigns()"><span class="zh">&#x81EA;&#x52A8;&#x6807;&#x6CE8;&#x7814;&#x7A76;&#x8BBE;&#x8BA1;</span><span class="en">Auto-label Study Designs</span></button>
+        </div>
+
+
+        <div class="surface-panel workspace-side-panel secondary-info-zone" style="margin-bottom: 20px;">
+          <div class="grid-2">
+            <div>
+              <h3 style="margin-top: 0;"><span class="zh">批量操作</span><span class="en">Batch Actions</span></h3>
+              <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="selectAllRecords()"><span class="zh">全选</span><span class="en">Select All</span></button>
+                <button type="button" class="btn btn-secondary" onclick="deselectAllRecords()"><span class="zh">取消全选</span><span class="en">Deselect All</span></button>
+                <button type="button" class="btn btn-primary" onclick="batchExclude()"><span class="zh">批量排除</span><span class="en">Batch Exclude</span></button>
+              </div>
+            </div>
+            <div>
+              <h3 style="margin-top: 0;"><span class="zh">快捷键</span><span class="en">Keyboard Shortcuts</span></h3>
+              <p class="muted-text"><kbd>1-6</kbd> <span class="zh">快速选择原因</span><span class="en">Choose reason</span> / <kbd>Space</kbd> <span class="zh">保留</span><span class="en">Keep</span> / <kbd>↑↓</kbd> <span class="zh">切换文献</span><span class="en">Navigate records</span></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title" style="font-size: 24px;"><span class="zh">排除原因模板</span><span class="en">Exclusion Templates</span></h3>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="toggleExclusionTemplateEditor()"><span class="zh">编辑模板</span><span class="en">Edit Templates</span></button>
+        </div>
+
+        <div id="exclusion-template-editor" class="hidden surface-panel" style="margin-bottom: 16px;">
+          <div id="exclusion-template-list"></div>
+          <div class="button-group" style="margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="addExclusionTemplateRow()"><span class="zh">添加原因</span><span class="en">Add Reason</span></button>
+            <button type="button" class="btn btn-secondary" onclick="restoreDefaultExclusionTemplate()"><span class="zh">恢复默认</span><span class="en">Restore Default</span></button>
+          </div>
+        </div>
+
+        <div id="exclusion-template-buttons" class="button-group" style="margin-bottom: 20px;"></div>
+        <div id="fulltext-review-table" class="table-container" style="max-height: 620px;"></div>
+
+        <h3 class="panel-title" style="font-size: 24px; margin: 24px 0 12px;"><span class="zh">排除统计</span><span class="en">Exclusion Statistics</span></h3>
+        <div class="grid-4">
+          <div class="stat-card"><div class="stat-label"><span class="zh">获取全文</span><span class="en">Full-text obtained</span></div><div class="stat-value" id="fulltext-obtained">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">已排除</span><span class="en">Excluded</span></div><div class="stat-value" id="fulltext-excluded">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">最终纳入</span><span class="en">Included</span></div><div class="stat-value" id="fulltext-included">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">排除率</span><span class="en">Exclusion rate</span></div><div class="stat-value" id="fulltext-rate">0%</div></div>
+        </div>
+        <div id="exclusion-reasons-summary" style="margin-top: 20px;"></div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep3()"><span class="zh">返回结果预览</span><span class="en">Back to Results</span></button>
+          <button type="button" class="btn btn-primary" onclick="finalizeFulltextReview()"><span class="zh">完成审核并生成最终结果</span><span class="en">Finalize Review</span></button>
+        </div>
+      </div>
+
+      <div id="step5" class="card hidden workspace-step-card">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge">STEP 05</div>
+            <h2 class="card-title"><span class="zh">结果导出</span><span class="en">Export Deliverables</span></h2>
+            <p class="section-subtitle"><span class="zh">汇总最终统计并导出图表、结果表与筛选报告。</span><span class="en">Summarize final counts and export diagrams, study tables, and the screening report.</span></p>
+          </div>
+        </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone" style="margin-bottom: var(--space-20);">
+          <div class="task-start-copy">
+            <h3><span class="zh">导出最终交付物</span><span class="en">Export final deliverables</span></h3>
+            <p><span class="zh">确认统计结果后，导出图表、结果表与筛选报告。</span><span class="en">Confirm the final counts, then export diagrams, study tables, and the screening report.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">先确认最终统计</span><span class="en">Check final counts</span></li>
+              <li><span class="zh">再选 PRISMA 主题</span><span class="en">Choose PRISMA theme</span></li>
+              <li><span class="zh">最后导出全部结果</span><span class="en">Export all deliverables</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-primary" onclick="downloadAllFiles()"><span class="zh">一键导出全部结果</span><span class="en">Export all deliverables</span></button>
+            <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">先看筛选报告</span><span class="en">Preview the report</span></button>
+          </div>
+        </div>
+
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-success);">
+          <h3><span class="zh">筛选已完成</span><span class="en">Screening Complete</span></h3>
+          <p><span class="zh">现在可以把这一轮筛选结果整理成图、表和报告，作为正式项目输出。</span><span class="en">You can now turn this review cycle into final diagrams, tables, and reports for formal project output.</span></p>
+        </div>
+
+        <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
+          <div class="stat-card"><div class="stat-label"><span class="zh">数据库识别</span><span class="en">Database identified</span></div><div class="stat-value" id="stat-identified-db-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">其他来源</span><span class="en">Other sources</span></div><div class="stat-value" id="stat-identified-other-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">去重后</span><span class="en">After deduplication</span></div><div class="stat-value" id="stat-after-dupes-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">标题/摘要筛选</span><span class="en">Title/abstract screened</span></div><div class="stat-value" id="stat-screened-final">0</div></div>
+        </div>
+
+        <div class="grid-4 workspace-stat-grid" style="margin-bottom: 24px;">
+          <div class="stat-card"><div class="stat-label"><span class="zh">标题/摘要排除</span><span class="en">Title/abstract excluded</span></div><div class="stat-value" id="stat-excluded-ta-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">全文评估</span><span class="en">Full-text assessed</span></div><div class="stat-value" id="stat-fulltext-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">全文排除</span><span class="en">Full-text excluded</span></div><div class="stat-value" id="stat-excluded-ft-final">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">最终纳入</span><span class="en">Included</span></div><div class="stat-value" id="stat-included-final">0</div></div>
+        </div>
+
+        <div id="dedupReviewSummaryFinal"></div>
+
+
+        <div class="two-column workspace-main-grid">
+          <div class="surface-panel workspace-side-panel secondary-info-zone">
+            <h3 style="margin-top: 0;"><span class="zh">最终图表主题</span><span class="en">Final Diagram Theme</span></h3>
+            <div class="theme-selector">
+              <label class="theme-option" data-theme="colorful">
+                <input type="radio" name="themeFinal" value="colorful">
+                <div class="theme-card"><strong><span class="zh">彩色版</span><span class="en">Colorful</span></strong><p><span class="zh">演讲展示</span><span class="en">Presentation friendly</span></p></div>
+              </label>
+              <label class="theme-option" data-theme="blackwhite">
+                <input type="radio" name="themeFinal" value="blackwhite">
+                <div class="theme-card"><strong><span class="zh">黑白版</span><span class="en">Black & White</span></strong><p><span class="zh">学术打印</span><span class="en">Publication print</span></p></div>
+              </label>
+              <label class="theme-option" data-theme="subtle">
+                <input type="radio" name="themeFinal" value="subtle" checked>
+                <div class="theme-card"><strong><span class="zh">柔和版</span><span class="en">Subtle</span></strong><span class="recommend-badge"><span class="zh">推荐</span><span class="en">Recommended</span></span><p><span class="zh">最稳妥的默认方案</span><span class="en">Safest default option</span></p></div>
+              </label>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="updateThemePreviewFinal()" style="margin-top: 16px;"><span class="zh">更新预览</span><span class="en">Refresh Preview</span></button>
+            <div class="info-box" style="margin-top: 16px;">
+              <label class="checkbox-label"><input type="radio" name="prismaModeFinal" value="simple"><span><span class="zh">简化版 PRISMA</span><span class="en">Simple PRISMA</span></span></label>
+              <label class="checkbox-label" style="margin-top: 10px;"><input type="radio" name="prismaModeFinal" value="prisma2020" checked><span><span class="zh">标准 PRISMA 2020</span><span class="en">Standard PRISMA 2020</span></span></label>
+            </div>
+          </div>
+
+          <div class="surface-panel workspace-side-panel secondary-info-zone">
+            <h3 style="margin-top: 0;"><span class="zh">导出文件</span><span class="en">Export Files</span></h3>
+            <div class="button-group">
+              <button type="button" class="btn btn-primary" onclick="downloadFile('included')"><span class="zh">下载纳入研究</span><span class="en">Download Included</span></button>
+              <button type="button" class="btn btn-primary" onclick="downloadFile('excluded')"><span class="zh">下载排除研究</span><span class="en">Download Excluded</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-colorful')"><span class="zh">导出 SVG（彩色版）</span><span class="en">SVG Colorful</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-blackwhite')"><span class="zh">导出 SVG（黑白版）</span><span class="en">SVG B/W</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-subtle')"><span class="zh">导出 SVG（柔和版）</span><span class="en">SVG Subtle</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">下载报告</span><span class="en">Download Report</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">下载全部</span><span class="en">Download All</span></button>
+            </div>
+            <p class="muted-text" style="margin-top: 12px;"><span class="zh">当前主题：</span><span class="en">Current theme:</span> <span id="currentThemeLabelFinal">柔和版</span></p>
+          </div>
+        </div>
+
+        <h3 class="panel-title" style="font-size: 24px; margin: 24px 0 12px;"><span class="zh">最终 PRISMA 预览</span><span class="en">Final PRISMA Preview</span></h3>
+        <div class="svg-preview" id="svgPreviewFinal"></div>
+        <div id="filterRulesOverviewFinal" style="margin-top: 16px;"></div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="resetApp()"><span class="zh">重新开始</span><span class="en">Restart</span></button>
+          <button type="button" class="btn btn-secondary" onclick="goToStep4()"><span class="zh">返回人工审核</span><span class="en">Back to Manual Review</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getCurrentLang() {
+      const params = new URLSearchParams(window.location.search);
+      const paramLang = params.get('lang');
+      if (paramLang === 'zh' || paramLang === 'en') {
+        localStorage.setItem('prisma_lang', paramLang);
+        return paramLang;
+      }
+      const storedLang = localStorage.getItem('prisma_lang');
+      if (storedLang === 'zh' || storedLang === 'en') {
+        return storedLang;
+      }
+      return 'zh';
+    }
+
+    function syncLangLinks(lang) {
+      document.querySelectorAll('[data-lang-link]').forEach((link) => {
+        const base = link.getAttribute('data-lang-link');
+        link.href = `${base}?lang=${lang}`;
+      });
+    }
+
+    function applyLangVisibility() {
+      const lang = document.documentElement.lang;
+      const isZh = lang === 'zh';
+      document.querySelectorAll('.zh').forEach((el) => {
+        el.hidden = !isZh;
+      });
+      document.querySelectorAll('.en').forEach((el) => {
+        el.hidden = isZh;
+      });
+      document.title = isZh ? 'PRISMA 文献筛选工作台 v2.0' : 'PRISMA Literature Screening Workspace v2.0';
+      const metaDescription = document.getElementById('metaDescription');
+      if (metaDescription) {
+        metaDescription.content = isZh
+          ? '专业级 PRISMA 文献筛选工作台，支持初筛结果、全文复核与 PRISMA 2020 导出。'
+          : 'Professional PRISMA literature screening workspace with screening summaries, full-text review, and PRISMA 2020 export.';
+      }
+      const currentThemeLabel = document.getElementById('currentThemeLabel');
+      if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
+        currentThemeLabel.textContent = isZh ? '柔和版' : 'Subtle';
+      }
+      const currentThemeLabelFinal = document.getElementById('currentThemeLabelFinal');
+      if (currentThemeLabelFinal && (currentThemeLabelFinal.textContent === '柔和版' || currentThemeLabelFinal.textContent === 'Subtle')) {
+        currentThemeLabelFinal.textContent = isZh ? '柔和版' : 'Subtle';
+      }
+      document.getElementById('langToggle').textContent = isZh ? 'EN' : '中';
+      syncLangLinks(lang);
+    }
+
+    window.toggleLang = function toggleLang() {
+      const isZh = document.documentElement.lang === 'zh';
+      const nextLang = isZh ? 'en' : 'zh';
+      document.documentElement.lang = nextLang;
+      localStorage.setItem('prisma_lang', nextLang);
+      applyLangVisibility();
+    };
+
+    document.documentElement.lang = getCurrentLang();
+    applyLangVisibility();
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  <script src="virtual-list.js"></script>
+  <script>
+    /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
+    const dbWorker = new Worker('db-worker.js');
+    /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
+    const parserWorker = new Worker('parser-worker.js?v=20260329-uploadfix3');
+    /* biome-ignore lint/correctness/noUnusedVariables: helper preserved for app.js compatibility */
+    function workerSend(worker, message) {
+      return new Promise((resolve, _reject) => {
+        const handler = (event) => {
+          worker.removeEventListener('message', handler);
+          resolve(event.data);
+        };
+        worker.addEventListener('message', handler);
+        worker.postMessage(message);
+      });
+    }
+  </script>
+  <script src="../dedup-engine.js?v=20260329-uploadfix3"></script>
+  <script src="app.js?v=20260329-uploadfix3"></script>
+  <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
+</body>
+</html>
+
+
+
