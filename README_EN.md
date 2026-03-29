@@ -4,7 +4,54 @@ English | [简体中文](./README.md)
 
 A powerful literature screening and PRISMA 2020 flow diagram generation tool to help researchers efficiently complete literature screening for systematic reviews and meta-analyses. **v1.7 adds verified fixes for PubMed `.nbib` import, single/dual review mode gating, and post-dedup workflow continuity.**
 
-## Verified v1.7.x Fixes (2026-03)
+---
+
+## 🆕 V2.0 Current Status (March 2026)
+
+`V2.0` has now been added as the new-generation workspace under [literature-screening-v2.0/](./literature-screening-v2.0/).
+
+### V2.0 Entry Points
+- Homepage: `literature-screening-v2.0/index.html`
+- Dual-review login: `literature-screening-v2.0/login.html`
+- Main workspace: `literature-screening-v2.0/workspace.html`
+
+### What Was Added and Completed in V2.0
+
+#### 1. New landing and workspace entry structure
+- Added a dedicated V2.0 homepage, login page, and workspace flow
+- Split single-review and dual-review access paths more clearly for real research workflows
+- Updated the homepage positioning to highlight large-scale processing, methodological rigor, dual review, and submission-ready export
+
+#### 2. Deduplication and screening flow aligned with real research use
+- Added `dedup-engine.js` as a standalone deduplication engine
+- Supports both “hard duplicate removal” and “possible duplicates for manual review”
+- Deduplication behavior is now closer to practical review workflows, with stronger emphasis on objectivity, explainability, and human verification
+
+#### 3. Upload and display pipeline fixes in V2.0
+- Fixed the issue where uploads succeeded but loaded content did not appear on the page
+- Fixed sample import not advancing to the next step automatically
+- Fixed real-file upload cases where scrolling and content visibility broke after loading
+- Fixed malformed structural tags in `workspace.html` that caused hidden or misplaced content
+
+#### 4. Dual-review workflow stability fixes
+- Fixed collaborative initialization and local session conflicts in dual-review mode
+- Prevented reviewer B from overwriting an existing shared project with empty local state
+- Fixed logout cleanup for collaboration listeners and polling intervals
+- Fixed the English homepage dual-review entry so it now routes to the English login page correctly
+
+#### 5. Bilingual routing and visibility fixes
+- Homepage route cards and preview windows now follow the active language
+- Fixed mixed Chinese/English content showing on the English dual-review login page
+- Root cause was CSS overriding the `hidden` attribute; this is now corrected globally
+
+### Current Positioning of V2.0
+- `V2.0` is the current practical workspace version intended for real use
+- Older `v1.7` and earlier notes are still preserved as historical version records
+- Future README updates will use `V2.0` as the main line, without removing earlier version history
+
+---
+
+## Verified v1.7.x Fixes (March 2026)
 
 ### 1. PubMed `.nbib` import is now fully wired
 - Upload accept list includes `.nbib`
@@ -31,9 +78,11 @@ A powerful literature screening and PRISMA 2020 flow diagram generation tool to 
   - Step 1 → Step 4 progression
   - runtime mode detection and session wiring
 
+---
+
 ## Core Features
 
-### v1.6 Engineering Enhancement (Latest)
+### v1.6 Engineering Enhancement
 - ⚡ **Enhanced Progress Visualization**: Real-time ETA estimation (remaining time), parsing/writing speed display, pause/resume buttons
 - 🛡️ **Import Fault Tolerance**: Detailed error reports (filename + line number + error type), success rate statistics, skip problematic records and continue importing
 - 🔍 **Explainable Deduplication Strategy**: Display DOI priority and title normalization rules, deduplication statistics, export detailed deduplication reports
