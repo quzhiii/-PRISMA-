@@ -1,10 +1,10 @@
-# PRISMA 文献筛选助手 v1.7
+# PRISMA 文献筛选助手 V2.0
 
 [English](README_EN.md) | 简体中文
 
-专为系统综述和 Meta 分析设计的自动化文献筛选工具。支持多源数据导入、智能去重、可视化筛选规则配置，并自动生成 PRISMA 2020 流程图。
+面向系统综述、Meta 分析与证据整合项目的文献筛选工作台。`V2.0` 当前聚焦更贴近真实科研场景的单人筛选、双人复核、分层去重、规则化筛选与 PRISMA 导出流程。
 
-🚀 **在线使用**: [GitHub Pages 链接](https://quzhiii.github.io/-PRISMA-/)
+🚀 **在线使用（GitHub Pages）**: [https://quzhiii.github.io/-PRISMA-/](https://quzhiii.github.io/-PRISMA-/)
 
 ---
 

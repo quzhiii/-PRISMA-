@@ -1,8 +1,8 @@
-# PRISMA Literature Screening Assistant v1.7
+# PRISMA Literature Screening Assistant V2.0
 
 English | [简体中文](./README.md)
 
-A powerful literature screening and PRISMA 2020 flow diagram generation tool to help researchers efficiently complete literature screening for systematic reviews and meta-analyses. **v1.7 adds verified fixes for PubMed `.nbib` import, single/dual review mode gating, and post-dedup workflow continuity.**
+A literature screening workspace for systematic reviews, meta-analyses, and evidence synthesis projects. `V2.0` now focuses on practical single-review workflows, dual-review collaboration, layered deduplication, rule-based screening, and PRISMA-ready export.
 
 ---
 
