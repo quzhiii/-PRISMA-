@@ -10,6 +10,13 @@ A literature screening workspace for systematic reviews, meta-analyses, and evid
 
 `V2.0` has now been added as the new-generation workspace under [literature-screening-v2.0/](./literature-screening-v2.0/).
 
+### V2.0 Highlights at a Glance
+- **Closer to real review workflows**: single review, dual review, project linkage, and PRISMA export are now organized as a clearer formal workflow
+- **More conservative and explainable deduplication**: upgraded from a single-layer dedup flow to `hard duplicates` plus `candidate duplicates for human review`
+- **Cleaner default entry path**: GitHub Pages now opens `V2.0` by default, while the old `v1.7` page is retained only as a historical entry
+- **Large-scale capacity preserved**: the app continues to support workflows at the `30,000-record` scale
+- **Bilingual routing fixed**: English homepage and dual-review entry routing/visibility issues are now corrected
+
 ### V2.0 Entry Points
 - Homepage: `literature-screening-v2.0/index.html`
 - Dual-review login: `literature-screening-v2.0/login.html`
@@ -43,6 +50,39 @@ A literature screening workspace for systematic reviews, meta-analyses, and evid
 - Homepage route cards and preview windows now follow the active language
 - Fixed mixed Chinese/English content showing on the English dual-review login page
 - Root cause was CSS overriding the `hidden` attribute; this is now corrected globally
+
+### V2.0 vs v1.7: What Changed
+
+| Dimension | v1.7 | V2.0 | Impact |
+|-----------|------|------|--------|
+| Default entry | Root opens the old single-page workspace | GitHub Pages opens the `V2.0` homepage by default | Clearer path for new users |
+| Entry structure | Primarily a single-page tool flow | Separate homepage, login page, and workspace | Closer to real research project navigation |
+| Dedup architecture | Inline page-level dedup logic | Shared `dedup-engine.js` module | Easier to maintain, explain, and reuse |
+| Dedup output | Mainly one automatic dedup result | Hard duplicate auto-removal + candidate review layer | Lower silent false-merge risk |
+| Dual review | Available, but route/state transitions were brittle | Entry, language, and shared-project state are stabilized | Better fit for formal dual-review workflows |
+| Bilingual behavior | English pages could show mixed-language content | Visibility and routing issues fixed | Higher usability for English-language use |
+| Large-scale handling | Supports `30,000+` records | Still supports `30,000+` records | Capacity preserved, not regressed |
+
+### Dedup Benchmark: Objective Change vs v1.7
+
+The following numbers come from the repo benchmark report [docs/benchmarks/dedup/post-implementation-benchmark-report.md](./docs/benchmarks/dedup/post-implementation-benchmark-report.md):
+
+| Metric | v1.7 baseline (`root-app`) | V2.0 / `dedup-vnext` | Change |
+|--------|-----------------------------|----------------------|--------|
+| Auto-delete precision | `1.000` | `1.000` | Keeps the conservative no-false-auto-delete policy |
+| Combined duplicate-like recall | `0.583` | `0.917` | Material improvement in duplicate/near-duplicate discovery |
+| Combined candidate F1 | `0.737` | `0.957` | Better candidate-review quality |
+| Real RDF hard recall | `0.667` | `1.000` | Recovers more true duplicate groups on real exported data |
+| Real RDF candidate pairs | `0` | `1` | Safely surfaces one additional likely-duplicate case for review |
+
+### Performance vs Efficiency
+
+- **Raw processing performance**: there is no separate evidence yet that `V2.0` is materially faster than `v1.7` in pure import throughput. This round focused on **correctness, stability, and workflow efficiency**, not a throughput rewrite.
+- **Workflow efficiency**: real-user efficiency is improved even without claiming raw speed gains, mainly because:
+  - the default entry path is clearer
+  - dual-review flow is more stable and less prone to state conflicts
+  - deduplication now reduces hidden rework by surfacing likely duplicates for review instead of silently missing them
+  - upload display, step progression, and page visibility issues were fixed
 
 ### Current Positioning of V2.0
 - `V2.0` is the current practical workspace version intended for real use
