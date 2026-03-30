@@ -121,20 +121,31 @@ Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-so
 
 ```text
 Step 1  Import literature
-        Multi-file, multi-format, cross-source import
+        Multi-file, multi-format import with automatic cross-source deduplication
 
-Step 2  Deduplicate
-        Auto-remove hard duplicates, then surface candidates for review
+Step 2  Configure screening rules
+        Language / year / keywords / journal filters, reusable via YAML
 
-Step 3  Configure rules and run screening
-        Language, year, keyword, title, author, and journal filters
+Step 3  Automatic screening results
+        Review included records and rerun after rule updates
 
 Step 4  Manual review
-        Continue handling edge cases, candidate duplicates, or full-text review
+        Use shortcuts 1-6 for exclusion reasons, with auto-saved progress
 
 Step 5  Export
-        Export PRISMA 2020 flow diagram and result details
+        PRISMA 2020 flow diagram (SVG) + detailed Excel report
 ```
+
+---
+
+## Performance Benchmarks
+
+| Operation | Data volume | Time | Notes |
+|------|------|------|------|
+| Import to IndexedDB | 30,000 records | ~3-5s | Batch insert, 500 per batch |
+| Paginated query | 100 records | ~213ms | Indexed query |
+| Virtual list render | 30,000 records | ~16ms/frame | Stable 60fps |
+| Deduplication (V2.0) | Full set | Background execution | Web Worker, no UI blocking |
 
 ---
 
@@ -172,24 +183,49 @@ The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmar
 
 ---
 
-## Technical Structure
+## Technical Architecture
 
 ```text
-index.html / login.html / workspace.html
-        │
-        └── app.js
-              ├── dedup-engine.js
-              ├── parser-worker.js
-              ├── db-worker.js
-              └── IndexedDB
+┌─────────────────────────────────┐
+│  index.html / workspace.html    │  ← UI layer (step wizard + virtual list)
+└────────────────┬────────────────┘
+                 │
+        ┌────────▼────────┐
+        │     app.js      │  ← Logic layer (rule engine + flow control)
+        └────┬───────┬────┘
+             │       │
+     ┌───────▼──┐ ┌──▼──────────┐
+     │ db-worker│ │parser-worker│  ← Web Worker layer (background threads)
+     └───────┬──┘ └──┬──────────┘
+             │       │
+        ┌────▼───────▼────┐
+        │   IndexedDB     │  ← Data layer (local storage for 30,000+ records)
+        └─────────────────┘
+             ↑
+        dedup-engine.js    ← V2.0 standalone dedup engine (two-layer output)
 ```
+
+### Core Modules
 
 | Module | Responsibility |
 |------|------|
 | `dedup-engine.js` | Standalone V2.0 dedup engine for hard and candidate duplicate output |
+| `db-worker.js` | IndexedDB CRUD, batch insert, paginated query, transaction handling |
+| `parser-worker.js` | 8-format parsing, DOI / title normalization, streaming file processing |
+| `virtual-list.js` | Virtual scrolling component rendering only the visible 100 records |
 | `app.js` | Main flow control, rule engine, export, and state management |
-| `parser-worker.js` | Background parsing for multiple literature formats |
-| `db-worker.js` | IndexedDB writes, queries, and batch handling |
+
+---
+
+## V2.0 Dedup Benchmarks (vs v1.7)
+
+| Metric | v1.7 | V2.0 | Change |
+|------|------|------|------|
+| Auto-delete precision | `1.000` | `1.000` | Zero false auto-delete maintained |
+| Combined duplicate-like recall | `0.583` | `0.917` | +57% |
+| Combined Candidate F1 | `0.737` | `0.957` | +30% |
+| Real RDF hard recall | `0.667` | `1.000` | Full recovery |
+| Explicit candidate surfacing | `✗` | `✓` | Manual-review queue added |
 
 ---
 
@@ -256,6 +292,28 @@ Then open `http://localhost:5175` in your browser.
 
 ---
 
+## Contributing
+
+Issues and Pull Requests are welcome.
+
+```bash
+# After forking the repo
+git checkout -b feature/your-feature
+git commit -m "feat: describe your change"
+git push origin feature/your-feature
+# Then open a Pull Request
+```
+
+---
+
 ## License
 
 [MIT License](./LICENSE)
+
+---
+
+<div align="center">
+
+If this tool helps your research, a Star is welcome.
+
+</div>
