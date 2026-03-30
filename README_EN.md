@@ -1,368 +1,261 @@
-# PRISMA Literature Screening Assistant V2.0
+<div align="center">
+
+# PRISMA Literature Screening Assistant
+
+**A practical end-to-end literature screening workspace for systematic reviews, meta-analyses, and evidence synthesis**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-V2.0-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![GitHub Pages](https://img.shields.io/badge/Demo-Live-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
 English | [简体中文](./README.md)
 
-A literature screening workspace for systematic reviews, meta-analyses, and evidence synthesis projects. `V2.0` now focuses on practical single-review workflows, dual-review collaboration, layered deduplication, rule-based screening, and PRISMA-ready export.
+[Live Demo](https://quzhiii.github.io/-PRISMA-/) · [Issues](https://github.com/quzhiii/-PRISMA-/issues) · [Version History](#version-history)
+
+> From literature import and deduplication to rule-based screening, manual review,  
+> and PRISMA 2020 export, **the workflow runs locally in the browser by default**.
+
+</div>
 
 ---
 
-## 🆕 V2.0 Current Status (March 2026)
+## Why V2.0
 
-`V2.0` has now been added as the new-generation workspace under [literature-screening-v2.0/](./literature-screening-v2.0/).
+`V2.0` is not just a patch set on top of the old single-page tool. It reorganizes the product into a more realistic research workspace:
 
-### V2.0 Highlights at a Glance
-- **Closer to real review workflows**: single review, dual review, project linkage, and PRISMA export are now organized as a clearer formal workflow
-- **More conservative and explainable deduplication**: upgraded from a single-layer dedup flow to `hard duplicates` plus `candidate duplicates for human review`
-- **Cleaner default entry path**: GitHub Pages now opens `V2.0` by default, while the old `v1.7` page is retained only as a historical entry
-- **Large-scale capacity preserved**: the app continues to support workflows at the `30,000-record` scale
-- **Bilingual routing fixed**: English homepage and dual-review entry routing/visibility issues are now corrected
+- clearer entry structure with a homepage, dual-review login, and workspace
+- a more conservative deduplication model with automatic hard removal plus human-review candidates
+- support for both single-review and formal dual-review workflows
+- retained `30,000+` record handling capacity for practical project use
 
-### V2.0 Entry Points
+The default online entry now opens `V2.0`. The old `v1.7` page remains available only as a historical version.
+
+---
+
+## What This Tool Solves
+
+| Common problem | What V2.0 does |
+|------|------|
+| Large libraries slow down or break browser-based tools | Retains the IndexedDB + Web Worker + virtual list architecture for large-scale handling |
+| Automatic deduplication feels risky and opaque | Uses a two-layer model: `hard duplicates` for safe auto-removal, `candidate duplicates` for human review |
+| Dual-review collaboration can overwrite or conflict | Stabilizes reviewer roles and shared project state |
+| Upload succeeds but the workspace does not show the loaded content | Fixes upload display, step progression, scrolling, and page visibility issues |
+| English entry paths are inconsistent | Fixes English homepage, dual-review routing, and visibility behavior |
+| Final reporting still needs PRISMA artifacts | Supports PRISMA 2020 SVG export and result export for reporting |
+
+---
+
+## V2.0 Highlights
+
+### 1. Closer to real review work, not just a single-page demo
+
+- dedicated homepage, login page, and workspace
+- clearer split between single-review and dual-review access
+- better fit for an end-to-end screening flow from import to export
+
+### 2. More conservative and explainable deduplication
+
+`V2.0` extracts deduplication into a standalone [`dedup-engine.js`](./dedup-engine.js) module and uses a two-layer output:
+
+```text
+Layer 1: Hard duplicates
+Removed automatically under stricter evidence rules
+
+Layer 2: Candidate duplicates
+Surfaced for human review instead of silent auto-removal
+```
+
+This means the goal is not "delete as much as possible automatically." The goal is a safer workflow for research use.
+
+### 3. Large-scale capacity is preserved while usability improves
+
+- still supports `30,000+` records
+- upload display and page scrolling are more stable
+- sample import, real-file upload, and step progression are now connected correctly
+- dual-review project initialization and logout cleanup are fixed
+
+### 4. Bilingual paths are now cleaner
+
+- GitHub Pages root opens `V2.0` by default
+- English homepage dual-review entry now goes to the English login page
+- mixed-language rendering and visibility bugs on English pages are fixed
+
+---
+
+## Core Capabilities
+
+### Multi-format import
+
+Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-source uploads in the same workflow.
+
+### Two-layer deduplication
+
+- hard duplicates can be auto-removed
+- likely duplicates are routed to a manual-review queue
+- better aligned with a conservative research workflow
+
+### Rule-based screening
+
+- language filters
+- publication year range
+- inclusion / exclusion keywords
+- title / author / journal conditions
+- rule reruns connected to later review steps
+
+### Single-review and dual-review workflows
+
+- supports solo screening
+- supports main-reviewer / secondary-reviewer collaboration
+- shared project state is more stable
+
+### PRISMA 2020 export
+
+- PRISMA 2020 flow diagram export
+- result export for downstream reporting
+- better suited for documentation and submission preparation
+
+---
+
+## Standard Workflow
+
+```text
+Step 1  Import literature
+        Multi-file, multi-format, cross-source import
+
+Step 2  Deduplicate
+        Auto-remove hard duplicates, then surface candidates for review
+
+Step 3  Configure rules and run screening
+        Language, year, keyword, title, author, and journal filters
+
+Step 4  Manual review
+        Continue handling edge cases, candidate duplicates, or full-text review
+
+Step 5  Export
+        Export PRISMA 2020 flow diagram and result details
+```
+
+---
+
+## V2.0 vs v1.7
+
+| Dimension | v1.7 | V2.0 |
+|------|------|------|
+| Default entry | Root opens the old single-page workspace | GitHub Pages opens the `V2.0` homepage |
+| Page structure | Mostly a single-page tool | Separate homepage, login, and workspace |
+| Dedup architecture | Inline page logic | Standalone `dedup-engine.js` module |
+| Dedup output | Mostly one direct dedup result | Hard duplicate auto-removal + candidate review |
+| Dual review | Functional but brittle in routing/state | More stable entry, language, and shared-state flow |
+| English path | Mixed-language and routing issues existed | Language routing and visibility fixed |
+| Current role | Historical stable version | Current practical version for use |
+
+---
+
+## Benchmarks and Objective Change
+
+The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmark-report.md`](./docs/benchmarks/dedup/post-implementation-benchmark-report.md).
+
+| Metric | v1.7 | V2.0 | Meaning |
+|------|------|------|------|
+| Auto-delete precision | `1.000` | `1.000` | Keeps the conservative zero-false-auto-delete policy |
+| Combined duplicate-like recall | `0.583` | `0.917` | Better discovery of true duplicates and near-duplicates |
+| Combined Candidate F1 | `0.737` | `0.957` | Higher quality candidate-review output |
+| Real RDF hard recall | `0.667` | `1.000` | Recovers more duplicate groups on real exported data |
+| Real RDF candidate pairs | `0` | `1` | Explicitly surfaces one more case for manual review |
+
+### Performance vs efficiency
+
+- There is no separate evidence yet that `V2.0` is materially faster than `v1.7` in pure import throughput
+- The gain in this round is mainly correctness, stability, explainability, and real workflow efficiency
+- In practice, the bigger improvement is that `V2.0` is more usable for actual review work, not simply that it runs faster
+
+---
+
+## Technical Structure
+
+```text
+index.html / login.html / workspace.html
+        │
+        └── app.js
+              ├── dedup-engine.js
+              ├── parser-worker.js
+              ├── db-worker.js
+              └── IndexedDB
+```
+
+| Module | Responsibility |
+|------|------|
+| `dedup-engine.js` | Standalone V2.0 dedup engine for hard and candidate duplicate output |
+| `app.js` | Main flow control, rule engine, export, and state management |
+| `parser-worker.js` | Background parsing for multiple literature formats |
+| `db-worker.js` | IndexedDB writes, queries, and batch handling |
+
+---
+
+## Quick Start
+
+### Online
+
+[Open GitHub Pages](https://quzhiii.github.io/-PRISMA-/)
+
+### Local
+
+```bash
+git clone https://github.com/quzhiii/-PRISMA-.git
+cd -PRISMA-
+python -m http.server 5175
+```
+
+Then open `http://localhost:5175` in your browser.
+
+---
+
+## Current Entry Points
+
 - Homepage: `literature-screening-v2.0/index.html`
 - Dual-review login: `literature-screening-v2.0/login.html`
 - Main workspace: `literature-screening-v2.0/workspace.html`
 
-### What Was Added and Completed in V2.0
-
-#### 1. New landing and workspace entry structure
-- Added a dedicated V2.0 homepage, login page, and workspace flow
-- Split single-review and dual-review access paths more clearly for real research workflows
-- Updated the homepage positioning to highlight large-scale processing, methodological rigor, dual review, and submission-ready export
-
-#### 2. Deduplication and screening flow aligned with real research use
-- Added `dedup-engine.js` as a standalone deduplication engine
-- Supports both “hard duplicate removal” and “possible duplicates for manual review”
-- Deduplication behavior is now closer to practical review workflows, with stronger emphasis on objectivity, explainability, and human verification
-
-#### 3. Upload and display pipeline fixes in V2.0
-- Fixed the issue where uploads succeeded but loaded content did not appear on the page
-- Fixed sample import not advancing to the next step automatically
-- Fixed real-file upload cases where scrolling and content visibility broke after loading
-- Fixed malformed structural tags in `workspace.html` that caused hidden or misplaced content
-
-#### 4. Dual-review workflow stability fixes
-- Fixed collaborative initialization and local session conflicts in dual-review mode
-- Prevented reviewer B from overwriting an existing shared project with empty local state
-- Fixed logout cleanup for collaboration listeners and polling intervals
-- Fixed the English homepage dual-review entry so it now routes to the English login page correctly
-
-#### 5. Bilingual routing and visibility fixes
-- Homepage route cards and preview windows now follow the active language
-- Fixed mixed Chinese/English content showing on the English dual-review login page
-- Root cause was CSS overriding the `hidden` attribute; this is now corrected globally
-
-### V2.0 vs v1.7: What Changed
-
-| Dimension | v1.7 | V2.0 | Impact |
-|-----------|------|------|--------|
-| Default entry | Root opens the old single-page workspace | GitHub Pages opens the `V2.0` homepage by default | Clearer path for new users |
-| Entry structure | Primarily a single-page tool flow | Separate homepage, login page, and workspace | Closer to real research project navigation |
-| Dedup architecture | Inline page-level dedup logic | Shared `dedup-engine.js` module | Easier to maintain, explain, and reuse |
-| Dedup output | Mainly one automatic dedup result | Hard duplicate auto-removal + candidate review layer | Lower silent false-merge risk |
-| Dual review | Available, but route/state transitions were brittle | Entry, language, and shared-project state are stabilized | Better fit for formal dual-review workflows |
-| Bilingual behavior | English pages could show mixed-language content | Visibility and routing issues fixed | Higher usability for English-language use |
-| Large-scale handling | Supports `30,000+` records | Still supports `30,000+` records | Capacity preserved, not regressed |
-
-### Dedup Benchmark: Objective Change vs v1.7
-
-The following numbers come from the repo benchmark report [docs/benchmarks/dedup/post-implementation-benchmark-report.md](./docs/benchmarks/dedup/post-implementation-benchmark-report.md):
-
-| Metric | v1.7 baseline (`root-app`) | V2.0 / `dedup-vnext` | Change |
-|--------|-----------------------------|----------------------|--------|
-| Auto-delete precision | `1.000` | `1.000` | Keeps the conservative no-false-auto-delete policy |
-| Combined duplicate-like recall | `0.583` | `0.917` | Material improvement in duplicate/near-duplicate discovery |
-| Combined candidate F1 | `0.737` | `0.957` | Better candidate-review quality |
-| Real RDF hard recall | `0.667` | `1.000` | Recovers more true duplicate groups on real exported data |
-| Real RDF candidate pairs | `0` | `1` | Safely surfaces one additional likely-duplicate case for review |
-
-### Performance vs Efficiency
-
-- **Raw processing performance**: there is no separate evidence yet that `V2.0` is materially faster than `v1.7` in pure import throughput. This round focused on **correctness, stability, and workflow efficiency**, not a throughput rewrite.
-- **Workflow efficiency**: real-user efficiency is improved even without claiming raw speed gains, mainly because:
-  - the default entry path is clearer
-  - dual-review flow is more stable and less prone to state conflicts
-  - deduplication now reduces hidden rework by surfacing likely duplicates for review instead of silently missing them
-  - upload display, step progression, and page visibility issues were fixed
-
-### Current Positioning of V2.0
-- `V2.0` is the current practical workspace version intended for real use
-- Older `v1.7` and earlier notes are still preserved as historical version records
-- Future README updates will use `V2.0` as the main line, without removing earlier version history
-
 ---
 
-## Verified v1.7.x Fixes (March 2026)
+## Version History
 
-### 1. PubMed `.nbib` import is now fully wired
-- Upload accept list includes `.nbib`
-- Main-thread and worker parsing paths both recognize `.nbib`
-- PubMed exports can now enter the same screening pipeline as RIS imports
+<details>
+<summary><b>V2.0 (current main version, 2026-03)</b></summary>
 
-### 2. Single / dual review mode gating is fixed
-- The app now reads `prisma_user_session` from `sessionStorage`
-- Runtime mode correctly resolves to:
-  - `single`
-  - `dual-main`
-  - `dual-secondary`
-- Collaboration-only actions are gated by reviewer role
+- added dedicated homepage / login / workspace structure
+- added standalone `dedup-engine.js`
+- changed deduplication to hard auto-removal plus candidate review output
+- fixed upload-success-but-no-content display issues, scrolling issues, and broken step progression
+- fixed shared-state conflicts and logout cleanup in dual review
+- fixed English entry, routing, and visibility behavior
+- switched GitHub Pages default entry to `V2.0`
 
-### 3. Post-dedup progression no longer gets stuck
-- Step 2 / Step 4 integration in `v1.7-core-patch.js` was hardened
-- Dedup detail viewing and dedup-only CSV export remain available
-- Verified browser flow now reaches manual full-text review (Step 4)
+</details>
 
-### 4. Regression status
-- `node tests/run-all-regressions.js` → **5/5 PASS**
-- Browser verification covered:
-  - `.nbib` upload and preview
-  - Step 1 → Step 4 progression
-  - runtime mode detection and session wiring
+<details>
+<summary><b>v1.7.x (stable maintenance version, 2026-03)</b></summary>
+
+- completed PubMed `.nbib` import support
+- fixed single / dual review session wiring
+- fixed post-dedup progression into later steps
+- regression verification passed: `tests/run-all-regressions.js` `5/5 PASS`
+
+</details>
+
+<details>
+<summary><b>v1.5-v1.6 (large-scale processing foundation)</b></summary>
+
+- IndexedDB data layer
+- Web Worker background processing
+- virtual scrolling
+- large-scale literature handling pipeline
+
+</details>
 
 ---
-
-## Core Features
-
-### v1.6 Engineering Enhancement
-- ⚡ **Enhanced Progress Visualization**: Real-time ETA estimation (remaining time), parsing/writing speed display, pause/resume buttons
-- 🛡️ **Import Fault Tolerance**: Detailed error reports (filename + line number + error type), success rate statistics, skip problematic records and continue importing
-- 🔍 **Explainable Deduplication Strategy**: Display DOI priority and title normalization rules, deduplication statistics, export detailed deduplication reports
-
-### v1.5 Major Upgrade (Large-scale Processing)
-- **IndexedDB Data Layer**: Supports 30,000+ literature storage, breaking localStorage limitations
-- **Web Worker Parallel Processing**: File parsing and deduplication run in background threads, main thread remains responsive
-- **Virtual Scrolling List**: Only renders visible 100 records, reducing memory usage by 50%
-- **Streaming Progress Reporting**: Real-time progress bar during import and parsing
-- **Paginated Query API**: Load data on demand, smooth scrolling at 60fps
-- **Transaction Safety**: IndexedDB transactions ensure no data loss
-- 🚀 **Smart Auto-batching**: Single file import supports 30,000+ articles, system automatically writes in batches of 5,000 to IndexedDB (4 core mechanisms)
-  - **Stream Parsing**: Large files read in chunks, avoiding memory overflow
-  - **Checkpoint Mechanism**: Create checkpoints every 1,000 records, recoverable on failure
-  - **Queue Backpressure Control**: Automatically adjusts parsing and import speed, preventing browser freeze
-  - **Resume from Breakpoint**: Continue unfinished imports after page refresh
-
-### v1.4 Core Features
-- **Custom Exclusion Reason Templates**: Project-level exclusion reason customization, different projects independent
-- **Keyboard Shortcuts**: First 6 exclusion reasons can use number keys 1-6 for quick selection
-- **Manual Review Draft Persistence**: Review progress auto-saved to localStorage, survives page refresh
-- **Rule Re-run Mechanism**: Step 3 supports "Modify Rules and Re-run" button, resets manual review data after confirmation
-- **PRISMA 2020 Standard Flow Diagram**: Supports both simplified and PRISMA 2020 standard export modes
-- **Rule Overview Display**: Results page shows all applied screening rules for audit and reporting
-- **Step 5 Final Results Page**: Independent final results page after manual review completion
-
-### v1.3 Core Features
-- **Multi-file Upload**: Simultaneously upload multiple library files (PubMed + CNKI + Zotero)
-- **Cross-library Smart Deduplication**: Cross-source deduplication based on DOI and title similarity
-- **Source Tracking**: Each record tagged with source, PRISMA diagram shows true source distribution
-- **Step 4 Manual Full-text Review**: New independent full-text review step
-- **Exclusion Reason Statistics**: Detailed tracking of literature count for each exclusion reason
-
-### v1.2 Core Features
-- **YAML Rule Configuration**: Import/export screening rules as YAML files
-- **Rule Preview**: Real-time preview of rule application effects
-- **Excel Detailed Report**: Export complete Excel spreadsheet with exclusion reasons
-
-### v1.1 Core Features
-- **Dual Review Collaboration**: Support multiple reviewers' independent assessments
-- **Cohen's Kappa Analysis**: Calculate inter-rater agreement coefficient
-- **Conflict Resolution**: Automatically identify inconsistent assessment results
-
-### Multi-format Support
-- **CSV/TSV**: Comma/tab-separated formats
-- **RIS/NBIB/ENW**: Endnote/Zotero/Mendeley/PubMed export formats
-- **BibTeX**: LaTeX bibliography management format
-- **RDF**: Zotero RDF/XML format
-- **TXT**: Plain text line-by-line parsing
-- **Multi-source Upload**: Upload multiple files simultaneously with automatic cross-library deduplication
-
-### Smart Screening
-- **Rule-based Automatic Screening**:
-  - Language filtering (Chinese/English)
-  - Year range filtering
-  - Keyword inclusion/exclusion (supports OR logic)
-  - Journal inclusion/exclusion
-  - Title inclusion/exclusion
-  - Author inclusion/exclusion
-- **Manual Full-text Review**: Enter manual review stage after title/abstract screening
-- **Exclusion Reason Tracking**: Detailed exclusion reason and stage for each article
-- **Smart Deduplication**: Cross-library deduplication algorithm based on DOI + normalized title
-
-### Visual Output
-- **PRISMA 2020 Flow Diagram**: International standard-compliant SVG flow diagram
-- **Three Theme Styles**: Colorful, black-and-white, and subtle color schemes
-- **Detailed Statistics**: Literature count at each stage, source distribution, exclusion reason analysis
-- **Excel Detailed Report**: Complete report with all literature information and exclusion reasons
-
-## Quick Start
-
-### Online Use
-Visit [GitHub Pages](https://quzhiii.github.io/-PRISMA-/) to use directly, no installation required.
-
-### Local Deployment
-```bash
-# Clone the project
-git clone https://github.com/quzhiii/-PRISMA-.git
-cd -PRISMA-
-
-# Start local server (choose one)
-python -m http.server 5175
-# or
-npx serve
-```
-
-Then visit `http://localhost:5175` in your browser
-
-## User Guide
-
-### Basic Workflow
-1. **Step 1: Upload Literature Files**
-   - Support single/multiple file uploads
-   - Automatic format recognition and parsing
-   - Display source distribution statistics
-
-2. **Step 2: Configure Screening Rules**
-   - Set language, year, keyword filtering conditions
-   - Save as YAML configuration file (reusable)
-   - Real-time preview of rule effects
-
-3. **Step 3: Automatic Screening**
-   - Apply rules for smart deduplication
-   - Title/abstract automatic screening
-   - Generate preliminary screening results
-
-4. **Step 4: Manual Review**
-   - Review each article that passed automatic screening
-   - Select exclusion reason or retain
-   - Use keyboard shortcuts 1-6 for quick operations
-   - Support viewing external full-text links
-
-5. **Step 5: Export Results**
-   - Generate PRISMA flow diagram (SVG)
-   - Export detailed Excel report
-   - View complete screening statistics
-
-### v1.6 Engineering Enhancement Guide
-- ⚡ **Progress Visualization**: View remaining time, parsing speed, writing speed during import - know exactly what to expect with large files
-- ⏸️ **Pause/Resume**: Pause import anytime, view other content, then continue
-- 🛡️ **Fault-tolerant Import**: Even with format errors in files, skip problematic records and continue importing, view detailed error report at the end
-- 🔍 **Transparent Deduplication**: Click "View Deduplication Strategy" to understand DOI and title deduplication rules, export deduplication details for audit
-- 📊 **Error Report**: After import completion, view which records failed, specific reasons, failure locations - convenient for fixing source files
-
-### v1.5 Usage Recommendations
-- 💡 **Single File Import**: Support importing 30,000+ articles, system automatically writes in batches of 5,000 to IndexedDB (no manual batching needed)
-- ⚠️ **Browser Performance**: If browser lags during import, recommend splitting large files into smaller ones (e.g., 10,000 per file)
-- 🔄 **Resume from Breakpoint**: If page refreshed during import, can continue from last interruption point (valid for 1 hour)
-- 🔍 **Precise Rules**: Configure rules as precisely as possible in Step 2 to reduce manual review workload
-- 📜 **Virtual Scrolling**: List only renders visible area, smooth scrolling without lag
-- ⚡ **Background Processing**: Parsing and deduplication execute in Web Worker, don't block interface
-- 💾 **Local Storage**: All data stored in browser IndexedDB, no server required
-
-### Advanced Features
-- **YAML Configuration Import/Export**: Save screening rules as `.yaml` files, share between projects
-- **Rule Re-run Mechanism**: Re-screen after modifying rules, automatically clean old manual review data
-- **Detailed Tracking**: Excel export includes exclusion stage and reason for each article
-- **Theme Switching**: Support colorful/black-and-white/subtle three PRISMA diagram styles
-
-## Performance Benchmark (v1.6)
-| Operation         | Data Size | Time      | Notes                   |
-|-------------------|-----------|-----------|-------------------------|
-| Generate test data| 30,000    | ~0.01s    | JavaScript array generation |
-| Import IndexedDB  | 30,000    | ~3-5s     | Batch insert, 500/batch |
-| Paginated query   | 100       | ~213ms    | Index query, close to 200ms |
-| Virtual scroll render | 30,000 | ~16ms/frame | Maintain 60fps smoothness |
-| Error tracking    | Real-time | ~0ms      | Doesn't affect import performance |
-| Progress ETA calculation | Real-time | ~1ms | Based on completion percentage |
-
-## Notes
-- **Browser Compatibility**: Requires IndexedDB and Web Worker support (Chrome 60+, Firefox 55+)
-- **Performance Recommendation**: Single file can import 30,000+ articles, but if browser lags, recommend splitting into files of 10,000 each
-- **Local Storage**: Data stored locally in browser, clearing cache will lose data
-- **Manual Review**: After rule modification and re-run, manual review progress will reset
-- **Resume from Breakpoint**: Import progress saved for 1 hour, needs re-import after timeout
-- **Error Report**: v1.6 supports exporting errors and deduplication details for debugging and audit
-
-## v1.6 New Features Explained
-
-### 1. Enhanced Progress Visualization ⚡
-**Problem**: When importing 30,000 articles, users didn't know how long to wait, causing anxiety.
-
-**Solution**:
-- Display remaining time in real-time (seconds/minutes/hours format)
-- Show parsing speed and writing speed (records/second)
-- Add pause/resume button, users can stop midway to view other content
-- Smooth progress bar animation (0.3s transition)
-
-**Use Case**: When importing 20,000 articles, see "Remaining 2min 30sec | Parsing: 450/sec | Writing: 380/sec"
-
-### 2. Import Fault Tolerance 🛡️
-**Problem**: If 1 record has format error in a file, entire file import fails.
-
-**Solution**:
-- errorTracker system collects all errors and warnings
-- Detailed logging: filename, line number, error type, specific content
-- Skip problematic records, continue importing other normal records
-- Display success rate and error summary after import completion
-- Support exporting error report as JSON
-
-**Use Case**: Import 10,000 records, 50 with format issues, system displays "Success rate: 99.5% (9950/10000 records), 50 errors", click to view detailed error list.
-
-### 3. Explainable Deduplication Strategy 🔍
-**Problem**: Users don't understand why certain articles are judged as duplicates, lack of transparency.
-
-**Solution**:
-- Display deduplication strategy: DOI exact match → Title normalization match
-- Title normalization rule explanation: Remove punctuation, spaces, convert to lowercase
-- Record deduplication decision for each article (DOI duplicate/Title duplicate/Retained)
-- Deduplication statistics: Deduplicated X articles via DOI, Y articles via title
-- Export deduplication detail report (JSON format)
-
-**Use Case**: Click "View Deduplication Strategy", see detailed rules and examples, understand why "The Effect of Acupuncture!" and "the effect of acupuncture" are judged as duplicates.
-
-## Technical Architecture
-
-### v1.6 Architecture
-```
-┌─────────────────┐
-│   index.html    │  UI Layer: Step wizard + Virtual scroll list + Progress visualization
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│     app.js      │  Business Logic Layer: Rule engine + Flow control + Fault tolerance system
-│                 │  • progressTracker (Progress tracking)
-│                 │  • errorTracker (Error tracking)
-│                 │  • dedupExplanations (Deduplication explanation)
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-┌───▼──┐  ┌──▼────┐
-│ DB   │  │ Parser│  Web Worker Layer
-│Worker│  │ Worker│  Background thread processing
-└───┬──┘  └──┬────┘
-    │        │
-┌───▼────────▼────┐
-│   IndexedDB     │  Data Layer: 30,000+ literature storage
-└─────────────────┘
-```
-
-### Core Modules (v1.6 Enhancement)
-- **db-worker.js**: IndexedDB CRUD encapsulation, supports batch insert, paginated query, transaction management
-- **parser-worker.js**: 8 format parsers, DOI/title normalization, stream processing for large files
-- **virtual-list.js**: Virtual scroll list component, only renders visible 100 records
-- **app.js**: Main business logic, rule engine, PRISMA generation, Excel export
-  - **progressTracker**: Real-time progress tracking (ETA estimation, speed statistics, pause/resume)
-  - **errorTracker**: Error collection system (error/warning classification, success rate calculation, detailed report)
-  - **dedupExplanations**: Deduplication decision recording (strategy tracking, statistical analysis, explainability)
-
-### Key Technologies
-- **IndexedDB**: Browser local database, supports GB-level data storage
-- **Web Worker**: Multi-threaded architecture, avoids main thread blocking
-- **Virtual Scrolling**: Paginated rendering technique, reduces memory usage
-- **Stream Processing**: Parse and store simultaneously, avoids memory overflow
-- **Fault Tolerance**: Skip error records and continue processing, detailed error tracking
-- **Visualization Enhancement**: Real-time ETA calculation, speed monitoring, pause/resume control
-
-## Contributing
-Welcome to submit Issues and Pull Requests!
 
 ## License
-MIT License
+
+[MIT License](./LICENSE)
