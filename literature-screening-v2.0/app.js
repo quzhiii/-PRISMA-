@@ -1127,7 +1127,7 @@ function handleFile(file) {
     setTimeout(() => {
       hideProgress();
       const text = e.target.result;
-      parseFile(text, ext);
+      parseFile(text, ext, file.name);
       hideLoading();
     }, 500);
   };
@@ -1537,48 +1537,77 @@ function parseTXTContent(text) {
 }
 
 // File parser dispatcher
-function parseFile(text, ext) {
+function parseFile(text, ext, fileName = 'single-upload') {
+  const records = parseFileContent(text, ext);
+
   switch (ext) {
     case '.csv':
       fileFormat = 'CSV';
       formatSource = 'Excel, Google Sheets';
-      parseCSV(text);
       break;
     case '.tsv':
       fileFormat = 'TSV';
       formatSource = 'Excel (Tab-delimited)';
-      parseTSV(text);
       break;
     case '.ris':
     case '.nbib':
       fileFormat = 'RIS';
       formatSource = ext === '.nbib' ? 'PubMed (.nbib)' : 'Endnote, Zotero, Mendeley';
-      parseRIS(text);
       break;
     case '.bib':
     case '.bibtex':
       fileFormat = 'BibTeX';
       formatSource = 'Google Scholar, arXiv';
-      parseBibTeX(text);
       break;
     case '.txt':
       fileFormat = 'TXT';
       formatSource = '简单文本';
-      parseTXT(text);
       break;
     case '.enw':
       fileFormat = 'ENW';
       formatSource = '知网导出';
-      parseENW(text);
       break;
     case '.rdf':
       fileFormat = 'RDF';
       formatSource = 'Zotero导出';
-      parseRDF(text);
       break;
     default:
       showToast('不支持的文件格式', 'error');
+      return;
   }
+
+  const source = detectSource(ext);
+  if (!Array.isArray(records) || records.length === 0) {
+    showToast('未能解析到有效数据，使用示例数据', 'warning');
+    uploadedData = sampleData.map((item) => ({
+      ...item,
+      _source: source,
+      _sourceFile: 'sample.data'
+    }));
+    uploadedFiles = [{
+      name: 'sample.data',
+      format: ext,
+      recordCount: uploadedData.length,
+      source
+    }];
+  } else {
+    uploadedData = records.map((record) => ({
+      ...record,
+      _source: record._source || source,
+      _sourceFile: record._sourceFile || fileName
+    }));
+    uploadedFiles = [{
+      name: fileName,
+      format: ext,
+      recordCount: uploadedData.length,
+      source
+    }];
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式，共${uploadedData.length}条记录)`, 'success');
+  addSuccessAnimation();
 }
 
 // CSV parser
@@ -3048,8 +3077,39 @@ function performScreening(data, rules) {
 }
 
 function getValue(row, field) {
+  if (!row) return '';
+
+  const directValue = row[field];
+  if (directValue !== undefined && directValue !== null && String(directValue).trim()) {
+    return String(directValue);
+  }
+
   const col = columnMapping[field];
-  return col ? String(row[col] || '') : '';
+  if (col) {
+    const mappedValue = row[col];
+    if (mappedValue !== undefined && mappedValue !== null && String(mappedValue).trim()) {
+      return String(mappedValue);
+    }
+  }
+
+  const fallbackMap = {
+    title: ['TI', 'T1', 'dc:title', 'dcterms:title'],
+    abstract: ['AB', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes'],
+    year: ['PY', 'dc:date', 'dcterms:issued', 'Publication Year'],
+    journal: ['JO', 'T2', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['DO', 'DOI', 'dc:identifier'],
+    keywords: ['KW', 'keyword', 'Manual Tags', 'Automatic Tags']
+  };
+
+  for (const fallback of fallbackMap[field] || []) {
+    const value = row[fallback];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value);
+    }
+  }
+
+  return '';
 }
 
 function normalizeTitle(title) {

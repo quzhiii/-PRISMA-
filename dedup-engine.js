@@ -64,8 +64,6 @@
     }
 
     if (
-      !left._canonical_identifier &&
-      !right._canonical_identifier &&
       left._normalized_title &&
       left._normalized_title === right._normalized_title &&
       left._normalized_pages &&
@@ -73,7 +71,9 @@
       left._year &&
       left._year === right._year &&
       hasStrongAuthorOverlap(left, right) &&
-      hasCompatiblePublicationTypes(left, right)
+      hasCompatiblePublicationTypes(left, right) &&
+      !hasConflictingDecisiveIdentifiers(left, right) &&
+      !hasAsymmetricDecisiveIdentifier(left, right)
     ) {
       return buildReason('title_year_pages_authors_exact', 'Exact normalized title, year, pages, and author overlap', {
         title: left._normalized_title,
@@ -324,6 +324,20 @@
 
   function isDecisiveIdentifierType(identifierType) {
     return identifierType === 'doi' || identifierType === 'pmid' || identifierType === 'pmcid';
+  }
+
+  function hasConflictingDecisiveIdentifiers(left, right) {
+    return (
+      isDecisiveIdentifierType(left._identifier_type) &&
+      isDecisiveIdentifierType(right._identifier_type) &&
+      left._canonical_identifier &&
+      right._canonical_identifier &&
+      left._canonical_identifier !== right._canonical_identifier
+    );
+  }
+
+  function hasAsymmetricDecisiveIdentifier(left, right) {
+    return isDecisiveIdentifierType(left._identifier_type) !== isDecisiveIdentifierType(right._identifier_type);
   }
 
   function isProtectedDistinctPair(left, right) {
