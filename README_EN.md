@@ -40,6 +40,7 @@ The default online entry now opens `V2.0`. The old `v1.7` page remains available
 | Large libraries slow down or break browser-based tools | Retains the IndexedDB + Web Worker + virtual list architecture for large-scale handling |
 | Automatic deduplication feels risky and opaque | Uses a two-layer model: `hard duplicates` for safe auto-removal, `candidate duplicates` for human review |
 | Dual-review collaboration can overwrite or conflict | Stabilizes reviewer roles and shared project state |
+| Full-text review shows incomplete abstracts and English content still needs manual translation | `V2.0` now handles multiline abstract parsing more robustly and adds `Translate this record` in the review modal |
 | Upload succeeds but the workspace does not show the loaded content | Fixes upload display, step progression, scrolling, and page visibility issues |
 | English entry paths are inconsistent | Fixes English homepage, dual-review routing, and visibility behavior |
 | Final reporting still needs PRISMA artifacts | Supports PRISMA 2020 SVG export and result export for reporting |
@@ -108,6 +109,7 @@ Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-so
 - supports solo screening
 - supports main-reviewer / secondary-reviewer collaboration
 - shared project state is more stable
+- full-text review modal supports full abstract viewing and `Translate this record`
 
 ### PRISMA 2020 export
 
@@ -263,6 +265,8 @@ Then open `http://localhost:5175` in your browser.
 - added dedicated homepage / login / workspace structure
 - added standalone `dedup-engine.js`
 - changed deduplication to hard auto-removal plus candidate review output
+- improved CSV / TSV multiline abstract parsing so full abstracts are less likely to be cut at the first sentence
+- added `Translate this record` in the full-text review modal for title + abstract translation
 - fixed upload-success-but-no-content display issues, scrolling issues, and broken step progression
 - fixed shared-state conflicts and logout cleanup in dual review
 - fixed English entry, routing, and visibility behavior
