@@ -316,6 +316,16 @@ git push origin feature/your-feature
 
 ---
 
+## Abstract And Review Modal Updates
+
+- The full-text review modal now prefers inline translation for a single record, and automatically falls back to a new-tab translation flow if inline translation is unavailable
+- The modal layout was tightened so long abstracts and long translations remain scrollable while the close button and action area stay visible
+- Clicking the empty overlay outside the modal now closes the modal directly
+- CNKI RDF abstract tail noise such as `AbstractFilter(...)`, `More`, and `Reset` is cleaned during display/parsing
+- When the upstream data source already provides a truncated abstract, the list view and modal now show an explicit `Source abstract may be truncated` hint
+- These truncated abstracts are treated as source limitations from the database/export itself; the tool marks them, but does not fabricate missing abstract text
+---
+
 <div align="center">
 
 If this tool helps your research, a Star is welcome.

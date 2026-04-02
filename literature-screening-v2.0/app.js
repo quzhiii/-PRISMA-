@@ -4637,8 +4637,12 @@ function displayFulltextReviewUI() {
 
     const abstractText = getValue(record, 'abstract');
     const hasAbstract = String(abstractText || '').trim().length > 0;
+    const sourceTruncatedBadge = isLikelySourceTruncatedAbstract(abstractText)
+      ? `<div style="margin-bottom: var(--space-6);"><span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 12px; line-height: 1.4; background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.25);">源摘要可能已截断</span></div>`
+      : '';
     const abstractCell = `
       <div class="abstract-cell">
+        ${sourceTruncatedBadge}
         <div class="abstract-snippet">${escapeHTML(abstractText || '（无摘要）')}</div>
         <div class="abstract-actions">
           <button class="btn-link" type="button" onclick="openAbstractModal(${idx})" ${hasAbstract ? '' : 'disabled'}>🔍 查看完整摘要</button>
@@ -6566,6 +6570,35 @@ function openAbstractModal(idx) {
 
   showModal(modalHTML);
 }
+
+function buildTruncatedAbstractBadgeHTML() {
+  return `<div class="source-truncated-badge" style="margin-bottom: var(--space-6);"><span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 12px; line-height: 1.4; background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.25);">\u6E90\u6458\u8981\u53EF\u80FD\u5DF2\u622A\u65AD</span></div>`;
+}
+
+const __originalDisplayFulltextReviewUI = displayFulltextReviewUI;
+displayFulltextReviewUI = function () {
+  __originalDisplayFulltextReviewUI();
+
+  if (!screeningResults || !Array.isArray(screeningResults.included)) return;
+
+  const rows = document.querySelectorAll('#fulltext-review-table tbody tr');
+  rows.forEach((row, idx) => {
+    const abstractCell = row.querySelector('.abstract-cell');
+    if (!abstractCell) return;
+
+    abstractCell.querySelectorAll('.source-truncated-badge').forEach((node) => node.remove());
+    Array.from(abstractCell.children).forEach((node) => {
+      if (!node.classList || (!node.classList.contains('abstract-snippet') && !node.classList.contains('abstract-actions'))) {
+        node.remove();
+      }
+    });
+    const record = screeningResults.included[idx];
+    const abstractText = getValue(record, 'abstract');
+    if (!isLikelySourceTruncatedAbstract(abstractText)) return;
+
+    abstractCell.insertAdjacentHTML('afterbegin', buildTruncatedAbstractBadgeHTML());
+  });
+};
 
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
