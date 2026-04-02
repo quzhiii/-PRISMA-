@@ -13,8 +13,8 @@ English | [简体中文](./README.md)
 
 [Live Demo](https://quzhiii.github.io/-PRISMA-/) · [Issues](https://github.com/quzhiii/-PRISMA-/issues) · [Version History](#version-history)
 
-> From literature import and deduplication to rule-based screening, manual review,  
-> and PRISMA 2020 export, **the workflow runs locally in the browser by default**.
+> From literature import and deduplication to rule-based screening, manual review,
+> and PRISMA 2020 export, the workflow runs locally in the browser by default.
 
 </div>
 
@@ -22,14 +22,14 @@ English | [简体中文](./README.md)
 
 ## Why V2.0
 
-`V2.0` is not just a patch set on top of the old single-page tool. It reorganizes the product into a more realistic research workspace:
+`V2.0` is not just another patch set on top of the old single-page tool. It restructures the product around more realistic research workflows:
 
-- clearer entry structure with a homepage, dual-review login, and workspace
-- a more conservative deduplication model with automatic hard removal plus human-review candidates
+- clearer entry points with a homepage, dual-review login page, and workspace
+- a more conservative deduplication model with hard duplicate auto-removal plus manual candidate review
 - support for both single-review and formal dual-review workflows
-- retained `30,000+` record handling capacity for practical project use
+- retained `30,000+` local record handling capacity for practical project use
 
-The default online entry now opens `V2.0`. The old `v1.7` page remains available only as a historical version.
+GitHub Pages now opens `V2.0` by default. The old `v1.7` page remains available only as a historical version.
 
 ---
 
@@ -39,11 +39,11 @@ The default online entry now opens `V2.0`. The old `v1.7` page remains available
 |------|------|
 | Large libraries slow down or break browser-based tools | Retains the IndexedDB + Web Worker + virtual list architecture for large-scale handling |
 | Automatic deduplication feels risky and opaque | Uses a two-layer model: `hard duplicates` for safe auto-removal, `candidate duplicates` for human review |
-| Dual-review collaboration can overwrite or conflict | Stabilizes reviewer roles and shared project state |
-| Full-text review shows incomplete abstracts and English content still needs manual translation | `V2.0` now handles multiline abstract parsing more robustly and adds `Translate this record` in the review modal |
-| Upload succeeds but the workspace does not show the loaded content | Fixes upload display, step progression, scrolling, and page visibility issues |
-| English entry paths are inconsistent | Fixes English homepage, dual-review routing, and visibility behavior |
-| Final reporting still needs PRISMA artifacts | Supports PRISMA 2020 SVG export and result export for reporting |
+| Dual-review collaboration can overwrite or conflict | Stabilizes reviewer roles, shared project state, and logout cleanup |
+| Full-text review shows incomplete abstracts and English content still needs manual translation | Improves multiline abstract parsing and adds `Translate this record` in the review modal |
+| Upload succeeds but the workspace does not show the loaded content | Fixes upload display, scrolling, step progression, and page visibility issues |
+| English entry paths are inconsistent | Fixes English homepage, dual-review routing, and page visibility behavior |
+| Final reporting still needs PRISMA artifacts | Supports PRISMA 2020 SVG export and detailed result export |
 
 ---
 
@@ -67,19 +67,19 @@ Layer 2: Candidate duplicates
 Surfaced for human review instead of silent auto-removal
 ```
 
-This means the goal is not "delete as much as possible automatically." The goal is a safer workflow for research use.
+The goal is not "delete as much as possible automatically." The goal is a safer workflow for research use.
 
 ### 3. Large-scale capacity is preserved while usability improves
 
 - still supports `30,000+` records
 - upload display and page scrolling are more stable
-- sample import, real-file upload, and step progression are now connected correctly
-- dual-review project initialization and logout cleanup are fixed
+- sample import, real-file upload, and step progression are connected correctly
+- dual-review initialization and logout cleanup are fixed
 
-### 4. Bilingual paths are now cleaner
+### 4. Cleaner bilingual entry paths
 
 - GitHub Pages root opens `V2.0` by default
-- English homepage dual-review entry now goes to the English login page
+- the English homepage now routes dual-review users to the English login page
 - mixed-language rendering and visibility bugs on English pages are fixed
 
 ---
@@ -94,7 +94,7 @@ Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-so
 
 - hard duplicates can be auto-removed
 - likely duplicates are routed to a manual-review queue
-- better aligned with a conservative research workflow
+- better aligned with conservative research workflows
 
 ### Rule-based screening
 
@@ -109,12 +109,12 @@ Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-so
 - supports solo screening
 - supports main-reviewer / secondary-reviewer collaboration
 - shared project state is more stable
-- full-text review modal supports full abstract viewing and `Translate this record`
+- the full-text review modal supports full abstract viewing and `Translate this record`
 
 ### PRISMA 2020 export
 
 - PRISMA 2020 flow diagram export
-- result export for downstream reporting
+- detailed result export
 - better suited for documentation and submission preparation
 
 ---
@@ -126,16 +126,16 @@ Step 1  Import literature
         Multi-file, multi-format import with automatic cross-source deduplication
 
 Step 2  Configure screening rules
-        Language / year / keywords / journal filters, reusable via YAML
+        Language / year / keywords / journal filters
 
-Step 3  Automatic screening results
+Step 3  Automatic screening
         Review included records and rerun after rule updates
 
 Step 4  Manual review
         Use shortcuts 1-6 for exclusion reasons, with auto-saved progress
 
 Step 5  Export
-        PRISMA 2020 flow diagram (SVG) + detailed Excel report
+        PRISMA 2020 flow diagram and detailed report
 ```
 
 ---
@@ -146,7 +146,7 @@ Step 5  Export
 |------|------|------|------|
 | Import to IndexedDB | 30,000 records | ~3-5s | Batch insert, 500 per batch |
 | Paginated query | 100 records | ~213ms | Indexed query |
-| Virtual list render | 30,000 records | ~16ms/frame | Stable 60fps |
+| Virtual list render | 30,000 records | ~16ms/frame | Stable scrolling |
 | Deduplication (V2.0) | Full set | Background execution | Web Worker, no UI blocking |
 
 ---
@@ -155,13 +155,13 @@ Step 5  Export
 
 | Dimension | v1.7 | V2.0 |
 |------|------|------|
-| Default entry | Root opens the old single-page workspace | GitHub Pages opens the `V2.0` homepage |
-| Page structure | Mostly a single-page tool | Separate homepage, login, and workspace |
+| Default entry | Root opened the old single-page workspace | GitHub Pages opens the `V2.0` homepage |
+| Page structure | Mostly a single-page tool | Separate homepage, login page, and workspace |
 | Dedup architecture | Inline page logic | Standalone `dedup-engine.js` module |
-| Dedup output | Mostly one direct dedup result | Hard duplicate auto-removal + candidate review |
-| Dual review | Functional but brittle in routing/state | More stable entry, language, and shared-state flow |
-| English path | Mixed-language and routing issues existed | Language routing and visibility fixed |
-| Current role | Historical stable version | Current practical version for use |
+| Dedup output | Mostly one direct dedup result | Hard duplicate auto-removal plus candidate review |
+| Dual review | Functional but brittle in routing and state | More stable entry, language, and shared-state flow |
+| English path | Mixed-language and routing issues existed | Language routing and visibility are fixed |
+| Current role | Historical stable version | Current practical version for actual use |
 
 ---
 
@@ -171,40 +171,29 @@ The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmar
 
 | Metric | v1.7 | V2.0 | Meaning |
 |------|------|------|------|
-| Auto-delete precision | `1.000` | `1.000` | Keeps the conservative zero-false-auto-delete policy |
+| Auto-delete precision | `1.000` | `1.000` | Preserves the conservative zero-false-auto-delete policy |
 | Combined duplicate-like recall | `0.583` | `0.917` | Better discovery of true duplicates and near-duplicates |
 | Combined Candidate F1 | `0.737` | `0.957` | Higher quality candidate-review output |
 | Real RDF hard recall | `0.667` | `1.000` | Recovers more duplicate groups on real exported data |
-| Real RDF candidate pairs | `0` | `1` | Explicitly surfaces one more case for manual review |
+| Real RDF candidate pairs | `0` | `1` | Explicitly surfaces one more manual-review case |
 
 ### Performance vs efficiency
 
-- There is no separate evidence yet that `V2.0` is materially faster than `v1.7` in pure import throughput
+- There is no separate evidence yet that `V2.0` is materially faster than `v1.7` in raw import throughput
 - The gain in this round is mainly correctness, stability, explainability, and real workflow efficiency
-- In practice, the bigger improvement is that `V2.0` is more usable for actual review work, not simply that it runs faster
+- In practice, the bigger improvement is that `V2.0` is more usable for actual review work, not simply faster
 
 ---
 
 ## Technical Architecture
 
 ```text
-┌─────────────────────────────────┐
-│  index.html / workspace.html    │  ← UI layer (step wizard + virtual list)
-└────────────────┬────────────────┘
-                 │
-        ┌────────▼────────┐
-        │     app.js      │  ← Logic layer (rule engine + flow control)
-        └────┬───────┬────┘
-             │       │
-     ┌───────▼──┐ ┌──▼──────────┐
-     │ db-worker│ │parser-worker│  ← Web Worker layer (background threads)
-     └───────┬──┘ └──┬──────────┘
-             │       │
-        ┌────▼───────▼────┐
-        │   IndexedDB     │  ← Data layer (local storage for 30,000+ records)
-        └─────────────────┘
-             ↑
-        dedup-engine.js    ← V2.0 standalone dedup engine (two-layer output)
+index.html / workspace.html   -> UI layer
+app.js                        -> Logic layer
+db-worker.js                  -> IndexedDB data layer
+parser-worker.js              -> Multi-format parsing layer
+dedup-engine.js               -> V2.0 standalone dedup engine
+virtual-list.js               -> Large-list rendering
 ```
 
 ### Core Modules
@@ -213,47 +202,9 @@ The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmar
 |------|------|
 | `dedup-engine.js` | Standalone V2.0 dedup engine for hard and candidate duplicate output |
 | `db-worker.js` | IndexedDB CRUD, batch insert, paginated query, transaction handling |
-| `parser-worker.js` | 8-format parsing, DOI / title normalization, streaming file processing |
-| `virtual-list.js` | Virtual scrolling component rendering only the visible 100 records |
+| `parser-worker.js` | Multi-format parsing, DOI / title normalization, streaming file processing |
+| `virtual-list.js` | Virtual scrolling that renders only the visible area |
 | `app.js` | Main flow control, rule engine, export, and state management |
-
----
-
-## V2.0 Dedup Benchmarks (vs v1.7)
-
-| Metric | v1.7 | V2.0 | Change |
-|------|------|------|------|
-| Auto-delete precision | `1.000` | `1.000` | Zero false auto-delete maintained |
-| Combined duplicate-like recall | `0.583` | `0.917` | +57% |
-| Combined Candidate F1 | `0.737` | `0.957` | +30% |
-| Real RDF hard recall | `0.667` | `1.000` | Full recovery |
-| Explicit candidate surfacing | `✗` | `✓` | Manual-review queue added |
-
----
-
-## Quick Start
-
-### Online
-
-[Open GitHub Pages](https://quzhiii.github.io/-PRISMA-/)
-
-### Local
-
-```bash
-git clone https://github.com/quzhiii/-PRISMA-.git
-cd -PRISMA-
-python -m http.server 5175
-```
-
-Then open `http://localhost:5175` in your browser.
-
----
-
-## Current Entry Points
-
-- Homepage: `literature-screening-v2.0/index.html`
-- Dual-review login: `literature-screening-v2.0/login.html`
-- Main workspace: `literature-screening-v2.0/workspace.html`
 
 ---
 
@@ -262,15 +213,15 @@ Then open `http://localhost:5175` in your browser.
 <details>
 <summary><b>V2.0 (current main version, 2026-03)</b></summary>
 
-- added dedicated homepage / login / workspace structure
-- added standalone `dedup-engine.js`
-- changed deduplication to hard auto-removal plus candidate review output
-- improved CSV / TSV multiline abstract parsing so full abstracts are less likely to be cut at the first sentence
-- added `Translate this record` in the full-text review modal for title + abstract translation
-- fixed upload-success-but-no-content display issues, scrolling issues, and broken step progression
-- fixed shared-state conflicts and logout cleanup in dual review
-- fixed English entry, routing, and visibility behavior
-- switched GitHub Pages default entry to `V2.0`
+- added a dedicated homepage, login page, and workspace structure
+- added the standalone `dedup-engine.js` deduplication engine
+- changed deduplication to `hard duplicate auto-removal + candidate duplicate review`
+- fixed CSV / TSV multiline abstract parsing to reduce "only the first sentence is shown"
+- added `Translate this record` in the full-text review modal for title and abstract translation
+- fixed uploads that succeeded but did not display loaded results, scrolling failures, and broken step progression
+- fixed dual-review shared-state conflicts and logout cleanup
+- fixed English entry paths, language routing, and page visibility issues
+- switched the GitHub Pages default entry to `V2.0`
 
 </details>
 
@@ -296,16 +247,25 @@ Then open `http://localhost:5175` in your browser.
 
 ---
 
+## Abstract And Review Modal Updates
+
+- The full-text review modal now prefers inline translation for a single record, and automatically falls back to a new-tab translation flow if inline translation is unavailable
+- The modal layout was tightened so long abstracts and long translations remain scrollable while the close button and action area stay visible
+- Clicking the empty overlay outside the modal now closes the modal directly
+- CNKI RDF abstract tail noise such as `AbstractFilter(...)`, `More`, and `Reset` is cleaned during display and parsing
+- When the upstream data source already provides a truncated abstract, the list view and modal now show an explicit `Source abstract may be truncated` hint
+- These truncated abstracts are treated as source limitations from the database or export itself; the tool marks them, but does not fabricate missing abstract text
+
+---
+
 ## Contributing
 
 Issues and Pull Requests are welcome.
 
 ```bash
-# After forking the repo
 git checkout -b feature/your-feature
 git commit -m "feat: describe your change"
 git push origin feature/your-feature
-# Then open a Pull Request
 ```
 
 ---
@@ -314,16 +274,6 @@ git push origin feature/your-feature
 
 [MIT License](./LICENSE)
 
----
-
-## Abstract And Review Modal Updates
-
-- The full-text review modal now prefers inline translation for a single record, and automatically falls back to a new-tab translation flow if inline translation is unavailable
-- The modal layout was tightened so long abstracts and long translations remain scrollable while the close button and action area stay visible
-- Clicking the empty overlay outside the modal now closes the modal directly
-- CNKI RDF abstract tail noise such as `AbstractFilter(...)`, `More`, and `Reset` is cleaned during display/parsing
-- When the upstream data source already provides a truncated abstract, the list view and modal now show an explicit `Source abstract may be truncated` hint
-- These truncated abstracts are treated as source limitations from the database/export itself; the tool marks them, but does not fabricate missing abstract text
 ---
 
 <div align="center">
