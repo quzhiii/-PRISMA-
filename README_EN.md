@@ -84,6 +84,17 @@ The goal is not "delete as much as possible automatically." The goal is a safer 
 
 ---
 
+## Abstract And Review Modal Updates (2026-04)
+
+- The full-text review modal now prefers inline translation for a single record, and automatically falls back to a new-tab translation flow if inline translation is unavailable
+- The modal layout was tightened so long abstracts and long translations remain scrollable while the close button and action area stay visible
+- Clicking the empty overlay outside the modal now closes the modal directly
+- CNKI RDF abstract tail noise such as `AbstractFilter(...)`, `More`, and `Reset` is cleaned during display and parsing
+- When the upstream data source already provides a truncated abstract, the list view and modal now show an explicit `Source abstract may be truncated` hint
+- These truncated abstracts are treated as source limitations from the database or export itself; the tool marks them, but does not fabricate missing abstract text
+
+---
+
 ## Core Capabilities
 
 ### Multi-format import
@@ -244,17 +255,6 @@ virtual-list.js               -> Large-list rendering
 - large-scale literature handling pipeline
 
 </details>
-
----
-
-## Abstract And Review Modal Updates
-
-- The full-text review modal now prefers inline translation for a single record, and automatically falls back to a new-tab translation flow if inline translation is unavailable
-- The modal layout was tightened so long abstracts and long translations remain scrollable while the close button and action area stay visible
-- Clicking the empty overlay outside the modal now closes the modal directly
-- CNKI RDF abstract tail noise such as `AbstractFilter(...)`, `More`, and `Reset` is cleaned during display and parsing
-- When the upstream data source already provides a truncated abstract, the list view and modal now show an explicit `Source abstract may be truncated` hint
-- These truncated abstracts are treated as source limitations from the database or export itself; the tool marks them, but does not fabricate missing abstract text
 
 ---
 
