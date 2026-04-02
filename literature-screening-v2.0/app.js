@@ -1175,57 +1175,80 @@ function parseFileContent(text, ext) {
 
 // v3.0: Extract CSV parsing logic to reusable function
 function parseCSVContent(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-  const data = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue; // Skip empty lines
-    
-    // Use parseCSVLine for proper CSV parsing (handles quoted fields)
-    const values = parseCSVLine(line);
-    if (values.length === headers.length) {
-      const row = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
-      });
-      data.push(row);
-    } else if (values.length > 0) {
-      // v3.0: More lenient - allow mismatched column counts
-      const row = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
-      });
-      data.push(row);
-    }
-  }
-
-  return data;
+  return parseDelimitedContent(text, ',');
 }
 
 // Similar extraction for other formats...
 function parseTSVContent(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
+  return parseDelimitedContent(text, '\t');
+}
 
-  const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g, ''));
-  const data = [];
+function parseDelimitedContent(text, delimiter = ',') {
+  const rows = [];
+  const normalizedText = String(text || '').replace(/^\uFEFF/, '');
+  let currentRow = [];
+  let currentField = '';
+  let inQuotes = false;
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split('\t').map(v => v.trim().replace(/"/g, ''));
-    if (values.length === headers.length) {
-      const row = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx];
-      });
-      data.push(row);
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i];
+    const nextChar = normalizedText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentField += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
     }
+
+    if (char === delimiter && !inQuotes) {
+      currentRow.push(currentField);
+      currentField = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i += 1;
+      }
+
+      currentRow.push(currentField);
+      if (currentRow.some((value) => String(value || '').trim() !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentField = '';
+      continue;
+    }
+
+    currentField += char;
   }
 
-  return data.length > 0 ? data : [];
+  currentRow.push(currentField);
+  if (currentRow.some((value) => String(value || '').trim() !== '')) {
+    rows.push(currentRow);
+  }
+
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map((header) => String(header || '').trim().replace(/^"|"$/g, ''));
+  const data = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const values = rows[i];
+    if (!values || values.length === 0) continue;
+
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header] = String(values[idx] ?? '').trim();
+    });
+    data.push(row);
+  }
+
+  return data;
 }
 
 function parseRISContent(text) {
@@ -2014,7 +2037,12 @@ function parseCSVLine(line) {
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current.trim());
       current = '';
@@ -4923,12 +4951,39 @@ function openAbstractModal(idx) {
         </div>
       </div>
       <div style="margin-top: var(--space-16); display: flex; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-secondary" type="button" onclick="translateRecordToChinese(${idx})">翻译本条文献</button>
         <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})">查看全文（新标签）</button>
       </div>
     </div>
   `;
 
   showModal(modalHTML);
+}
+
+function translateRecordToChinese(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const titleText = String(getValue(record, 'title') || '').trim();
+  const abstractText = String(getValue(record, 'abstract') || '').trim();
+  const parts = [];
+
+  if (titleText) {
+    parts.push(`Title:\n${titleText}`);
+  }
+  if (abstractText) {
+    parts.push(`Abstract:\n${abstractText}`);
+  }
+
+  if (parts.length === 0) {
+    showToast('当前记录没有可翻译的标题或摘要', 'warning');
+    return;
+  }
+
+  const payload = parts.join('\n\n').slice(0, 4500);
+  const translateUrl = 'https://translate.google.com/?sl=auto&tl=zh-CN&text=' + encodeURIComponent(payload) + '&op=translate';
+  window.open(translateUrl, '_blank', 'noopener,noreferrer');
 }
 
 // v3.0: Add exclusion reason to UI
