@@ -6259,10 +6259,18 @@ function showModal(htmlContent) {
     background: rgba(0,0,0,0.7);
     z-index: 2000;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    overflow-y: auto;
+    padding: 24px 16px;
+    box-sizing: border-box;
   `;
   modal.innerHTML = htmlContent;
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closeModal();
+    }
+  });
   document.body.appendChild(modal);
 }
 
@@ -6371,8 +6379,8 @@ function openAbstractModal(idx) {
   const fulltextInfo = getFulltextLinkInfo(record);
 
   const modalHTML = `
-    <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);">
+    <div onclick="event.stopPropagation()" style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: min(820px, 100%); max-height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-lg);">
+      <div style="position: sticky; top: 0; z-index: 2; background: var(--color-surface); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); padding-bottom: var(--space-12);">
         <div style="flex: 1;">
           <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || uiText.untitled}</div>
           <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
@@ -6385,17 +6393,19 @@ function openAbstractModal(idx) {
         </div>
         <button class="btn btn-secondary" type="button" onclick="closeModal()">${uiText.close}</button>
       </div>
-      <div style="margin-top: var(--space-16);">
-        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.abstract}</div>
-        <div style="max-height: 55vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
-          ${abstractText || uiText.noAbstract}
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">
+        <div style="margin-top: var(--space-4);">
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.abstract}</div>
+          <div style="max-height: min(38vh, 420px); overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+            ${abstractText || uiText.noAbstract}
+          </div>
+        </div>
+        <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.translation}</div>
+          <div id="record-translation-content" style="max-height: min(28vh, 300px); overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
         </div>
       </div>
-      <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
-        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.translation}</div>
-        <div id="record-translation-content" style="max-height: 32vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
-      </div>
-      <div style="margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
+      <div style="position: sticky; bottom: 0; z-index: 2; background: var(--color-surface); margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid var(--color-border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
         <button class="btn btn-secondary" id="translate-record-btn-${idx}" type="button" onclick="translateRecordToChinese(${idx})">${uiText.translateButton}</button>
         <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})" ${fulltextInfo.url ? '' : 'disabled'}>${fulltextInfo.source === 'pdf' ? uiText.viewFulltextPdf : uiText.viewFulltextNewTab}</button>
       </div>
@@ -6459,6 +6469,102 @@ async function translateRecordToChinese(idx) {
       button.textContent = originalLabel || '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E';
     }
   }
+}
+
+// Final override: robust abstract cleanup for CNKI exports and source-truncation hint.
+function sanitizeAbstractText(value) {
+  let text = String(value || '').replace(/\u00a0/g, ' ').trim();
+  if (!text) return '';
+
+  text = String(text)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s*(?:\u66F4\u591A\s*\u8FD8\u539F\s*)?AbstractFilter\([^)]*\)\s*;?\s*$/i, '')
+    .replace(/\s*\u66F4\u591A\s*\u8FD8\u539F\s*$/i, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text;
+}
+
+function isLikelySourceTruncatedAbstract(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  return /(?:\.\s*\.\s*\.\s*|…\s*)$/.test(text);
+}
+
+function openAbstractModal(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const uiText = {
+    untitled: '\uFF08\u65E0\u6807\u9898\uFF09',
+    journal: '\u671F\u520A',
+    year: '\u5E74\u4EFD',
+    authors: '\u4F5C\u8005',
+    doi: 'DOI',
+    method: '\u7814\u7A76\u65B9\u6CD5',
+    untagged: '\u672A\u6807\u6CE8',
+    close: '\u5173\u95ED',
+    abstract: '\u6458\u8981\uFF08\u5B8C\u6574\uFF09',
+    noAbstract: '\uFF08\u65E0\u6458\u8981\uFF09',
+    translation: '\u4E2D\u6587\u7FFB\u8BD1\uFF08\u673A\u5668\u7ED3\u679C\uFF09',
+    translateButton: '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E',
+    viewFulltextPdf: '\u67E5\u770B\u5168\u6587\uFF08PDF\uFF09',
+    viewFulltextNewTab: '\u67E5\u770B\u5168\u6587\uFF08\u65B0\u6807\u7B7E\uFF09',
+    sourceNotice: '\u6CE8\uFF1A\u8BE5\u6458\u8981\u53EF\u80FD\u5728\u539F\u59CB\u6570\u636E\u6E90\u4E2D\u5DF2\u88AB\u622A\u65AD\u3002'
+  };
+
+  const title = escapeHTML(getValue(record, 'title'));
+  const journal = escapeHTML(getValue(record, 'journal'));
+  const year = escapeHTML(getValue(record, 'year'));
+  const authors = escapeHTML(getValue(record, 'authors'));
+  const doi = escapeHTML(getValue(record, 'doi'));
+  const studyDesign = escapeHTML(record.studyDesign || uiText.untagged);
+  const abstractRaw = getValue(record, 'abstract');
+  const abstractText = escapeHTML(abstractRaw);
+  const fulltextInfo = getFulltextLinkInfo(record);
+  const truncatedHint = isLikelySourceTruncatedAbstract(abstractRaw)
+    ? `<div style="margin-top: var(--space-8); color: #b45309; font-size: var(--font-size-sm);">${uiText.sourceNotice}</div>`
+    : '';
+
+  const modalHTML = `
+    <div onclick="event.stopPropagation()" style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: min(820px, 100%); max-height: calc(100vh - 48px); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-lg);">
+      <div style="position: sticky; top: 0; z-index: 2; background: var(--color-surface); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); padding-bottom: var(--space-12);">
+        <div style="flex: 1;">
+          <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || uiText.untitled}</div>
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
+            ${journal ? `${uiText.journal}\uFF1A${journal}<br>` : ''}
+            ${year ? `${uiText.year}\uFF1A${year}<br>` : ''}
+            ${authors ? `${uiText.authors}\uFF1A${authors}<br>` : ''}
+            ${doi ? `${uiText.doi}\uFF1A${doi}<br>` : ''}
+            ${studyDesign ? `${uiText.method}\uFF1A${studyDesign}` : ''}
+          </div>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="closeModal()">${uiText.close}</button>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">
+        <div style="margin-top: var(--space-4);">
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.abstract}</div>
+          <div style="max-height: min(38vh, 420px); overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+            ${abstractText || uiText.noAbstract}
+          </div>
+          ${truncatedHint}
+        </div>
+        <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
+          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.translation}</div>
+          <div id="record-translation-content" style="max-height: min(28vh, 300px); overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
+        </div>
+      </div>
+      <div style="position: sticky; bottom: 0; z-index: 2; background: var(--color-surface); margin-top: var(--space-16); padding-top: var(--space-12); border-top: 1px solid var(--color-border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-secondary" id="translate-record-btn-${idx}" type="button" onclick="translateRecordToChinese(${idx})">${uiText.translateButton}</button>
+        <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})" ${fulltextInfo.url ? '' : 'disabled'}>${fulltextInfo.source === 'pdf' ? uiText.viewFulltextPdf : uiText.viewFulltextNewTab}</button>
+      </div>
+    </div>
+  `;
+
+  showModal(modalHTML);
 }
 
 // Initialize app when DOM is ready
