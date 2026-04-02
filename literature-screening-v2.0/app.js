@@ -1487,8 +1487,6 @@ function parseENWRecords(text) {
 }
 
 function parseRDFContent(text) {
-  const records = [];
-  
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(text, 'text/xml');
   
@@ -1496,26 +1494,7 @@ function parseRDFContent(text) {
     return [];
   }
   
-  const items = xmlDoc.getElementsByTagName('bib:Article');
-  const alternativeItems = xmlDoc.getElementsByTagName('bib:Book');
-  const allItems = [...items, ...alternativeItems];
-  
-  if (allItems.length === 0) {
-    const descriptions = xmlDoc.getElementsByTagName('rdf:Description');
-    for (let item of descriptions) {
-      const record = parseRDFItem(item);
-      if (record.title || record.authors) {
-        records.push(record);
-      }
-    }
-  } else {
-    for (let item of allItems) {
-      const record = parseRDFItem(item);
-      if (record.title || record.authors) {
-        records.push(record);
-      }
-    }
-  }
+  const records = collectRDFRecords(xmlDoc);
 
   return records.length > 0 ? records : [];
 }
@@ -1821,8 +1800,6 @@ function parseENW(text) {
 
 // RDF parser (Zotero RDF/XML format)
 function parseRDF(text) {
-  const records = [];
-  
   // Simple XML parsing for RDF
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(text, 'text/xml');
@@ -1836,28 +1813,7 @@ function parseRDF(text) {
     return;
   }
   
-  // Find all items (different RDF structures possible)
-  const items = xmlDoc.getElementsByTagName('bib:Article');
-  const alternativeItems = xmlDoc.getElementsByTagName('bib:Book');
-  const allItems = [...items, ...alternativeItems];
-  
-  if (allItems.length === 0) {
-    // Try generic RDF:Description
-    const descriptions = xmlDoc.getElementsByTagName('rdf:Description');
-    for (let item of descriptions) {
-      const record = parseRDFItem(item);
-      if (record.title || record.authors) {
-        records.push(record);
-      }
-    }
-  } else {
-    for (let item of allItems) {
-      const record = parseRDFItem(item);
-      if (record.title || record.authors) {
-        records.push(record);
-      }
-    }
-  }
+  const records = collectRDFRecords(xmlDoc);
 
   if (records.length === 0) {
     showToast('未能解析到有效RDF记录，使用示例数据', 'warning');
@@ -1898,6 +1854,80 @@ function getRDFChildValue(child) {
   return getRDFNestedText(child, ['rdf\\:value']) || String(child.textContent || '').trim();
 }
 
+function stripInlineHtmlTags(text) {
+  return String(text || '').replace(/<[^>]+>/g, ' ');
+}
+
+function sanitizeAbstractText(value) {
+  let text = String(value || '').replace(/\u00a0/g, ' ').trim();
+  if (!text) {
+    return '';
+  }
+
+  text = stripInlineHtmlTags(text)
+    .replace(/\s*更多\s*还原\s*AbstractFilter\([^)]*\)\s*$/i, '')
+    .replace(/\s*AbstractFilter\([^)]*\)\s*$/i, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text;
+}
+
+function looksLikeMetadataOnlyText(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return false;
+  }
+
+  const markers = [
+    'foundation:',
+    'download:',
+    'album:',
+    'CLC:',
+    'dbcode:',
+    'dbname:',
+    'filename:',
+    'publicationTag:',
+    'CIF:',
+    'AIF:',
+    'original-container-title:',
+    '_eprint:',
+    'CNKICite:'
+  ];
+
+  const hitCount = markers.reduce((count, marker) => count + (text.includes(marker) ? 1 : 0), 0);
+  return hitCount >= 2;
+}
+
+function getPreferredAbstractValue(row) {
+  if (!row) return '';
+
+  const candidates = [];
+  const directValue = row.abstract;
+  if (directValue !== undefined && directValue !== null) {
+    candidates.push(directValue);
+  }
+
+  const mappedColumn = columnMapping.abstract;
+  if (mappedColumn && mappedColumn !== 'abstract') {
+    candidates.push(row[mappedColumn]);
+  }
+
+  for (const fallback of ['AB', 'dcterms:abstract', 'Abstract Note', 'Notes']) {
+    candidates.push(row[fallback]);
+  }
+
+  for (const candidate of candidates) {
+    const sanitized = sanitizeAbstractText(candidate);
+    if (sanitized && !looksLikeMetadataOnlyText(sanitized)) {
+      return sanitized;
+    }
+  }
+
+  return '';
+}
+
 function getRDFJournalValue(child) {
   if (!child) {
     return '';
@@ -1912,6 +1942,7 @@ function enrichParsedRDFRecord(record) {
 
   return {
     ...record,
+    abstract: sanitizeAbstractText(record.abstract),
     identifier_raw: identifierRaw,
     _normalized_identifier: normalizeIdentifierForDedup(identifierRaw),
     _normalized_title: normalizeTitle(title)
@@ -1931,7 +1962,7 @@ function parseRDFItem(item) {
     'prism:publicationDate': 'year',
     'prism:coverDate': 'year',
     'dcterms:abstract': 'abstract',
-    'dc:description': 'abstract',
+    'dc:description': 'description',
     'bib:publicationTitle': 'journal',
     'dc:source': 'journal',
     'dcterms:isPartOf': 'journal',
@@ -1955,11 +1986,19 @@ function parseRDFItem(item) {
         if (yearMatch) value = yearMatch[0];
       }
 
+      if (mappedField === 'abstract') {
+        value = sanitizeAbstractText(value);
+      }
+
       if (mappedField === 'authors') {
         if (!record[mappedField]) {
           record[mappedField] = value;
         } else {
           record[mappedField] += '; ' + value;
+        }
+      } else if (mappedField === 'abstract') {
+        if (value && (!record.abstract || value.length > record.abstract.length)) {
+          record.abstract = value;
         }
       } else if (value) {
         record[mappedField] = value;
@@ -1967,6 +2006,9 @@ function parseRDFItem(item) {
 
       if (tagName === 'dc:identifier' && value && !record.identifier_raw) {
         record.identifier_raw = value;
+        if (!record.doi && /(?:10\.\d{4,9}\/|doi\.org\/)/i.test(value)) {
+          record.doi = value;
+        }
       }
     }
   }
@@ -1979,6 +2021,55 @@ function parseRDFItem(item) {
   }
 
   return enrichParsedRDFRecord(record);
+}
+
+function getRDFAttachmentUrl(item) {
+  if (!item) {
+    return '';
+  }
+
+  const fileType = getRDFNestedText(item, ['link\\:type']).toLowerCase();
+  const attachmentTitle = getRDFNestedText(item, ['dc\\:title', 'dcterms\\:title']);
+  const identifierNode = Array.from(item.children || []).find((child) => child.tagName === 'dc:identifier');
+  const url = identifierNode ? getRDFChildValue(identifierNode) : '';
+
+  if (!looksLikeHttpUrl(url)) {
+    return '';
+  }
+
+  if (fileType.includes('pdf') || /\.pdf($|\?)/i.test(attachmentTitle) || /download\/order/i.test(url)) {
+    return String(url).trim();
+  }
+
+  return '';
+}
+
+function collectRDFRecords(xmlDoc) {
+  const records = [];
+  const rootChildren = Array.from(xmlDoc?.documentElement?.children || []);
+  let lastPrimaryRecord = null;
+
+  rootChildren.forEach((item) => {
+    const tagName = item.tagName;
+    if (tagName === 'bib:Article' || tagName === 'bib:Book' || tagName === 'rdf:Description') {
+      const record = parseRDFItem(item);
+      if (record.title || record.authors) {
+        records.push(record);
+        lastPrimaryRecord = record;
+      }
+      return;
+    }
+
+    if (tagName === 'z:Attachment' && lastPrimaryRecord) {
+      const attachmentUrl = getRDFAttachmentUrl(item);
+      if (attachmentUrl) {
+        lastPrimaryRecord.pdfUrl = lastPrimaryRecord.pdfUrl || attachmentUrl;
+        lastPrimaryRecord.fulltextUrl = lastPrimaryRecord.fulltextUrl || attachmentUrl;
+      }
+    }
+  });
+
+  return records;
 }
 
 function parseTXT(text) {
@@ -2085,6 +2176,68 @@ function detectColumns() {
   }
   
   console.log('最终 columnMapping:', columnMapping);
+}
+
+// Override legacy column detection so RDF metadata notes are not treated as abstracts.
+function detectColumns() {
+  const aliases = {
+    title: ['title', 'Title', 'TITLE', 'é¢˜å', 'æ ‡é¢˜', 'ti', 'T1', 'TI', 'dc:title', 'dcterms:title'],
+    abstract: ['abstract', 'Abstract', 'ABSTRACT', 'æ‘˜è¦', 'ab', 'AB', 'dcterms:abstract', 'Abstract Note', 'Notes'],
+    year: ['year', 'Year', 'YEAR', 'å¹´ä»½', 'å‡ºç‰ˆå¹´', 'publication_year', 'py', 'PY', 'dcterms:issued', 'dc:date', 'Publication Year'],
+    journal: ['journal', 'Journal', 'JOURNAL', 'æœŸåˆŠ', 'æ¥æº', 'source', 'so', 'T2', 'JO', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['authors', 'Authors', 'AUTHORS', 'ä½œè€…', 'author', 'au', 'AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['doi', 'DOI', 'Doi', 'DO', 'dc:identifier'],
+    keywords: ['keywords', 'Keywords', 'KEYWORDS', 'å…³é”®è¯', 'keyword', 'kw', 'KW', 'Manual Tags', 'Automatic Tags']
+  };
+
+  columnMapping = {};
+  const availableColumns = Object.keys(uploadedData[0] || {});
+
+  console.log('ðŸ” æ£€æµ‹åˆ—åï¼šå¯ç”¨åˆ— =', availableColumns);
+
+  for (const [standard, aliasList] of Object.entries(aliases)) {
+    for (const alias of aliasList) {
+      if (availableColumns.includes(alias)) {
+        columnMapping[standard] = alias;
+        console.log(`âœ… æ˜ å°„æˆåŠŸ: ${standard} â†’ ${alias}`);
+        break;
+      }
+    }
+    if (!columnMapping[standard]) {
+      console.warn(`âš ï¸ æœªæ‰¾åˆ°å­—æ®µ: ${standard}`);
+    }
+  }
+
+  console.log('æœ€ç»ˆ columnMapping:', columnMapping);
+}
+
+// Final column-detection override with encoding-safe aliases.
+function detectColumns() {
+  const aliases = {
+    title: ['title', 'Title', 'TITLE', '\u9898\u540D', '\u6807\u9898', 'ti', 'T1', 'TI', 'dc:title', 'dcterms:title'],
+    abstract: ['abstract', 'Abstract', 'ABSTRACT', '\u6458\u8981', 'ab', 'AB', 'dcterms:abstract', 'Abstract Note', 'Notes'],
+    year: ['year', 'Year', 'YEAR', '\u5E74\u4EFD', '\u51FA\u7248\u5E74', 'publication_year', 'py', 'PY', 'dcterms:issued', 'dc:date', 'Publication Year'],
+    journal: ['journal', 'Journal', 'JOURNAL', '\u671F\u520A', '\u6765\u6E90', 'source', 'so', 'T2', 'JO', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['authors', 'Authors', 'AUTHORS', '\u4F5C\u8005', 'author', 'au', 'AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['doi', 'DOI', 'Doi', 'DO', 'dc:identifier'],
+    keywords: ['keywords', 'Keywords', 'KEYWORDS', '\u5173\u952E\u8BCD', 'keyword', 'kw', 'KW', 'Manual Tags', 'Automatic Tags']
+  };
+
+  columnMapping = {};
+  const availableColumns = Object.keys(uploadedData[0] || {});
+
+  console.log('Detect columns:', availableColumns);
+
+  for (const [standard, aliasList] of Object.entries(aliases)) {
+    for (const alias of aliasList) {
+      if (availableColumns.includes(alias)) {
+        columnMapping[standard] = alias;
+        break;
+      }
+    }
+  }
+
+  console.log('columnMapping:', columnMapping);
 }
 
 // Display upload info
@@ -3123,6 +3276,46 @@ function getValue(row, field) {
   const fallbackMap = {
     title: ['TI', 'T1', 'dc:title', 'dcterms:title'],
     abstract: ['AB', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes'],
+    year: ['PY', 'dc:date', 'dcterms:issued', 'Publication Year'],
+    journal: ['JO', 'T2', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['DO', 'DOI', 'dc:identifier'],
+    keywords: ['KW', 'keyword', 'Manual Tags', 'Automatic Tags']
+  };
+
+  for (const fallback of fallbackMap[field] || []) {
+    const value = row[fallback];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value);
+    }
+  }
+
+  return '';
+}
+
+function getValue(row, field) {
+  if (!row) return '';
+
+  if (field === 'abstract') {
+    return getPreferredAbstractValue(row);
+  }
+
+  const directValue = row[field];
+  if (directValue !== undefined && directValue !== null && String(directValue).trim()) {
+    return String(directValue);
+  }
+
+  const col = columnMapping[field];
+  if (col) {
+    const mappedValue = row[col];
+    if (mappedValue !== undefined && mappedValue !== null && String(mappedValue).trim()) {
+      return String(mappedValue);
+    }
+  }
+
+  const fallbackMap = {
+    title: ['TI', 'T1', 'dc:title', 'dcterms:title'],
+    abstract: ['AB', 'dcterms:abstract', 'Abstract Note', 'Notes'],
     year: ['PY', 'dc:date', 'dcterms:issued', 'Publication Year'],
     journal: ['JO', 'T2', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
     authors: ['AU', 'dc:creator', 'dcterms:creator', 'Author'],
@@ -4874,6 +5067,21 @@ function looksLikeHttpUrl(url) {
 }
 
 function getFulltextLinkInfo(record) {
+  const candidateFields = [
+    { value: record.pdfUrl, source: 'pdf' },
+    { value: record.pdf_url, source: 'pdf' },
+    { value: record.fulltextUrl, source: 'fulltext' },
+    { value: record.fulltext_url, source: 'fulltext' },
+    { value: record.sourceUrl, source: 'source' },
+    { value: record.source_url, source: 'source' },
+    { value: record.cnkiUrl, source: 'cnki' },
+    { value: record.cnki_url, source: 'cnki' },
+    { value: record.url, source: 'url' },
+    { value: record.link, source: 'url' }
+  ];
+  const urlEntry = candidateFields.find((entry) => looksLikeHttpUrl(entry.value));
+  if (urlEntry) return { url: String(urlEntry.value).trim(), source: urlEntry.source };
+
   const doi = normalizeDoi(getValue(record, 'doi') || record.doi);
   if (doi) {
     return { url: `https://doi.org/${encodeURIComponent(doi)}`, source: 'doi' };
@@ -4883,21 +5091,6 @@ function getFulltextLinkInfo(record) {
   if (pmid && /^\d+$/.test(pmid)) {
     return { url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`, source: 'pmid' };
   }
-
-  const candidateFields = [
-    record.url,
-    record.link,
-    record.fulltextUrl,
-    record.fulltext_url,
-    record.sourceUrl,
-    record.source_url,
-    record.cnkiUrl,
-    record.cnki_url,
-    record.pdfUrl,
-    record.pdf_url
-  ];
-  const url = candidateFields.find(looksLikeHttpUrl);
-  if (url) return { url: String(url).trim(), source: 'url' };
 
   return { url: '', source: 'none' };
 }
@@ -4928,6 +5121,7 @@ function openAbstractModal(idx) {
   const doi = escapeHTML(getValue(record, 'doi'));
   const studyDesign = escapeHTML(record.studyDesign || '未标注');
   const abstractText = escapeHTML(getValue(record, 'abstract'));
+  const fulltextInfo = getFulltextLinkInfo(record);
 
   const modalHTML = `
     <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
@@ -4984,6 +5178,257 @@ function translateRecordToChinese(idx) {
   const payload = parts.join('\n\n').slice(0, 4500);
   const translateUrl = 'https://translate.google.com/?sl=auto&tl=zh-CN&text=' + encodeURIComponent(payload) + '&op=translate';
   window.open(translateUrl, '_blank', 'noopener,noreferrer');
+}
+
+function openRecordTranslationInNewTab(payload) {
+  const translateUrl = 'https://translate.google.com/?sl=auto&tl=zh-CN&text=' + encodeURIComponent(payload) + '&op=translate';
+  window.open(translateUrl, '_blank', 'noopener,noreferrer');
+}
+
+function parseInlineTranslationResult(data) {
+  if (!Array.isArray(data)) return '';
+  const sentenceGroups = Array.isArray(data[0]) ? data[0] : [];
+  return sentenceGroups
+    .map((item) => Array.isArray(item) ? item[0] : '')
+    .join('')
+    .trim();
+}
+
+function openAbstractModal(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const title = escapeHTML(getValue(record, 'title'));
+  const journal = escapeHTML(getValue(record, 'journal'));
+  const year = escapeHTML(getValue(record, 'year'));
+  const authors = escapeHTML(getValue(record, 'authors'));
+  const doi = escapeHTML(getValue(record, 'doi'));
+  const studyDesign = escapeHTML(record.studyDesign || 'æœªæ ‡æ³¨');
+  const abstractText = escapeHTML(getValue(record, 'abstract'));
+  const fulltextInfo = getFulltextLinkInfo(record);
+
+  const modalHTML = `
+    <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);">
+        <div style="flex: 1;">
+          <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || 'ï¼ˆæ— æ ‡é¢˜ï¼‰'}</div>
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
+            ${journal ? `æœŸåˆŠï¼š${journal}<br>` : ''}
+            ${year ? `å¹´ä»½ï¼š${year}<br>` : ''}
+            ${authors ? `ä½œè€…ï¼š${authors}<br>` : ''}
+            ${doi ? `DOIï¼š${doi}<br>` : ''}
+            ${studyDesign ? `ç ”ç©¶æ–¹æ³•ï¼š${studyDesign}` : ''}
+          </div>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="closeModal()">å…³é—­</button>
+      </div>
+      <div style="margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">æ‘˜è¦ï¼ˆå®Œæ•´ï¼‰</div>
+        <div style="max-height: 55vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+          ${abstractText || 'ï¼ˆæ— æ‘˜è¦ï¼‰'}
+        </div>
+      </div>
+      <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">ä¸­æ–‡ç¿»è¯‘ï¼ˆæœºå™¨ç»“æžœï¼‰</div>
+        <div id="record-translation-content" style="max-height: 32vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
+      </div>
+      <div style="margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-secondary" id="translate-record-btn-${idx}" type="button" onclick="translateRecordToChinese(${idx})">é¡µå†…ç¿»è¯‘æœ¬æ¡æ–‡çŒ®</button>
+        <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})" ${fulltextInfo.url ? '' : 'disabled'}>æŸ¥çœ‹å…¨æ–‡${fulltextInfo.source === 'pdf' ? 'ï¼ˆPDFï¼‰' : 'ï¼ˆæ–°æ ‡ç­¾ï¼‰'}</button>
+      </div>
+    </div>
+  `;
+
+  showModal(modalHTML);
+}
+
+async function translateRecordToChinese(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const titleText = String(getValue(record, 'title') || '').trim();
+  const abstractText = String(getValue(record, 'abstract') || '').trim();
+  const parts = [];
+
+  if (titleText) {
+    parts.push(`Title:\n${titleText}`);
+  }
+  if (abstractText) {
+    parts.push(`Abstract:\n${abstractText}`);
+  }
+
+  if (parts.length === 0) {
+    showToast('å½“å‰è®°å½•æ²¡æœ‰å¯ç¿»è¯‘çš„æ ‡é¢˜æˆ–æ‘˜è¦', 'warning');
+    return;
+  }
+
+  const payload = parts.join('\n\n').slice(0, 4500);
+  const panel = document.getElementById('record-translation-panel');
+  const content = document.getElementById('record-translation-content');
+  const button = document.getElementById(`translate-record-btn-${idx}`);
+  const originalLabel = button ? button.textContent : '';
+
+  if (panel && content) {
+    panel.style.display = 'block';
+    content.textContent = 'æ­£åœ¨ç¿»è¯‘...';
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'ç¿»è¯‘ä¸­...';
+  }
+
+  try {
+    const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=' + encodeURIComponent(payload));
+    if (!response.ok) {
+      throw new Error('translation_http_' + response.status);
+    }
+
+    const data = await response.json();
+    const translatedText = parseInlineTranslationResult(data);
+    if (!translatedText) {
+      throw new Error('translation_empty');
+    }
+
+    if (content) {
+      content.textContent = translatedText;
+    }
+    showToast('å·²ç”Ÿæˆé¡µå†…ä¸­æ–‡ç¿»è¯‘', 'success');
+  } catch (error) {
+    if (content) {
+      content.textContent = 'é¡µå†…ç¿»è¯‘æš‚æ—¶ä¸å¯ç”¨ï¼Œå·²ä¸ºä½ æ‰“å¼€æ–°æ ‡ç­¾ç¿»è¯‘ã€‚';
+    }
+    openRecordTranslationInNewTab(payload);
+    showToast('é¡µå†…ç¿»è¯‘å¤±è´¥ï¼Œå·²è‡ªåŠ¨åˆ‡æ¢ä¸ºæ–°æ ‡ç­¾ç¿»è¯‘', 'warning');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel || 'é¡µå†…ç¿»è¯‘æœ¬æ¡æ–‡çŒ®';
+    }
+  }
+}
+
+function openAbstractModal(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const uiText = {
+    untitled: '\uFF08\u65E0\u6807\u9898\uFF09',
+    journal: '\u671F\u520A',
+    year: '\u5E74\u4EFD',
+    authors: '\u4F5C\u8005',
+    doi: 'DOI',
+    method: '\u7814\u7A76\u65B9\u6CD5',
+    untagged: '\u672A\u6807\u6CE8',
+    close: '\u5173\u95ED',
+    abstract: '\u6458\u8981\uFF08\u5B8C\u6574\uFF09',
+    noAbstract: '\uFF08\u65E0\u6458\u8981\uFF09',
+    translation: '\u4E2D\u6587\u7FFB\u8BD1\uFF08\u673A\u5668\u7ED3\u679C\uFF09',
+    translateButton: '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E',
+    viewFulltextPdf: '\u67E5\u770B\u5168\u6587\uFF08PDF\uFF09',
+    viewFulltextNewTab: '\u67E5\u770B\u5168\u6587\uFF08\u65B0\u6807\u7B7E\uFF09'
+  };
+
+  const title = escapeHTML(getValue(record, 'title'));
+  const journal = escapeHTML(getValue(record, 'journal'));
+  const year = escapeHTML(getValue(record, 'year'));
+  const authors = escapeHTML(getValue(record, 'authors'));
+  const doi = escapeHTML(getValue(record, 'doi'));
+  const studyDesign = escapeHTML(record.studyDesign || uiText.untagged);
+  const abstractText = escapeHTML(getValue(record, 'abstract'));
+  const fulltextInfo = getFulltextLinkInfo(record);
+
+  const modalHTML = `
+    <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);">
+        <div style="flex: 1;">
+          <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || uiText.untitled}</div>
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
+            ${journal ? `${uiText.journal}：${journal}<br>` : ''}
+            ${year ? `${uiText.year}：${year}<br>` : ''}
+            ${authors ? `${uiText.authors}：${authors}<br>` : ''}
+            ${doi ? `${uiText.doi}：${doi}<br>` : ''}
+            ${studyDesign ? `${uiText.method}：${studyDesign}` : ''}
+          </div>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="closeModal()">${uiText.close}</button>
+      </div>
+      <div style="margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.abstract}</div>
+        <div style="max-height: 55vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+          ${abstractText || uiText.noAbstract}
+        </div>
+      </div>
+      <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.translation}</div>
+        <div id="record-translation-content" style="max-height: 32vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
+      </div>
+      <div style="margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-secondary" id="translate-record-btn-${idx}" type="button" onclick="translateRecordToChinese(${idx})">${uiText.translateButton}</button>
+        <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})" ${fulltextInfo.url ? '' : 'disabled'}>${fulltextInfo.source === 'pdf' ? uiText.viewFulltextPdf : uiText.viewFulltextNewTab}</button>
+      </div>
+    </div>
+  `;
+
+  showModal(modalHTML);
+}
+
+async function translateRecordToChinese(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const titleText = String(getValue(record, 'title') || '').trim();
+  const abstractText = String(getValue(record, 'abstract') || '').trim();
+  const parts = [];
+
+  if (titleText) parts.push(`Title:\n${titleText}`);
+  if (abstractText) parts.push(`Abstract:\n${abstractText}`);
+
+  if (parts.length === 0) {
+    showToast('\u5F53\u524D\u8BB0\u5F55\u6CA1\u6709\u53EF\u7FFB\u8BD1\u7684\u6807\u9898\u6216\u6458\u8981', 'warning');
+    return;
+  }
+
+  const payload = parts.join('\n\n').slice(0, 4500);
+  const panel = document.getElementById('record-translation-panel');
+  const content = document.getElementById('record-translation-content');
+  const button = document.getElementById(`translate-record-btn-${idx}`);
+  const originalLabel = button ? button.textContent : '';
+
+  if (panel && content) {
+    panel.style.display = 'block';
+    content.textContent = '\u6B63\u5728\u7FFB\u8BD1...';
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = '\u7FFB\u8BD1\u4E2D...';
+  }
+
+  try {
+    const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=' + encodeURIComponent(payload));
+    if (!response.ok) throw new Error('translation_http_' + response.status);
+
+    const data = await response.json();
+    const translatedText = parseInlineTranslationResult(data);
+    if (!translatedText) throw new Error('translation_empty');
+
+    if (content) content.textContent = translatedText;
+    showToast('\u5DF2\u751F\u6210\u9875\u5185\u4E2D\u6587\u7FFB\u8BD1', 'success');
+  } catch (error) {
+    if (content) {
+      content.textContent = '\u9875\u5185\u7FFB\u8BD1\u6682\u65F6\u4E0D\u53EF\u7528\uFF0C\u5DF2\u4E3A\u4F60\u6253\u5F00\u65B0\u6807\u7B7E\u7FFB\u8BD1\u3002';
+    }
+    openRecordTranslationInNewTab(payload);
+    showToast('\u9875\u5185\u7FFB\u8BD1\u5931\u8D25\uFF0C\u5DF2\u81EA\u52A8\u5207\u6362\u4E3A\u65B0\u6807\u7B7E\u7FFB\u8BD1', 'warning');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel || '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E';
+    }
+  }
 }
 
 // v3.0: Add exclusion reason to UI
@@ -5892,6 +6337,129 @@ function saveProjectFile() {
   showToast('✅ 项目已导出到本地文件', 'success');
 }
 
+
+// Final override: clean modal copy and inline translation UX.
+function openAbstractModal(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const uiText = {
+    untitled: '\uFF08\u65E0\u6807\u9898\uFF09',
+    journal: '\u671F\u520A',
+    year: '\u5E74\u4EFD',
+    authors: '\u4F5C\u8005',
+    doi: 'DOI',
+    method: '\u7814\u7A76\u65B9\u6CD5',
+    untagged: '\u672A\u6807\u6CE8',
+    close: '\u5173\u95ED',
+    abstract: '\u6458\u8981\uFF08\u5B8C\u6574\uFF09',
+    noAbstract: '\uFF08\u65E0\u6458\u8981\uFF09',
+    translation: '\u4E2D\u6587\u7FFB\u8BD1\uFF08\u673A\u5668\u7ED3\u679C\uFF09',
+    translateButton: '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E',
+    viewFulltextPdf: '\u67E5\u770B\u5168\u6587\uFF08PDF\uFF09',
+    viewFulltextNewTab: '\u67E5\u770B\u5168\u6587\uFF08\u65B0\u6807\u7B7E\uFF09'
+  };
+
+  const title = escapeHTML(getValue(record, 'title'));
+  const journal = escapeHTML(getValue(record, 'journal'));
+  const year = escapeHTML(getValue(record, 'year'));
+  const authors = escapeHTML(getValue(record, 'authors'));
+  const doi = escapeHTML(getValue(record, 'doi'));
+  const studyDesign = escapeHTML(record.studyDesign || uiText.untagged);
+  const abstractText = escapeHTML(getValue(record, 'abstract'));
+  const fulltextInfo = getFulltextLinkInfo(record);
+
+  const modalHTML = `
+    <div style="background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-24); max-width: 820px; width: calc(100% - 48px); box-shadow: var(--shadow-lg);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);">
+        <div style="flex: 1;">
+          <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-lg); margin-bottom: var(--space-8);">${title || uiText.untitled}</div>
+          <div style="color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.6;">
+            ${journal ? `${uiText.journal}\uFF1A${journal}<br>` : ''}
+            ${year ? `${uiText.year}\uFF1A${year}<br>` : ''}
+            ${authors ? `${uiText.authors}\uFF1A${authors}<br>` : ''}
+            ${doi ? `${uiText.doi}\uFF1A${doi}<br>` : ''}
+            ${studyDesign ? `${uiText.method}\uFF1A${studyDesign}` : ''}
+          </div>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="closeModal()">${uiText.close}</button>
+      </div>
+      <div style="margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.abstract}</div>
+        <div style="max-height: 55vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-background); white-space: pre-wrap; line-height: 1.7;">
+          ${abstractText || uiText.noAbstract}
+        </div>
+      </div>
+      <div id="record-translation-panel" style="display: none; margin-top: var(--space-16);">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">${uiText.translation}</div>
+        <div id="record-translation-content" style="max-height: 32vh; overflow-y: auto; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: #f8fafc; white-space: pre-wrap; line-height: 1.7;"></div>
+      </div>
+      <div style="margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-8);">
+        <button class="btn btn-secondary" id="translate-record-btn-${idx}" type="button" onclick="translateRecordToChinese(${idx})">${uiText.translateButton}</button>
+        <button class="btn btn-primary" type="button" onclick="viewFulltext(${idx})" ${fulltextInfo.url ? '' : 'disabled'}>${fulltextInfo.source === 'pdf' ? uiText.viewFulltextPdf : uiText.viewFulltextNewTab}</button>
+      </div>
+    </div>
+  `;
+
+  showModal(modalHTML);
+}
+
+async function translateRecordToChinese(idx) {
+  if (!screeningResults) return;
+  const record = screeningResults.included?.[idx];
+  if (!record) return;
+
+  const titleText = String(getValue(record, 'title') || '').trim();
+  const abstractText = String(getValue(record, 'abstract') || '').trim();
+  const parts = [];
+
+  if (titleText) parts.push(`Title:\n${titleText}`);
+  if (abstractText) parts.push(`Abstract:\n${abstractText}`);
+
+  if (parts.length === 0) {
+    showToast('\u5F53\u524D\u8BB0\u5F55\u6CA1\u6709\u53EF\u7FFB\u8BD1\u7684\u6807\u9898\u6216\u6458\u8981', 'warning');
+    return;
+  }
+
+  const payload = parts.join('\n\n').slice(0, 4500);
+  const panel = document.getElementById('record-translation-panel');
+  const content = document.getElementById('record-translation-content');
+  const button = document.getElementById(`translate-record-btn-${idx}`);
+  const originalLabel = button ? button.textContent : '';
+
+  if (panel && content) {
+    panel.style.display = 'block';
+    content.textContent = '\u6B63\u5728\u7FFB\u8BD1...';
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = '\u7FFB\u8BD1\u4E2D...';
+  }
+
+  try {
+    const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=' + encodeURIComponent(payload));
+    if (!response.ok) throw new Error('translation_http_' + response.status);
+
+    const data = await response.json();
+    const translatedText = parseInlineTranslationResult(data);
+    if (!translatedText) throw new Error('translation_empty');
+
+    if (content) content.textContent = translatedText;
+    showToast('\u5DF2\u751F\u6210\u9875\u5185\u4E2D\u6587\u7FFB\u8BD1', 'success');
+  } catch (error) {
+    if (content) {
+      content.textContent = '\u9875\u5185\u7FFB\u8BD1\u6682\u65F6\u4E0D\u53EF\u7528\uFF0C\u5DF2\u4E3A\u4F60\u6253\u5F00\u65B0\u6807\u7B7E\u7FFB\u8BD1\u3002';
+    }
+    openRecordTranslationInNewTab(payload);
+    showToast('\u9875\u5185\u7FFB\u8BD1\u5931\u8D25\uFF0C\u5DF2\u81EA\u52A8\u5207\u6362\u4E3A\u65B0\u6807\u7B7E\u7FFB\u8BD1', 'warning');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel || '\u9875\u5185\u7FFB\u8BD1\u672C\u6761\u6587\u732E';
+    }
+  }
+}
 
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
