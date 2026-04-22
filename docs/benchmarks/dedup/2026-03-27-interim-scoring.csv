@@ -1,0 +1,4 @@
+﻿benchmark_slice,engine_target,records_total,gold_hard_duplicate_groups,gold_duplicate_like_groups,detected_duplicate_groups,detected_hard_groups,observed_false_positive_groups,hard_group_recall,duplicate_like_group_recall,notes
+synthetic-suite,root-app-working-tree,22,7,8,5,5,0,0.714,0.625,11 synthetic datasets with curated labels
+real-rdf-001-provisional,root-app-working-tree,143,3,4,2,2,0,0.667,0.500,1 real RDF dataset with provisional labels for 4 repeated-title groups
+combined-provisional,root-app-working-tree,165,10,12,7,7,0,0.700,0.583,synthetic suite plus provisional real RDF labels

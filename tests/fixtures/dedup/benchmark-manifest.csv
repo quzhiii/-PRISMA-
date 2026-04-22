@@ -1,0 +1,13 @@
+﻿dataset_id,source_type,source_system,file_path,file_format,records_total,contains_real_data,adjudication_status,primary_use,notes
+dedup-case-001,synthetic,pubmed-plus-wos,synthetic/dedup-case-001.csv,csv,,false,pending,exact-doi,
+dedup-case-002,synthetic,pubmed-plus-zotero,synthetic/dedup-case-002.csv,csv,,false,pending,doi-url-variant,
+dedup-case-003,synthetic,mixed,synthetic/dedup-case-003.csv,csv,,false,pending,title-punctuation-variation,
+dedup-case-004,synthetic,mixed,synthetic/dedup-case-004.csv,csv,,false,pending,author-abbreviation-variation,
+dedup-case-005,synthetic,mixed,synthetic/dedup-case-005.csv,csv,,false,pending,page-range-variation,
+dedup-case-006,synthetic,mixed,synthetic/dedup-case-006.csv,csv,,false,pending,journal-abbreviation-variation,
+dedup-case-007,synthetic,mixed,synthetic/dedup-case-007.csv,csv,,false,pending,missing-doi-one-source,
+dedup-case-008,synthetic,mixed,synthetic/dedup-case-008.csv,csv,,false,pending,conference-vs-final,
+dedup-case-009,synthetic,mixed,synthetic/dedup-case-009.csv,csv,,false,pending,protocol-vs-final,
+dedup-case-010,synthetic,cnki-plus-pubmed,synthetic/dedup-case-010.csv,csv,,false,pending,zh-en-mixed-metadata,
+dedup-case-011,synthetic,mixed,synthetic/dedup-case-011.csv,csv,,false,pending,lookalike-not-duplicate,
+real-rdf-001,real,zotero-rdf,real/初稿.rdf,rdf,143,true,pending,real-user-export,User-provided RDF from desktop on 2026-03-27

@@ -1,0 +1,9 @@
+﻿dataset_id,cluster_id,record_index,title,year,pages,identifier,provisional_label,is_auto_delete_safe,reason
+real-rdf-001,cluster-001,99,中医优势病种按疗效价值付费改革效果分析,2025,23-27,https://doi.org/10.14055/j.cnki.33-1056/f.2025.04.018,hard_duplicate,true,Same title year pages and same DOI payload in different URL form
+real-rdf-001,cluster-001,110,中医优势病种按疗效价值付费改革效果分析,2025,23-27,https://link.cnki.net/doi/10.14055/j.cnki.33-1056/f.2025.04.018,hard_duplicate,true,Same title year pages and same DOI payload in different URL form
+real-rdf-001,cluster-002,103,Advances in difference-in-differences methods for policy evaluation research,, ,https://pmc.ncbi.nlm.nih.gov/articles/PMC11305929/,hard_duplicate,true,Exact same PMC identifier with same title
+real-rdf-001,cluster-002,119,Advances in difference-in-differences methods for policy evaluation research,2024,628-637,https://pmc.ncbi.nlm.nih.gov/articles/PMC11305929/,hard_duplicate,true,Exact same PMC identifier with same title
+real-rdf-001,cluster-003,28,中医优势病种支付方式改革关键问题及对策,2025,27-33,https://kns.cnki.net/KCMS/detail/detail.aspx?dbcode=CJFQ&dbname=CJFDLAST2025&filename=WEIJ202501006,likely_duplicate,false,Same title year and pages but identifier representations differ across CNKI surfaces
+real-rdf-001,cluster-003,124,中医优势病种支付方式改革关键问题及对策,2025,27-33,https://link.cnki.net/urlid/23.1042.F.20241226.1644.002,likely_duplicate,false,Same title year and pages but identifier representations differ across CNKI surfaces
+real-rdf-001,cluster-004,81,An introduction to propensity score methods for reducing the effects of confounding in observational studies,2011,399-424,https://doi.org/10.1080/00273171.2011.568786,hard_duplicate,true,Exact same DOI URL and same title
+real-rdf-001,cluster-004,88,An introduction to propensity score methods for reducing the effects of confounding in observational studies,2011,399-424,https://doi.org/10.1080/00273171.2011.568786,hard_duplicate,true,Exact same DOI URL and same title

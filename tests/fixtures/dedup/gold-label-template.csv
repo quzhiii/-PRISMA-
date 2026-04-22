@@ -1,0 +1,11 @@
+﻿dataset_id,cluster_id,record_id,record_group,gold_label,is_auto_delete_safe,reason,reviewer,reviewed_at
+dedup-case-001,cluster-001,record-001,A,hard_duplicate,true,,,
+dedup-case-001,cluster-001,record-002,A,hard_duplicate,true,,,
+dedup-case-002,cluster-001,record-001,A,likely_duplicate,false,,,
+dedup-case-002,cluster-001,record-002,A,likely_duplicate,false,,,
+dedup-case-003,cluster-001,record-001,A,likely_duplicate,false,,,
+dedup-case-003,cluster-001,record-002,A,likely_duplicate,false,,,
+dedup-case-008,cluster-001,record-001,A,not_duplicate,false,,,
+dedup-case-008,cluster-001,record-002,A,not_duplicate,false,,,
+dedup-case-009,cluster-001,record-001,A,not_duplicate,false,,,
+dedup-case-009,cluster-001,record-002,A,not_duplicate,false,,,

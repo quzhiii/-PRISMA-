@@ -1,0 +1,13 @@
+﻿dataset_id,variant,engine_target,records_total,gold_duplicate_clusters,gold_duplicate_records,gold_hard_duplicates,gold_likely_duplicates,gold_not_duplicates,predicted_auto_removed,predicted_candidate_pairs,tp_auto,fp_auto,fn_auto,tp_candidates,fp_candidates,fn_candidates,precision_auto,recall_candidates,specificity_candidates,f1_candidates,candidate_review_load_per_1000,notes
+dedup-case-001,exact-doi,dedup-vnext,2,1,2,1,0,0,1,0,1,0,0,1,0,0,1.000,1.000,,1.000,0.000,
+dedup-case-002,doi-url-variant,dedup-vnext,2,1,2,1,0,0,1,0,1,0,0,1,0,0,1.000,1.000,,1.000,0.000,
+dedup-case-003,title-punctuation-variation,dedup-vnext,2,1,2,1,0,0,1,0,1,0,0,1,0,0,1.000,1.000,,1.000,0.000,
+dedup-case-004,author-abbreviation-variation,dedup-vnext,2,1,2,1,0,0,1,0,1,0,0,1,0,0,1.000,1.000,,1.000,0.000,
+dedup-case-005,page-range-variation,dedup-vnext,2,1,2,1,0,0,0,1,0,0,1,1,0,0,,1.000,,1.000,500.000,"Detected as candidate, not auto-removed, to preserve conservative hard-delete policy"
+dedup-case-006,journal-abbreviation-variation,dedup-vnext,2,1,2,1,0,0,1,0,1,0,0,1,0,0,1.000,1.000,,1.000,0.000,
+dedup-case-007,missing-doi-one-source,dedup-vnext,2,1,2,1,0,0,0,1,0,0,1,1,0,0,,1.000,,1.000,500.000,"Detected as candidate because one record is missing a decisive identifier"
+dedup-case-008,conference-vs-final,dedup-vnext,2,0,0,0,0,1,0,0,0,0,0,0,0,0,,,1.000,,0.000,
+dedup-case-009,protocol-vs-final,dedup-vnext,2,0,0,0,0,1,0,0,0,0,0,0,0,0,,,1.000,,0.000,
+dedup-case-010,zh-en-mixed-metadata,dedup-vnext,2,1,2,0,1,0,0,0,0,0,0,0,0,1,,0.000,,,0.000,"Still missed; cross-language candidate matching remains the main open gap"
+dedup-case-011,lookalike-not-duplicate,dedup-vnext,2,0,0,0,0,1,0,0,0,0,0,0,0,0,,,1.000,,0.000,
+real-rdf-001,real-user-export-provisional,dedup-vnext,143,4,8,3,1,0,3,1,3,0,0,4,0,0,1.000,1.000,,1.000,6.993,"Recovered CNKI DOI normalization group, PMC duplicate, and one CNKI likely-duplicate pair"

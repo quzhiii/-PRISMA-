@@ -1,0 +1,3 @@
+﻿record_id,title,authors,year,journal,pages,doi,publication_type,abstract,source_file
+r1,"Effect of acupuncture on chronic low back pain: conference abstract","Smith J; Lee K",2023,"Pain Congress Abstracts","A45",,"conference_abstract","Conference abstract reporting preliminary trial results.",conference.csv
+r2,"Effect of acupuncture on chronic low back pain","Smith J; Lee K",2024,"Pain Medicine","101-110","10.1000/acu.2024.002","journal_article","Full randomized trial publication with complete outcomes.",pubmed.ris

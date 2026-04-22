@@ -176,7 +176,7 @@ Step 5  导出
 
 ## 基准结果与客观变化
 
-下列数据来自 [`docs/benchmarks/dedup/post-implementation-benchmark-report.md`](./docs/benchmarks/dedup/post-implementation-benchmark-report.md)：
+下列数据来自本仓库的基准报告 [`docs/benchmarks/dedup/post-implementation-benchmark-report.md`](./docs/benchmarks/dedup/post-implementation-benchmark-report.md)：
 
 | 指标 | v1.7 | V2.0 | 含义 |
 |------|------|------|------|
@@ -240,7 +240,7 @@ virtual-list.js               -> 大规模列表渲染
 - 补全 PubMed `.nbib` 导入支持
 - 修复单人 / 双人模式 session 接线问题
 - 修复去重后无法继续进入后续步骤的问题
-- 回归验证通过：`tests/run-all-regressions.js` `5/5 PASS`
+- 历史回归脚本入口：`tests/run-all-regressions.js`
 
 </details>
 

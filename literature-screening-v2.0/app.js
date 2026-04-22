@@ -36,6 +36,7 @@ const SMART_IMPORT_CONFIG = {
   PARSE_CHUNK_SIZE: 50000,     // 流式解析块大小(bytes)
   MAX_RETRY: 3                 // 最大重试次数
 };
+const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-import-fix';
 
 let importQueue = {
   tasks: [],                   // 待导入任务队列
@@ -737,10 +738,107 @@ function handleMultipleFiles(files) {
 
 // v1.5: Smart auto-batch import system
 /**
- * Mechanism 1: Stream/Chunk Parsing - 流式解析大文件
- * 避免一次性加载50MB+文件到内存
+ * Mechanism 1: Chunked read + background parse
+ * 分块读取文件，再交给 Worker 解析，避免在主线程上同步卡住 UI
  */
-async function parseFileInChunks(file) {
+function getParserFormatFromExt(ext) {
+  switch (ext) {
+    case '.csv': return 'csv';
+    case '.tsv': return 'tsv';
+    case '.ris': return 'ris';
+    case '.nbib': return 'nbib';
+    case '.bib':
+    case '.bibtex':
+      return 'bibtex';
+    case '.txt': return 'txt';
+    case '.enw': return 'enw';
+    case '.rdf': return 'rdf';
+    default: return '';
+  }
+}
+
+function parseTextWithWorker(text, ext, sourceFile, onProgress) {
+  const parserFormat = getParserFormatFromExt(ext);
+  if (!parserFormat || typeof Worker === 'undefined') {
+    return Promise.resolve(parseFileContent(text, ext));
+  }
+
+  return new Promise((resolve, reject) => {
+    let worker;
+    let hasStarted = false;
+    let hasSettled = false;
+
+    const cleanup = () => {
+      if (!worker) return;
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+    };
+
+    const settle = (resolver, value) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      cleanup();
+      resolver(value);
+    };
+
+    try {
+      worker = new Worker(PARSER_WORKER_URL);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    const startParse = () => {
+      if (hasStarted) return;
+      hasStarted = true;
+      worker.postMessage({
+        type: 'PARSE_FILE',
+        data: {
+          content: text,
+          format: parserFormat,
+          sourceFile
+        }
+      });
+    };
+
+    worker.onerror = (event) => {
+      const message = event?.message || 'Worker 解析失败';
+      settle(reject, new Error(message));
+    };
+
+    worker.onmessage = (event) => {
+      const payload = event?.data || {};
+      switch (payload.type) {
+        case 'PARSER_WORKER_READY':
+          startParse();
+          break;
+        case 'PARSE_PROGRESS':
+          if (typeof onProgress === 'function') {
+            onProgress({
+              phase: 'parse',
+              parsed: payload.parsed || 0,
+              total: payload.total || 0
+            });
+          }
+          break;
+        case 'PARSE_COMPLETE':
+          settle(resolve, Array.isArray(payload.records) ? payload.records : []);
+          break;
+        case 'ERROR':
+          settle(reject, new Error(payload.error || 'Worker 解析失败'));
+          break;
+        default:
+          if (!hasStarted) {
+            startParse();
+          }
+          break;
+      }
+    };
+  });
+}
+
+async function parseFileInChunks(file, onProgress = null) {
   const CHUNK_SIZE = SMART_IMPORT_CONFIG.PARSE_CHUNK_SIZE;
   const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
   
@@ -756,19 +854,31 @@ async function parseFileInChunks(file) {
     
     reader.onload = (e) => {
       allText += e.target.result;
-      offset += CHUNK_SIZE;
+      offset = Math.min(offset + CHUNK_SIZE, file.size);
+
+      if (typeof onProgress === 'function') {
+        onProgress({
+          phase: 'read',
+          loadedBytes: offset,
+          totalBytes: file.size
+        });
+      }
       
       if (offset < file.size) {
         // 继续读取下一块
         setTimeout(readChunk, 10); // 让主线程透气
       } else {
-        // 全部读取完成，开始解析
-        try {
-          const records = parseFileContent(allText, ext);
-          resolve(records);
-        } catch (error) {
-          reject(error);
-        }
+        parseTextWithWorker(allText, ext, file.name, onProgress)
+          .then(resolve)
+          .catch((workerError) => {
+            console.warn('Worker parsing failed, falling back to main-thread parser:', workerError);
+            try {
+              const records = parseFileContent(allText, ext);
+              resolve(records);
+            } catch (error) {
+              reject(error);
+            }
+          });
       }
     };
     
@@ -979,10 +1089,27 @@ async function handleMultipleFilesV15(files) {
     // Step 1: 流式解析所有文件
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
-      updateProgress(Math.round((i / validFiles.length) * 30)); // 前30%用于解析
+      const parsePhaseStart = (i / validFiles.length) * 30;
+      const parsePhaseSpan = 30 / validFiles.length;
+      updateProgress(Math.round(parsePhaseStart)); // 前30%用于解析
       
       const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-      const records = await parseFileInChunks(file);
+      const records = await parseFileInChunks(file, (progressState) => {
+        let localRatio = 0;
+        if (progressState?.phase === 'read') {
+          localRatio = progressState.totalBytes > 0
+            ? Math.min(progressState.loadedBytes / progressState.totalBytes, 1) * 0.45
+            : 0;
+        } else if (progressState?.phase === 'parse') {
+          localRatio = 0.45 + (
+            progressState.total > 0
+              ? Math.min(progressState.parsed / progressState.total, 1) * 0.55
+              : 0
+          );
+        }
+        const overallPercent = parsePhaseStart + (localRatio * parsePhaseSpan);
+        updateProgress(Math.round(overallPercent));
+      });
       
       const fileData = {
         name: file.name,
@@ -1048,30 +1175,33 @@ async function handleMultipleFilesV15(files) {
     
     hideProgress();
     setTimeout(() => {
-      detectColumns();
-      displayUploadInfo();
-      setStep(2);
-      syncFormToYAML();
-      displayRulesPreview();
-      setStep(2);
-      syncFormToYAML();
-      displayRulesPreview();
-      setStep(2);
-      syncFormToYAML();
-      displayRulesPreview();
-      persistCurrentProjectState();
-      hideLoading();
-      
-      // 提示分批信息
-      const batchCount = Math.ceil(totalRecords / SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE);
-      const message = totalRecords > SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE
-        ? `✅ 智能分${batchCount}批导入成功！共${validFiles.length}个文件，${totalRecords}条记录`
-        : `✅ 成功上传${validFiles.length}个文件，共${totalRecords}条记录`;
-      
-      showToast(message, 'success');
-      addSuccessAnimation();
-      const step2 = document.getElementById('step2');
-      if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try {
+        detectColumns();
+        displayUploadInfo();
+        setStep(2);
+        syncFormToYAML();
+        displayRulesPreview();
+        persistCurrentProjectState();
+
+        // 提示分批信息
+        const batchCount = Math.ceil(totalRecords / SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE);
+        const message = totalRecords > SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE
+          ? `✅ 智能分${batchCount}批导入成功！共${validFiles.length}个文件，${totalRecords}条记录`
+          : `✅ 成功上传${validFiles.length}个文件，共${totalRecords}条记录`;
+
+        showToast(message, 'success');
+        addSuccessAnimation();
+        const step2 = document.getElementById('step2');
+        if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        console.error('Failed to finalize import UI:', error);
+        showDetailedError('parsing_error', {
+          fileName: 'Multiple files',
+          message: error.message
+        });
+      } finally {
+        hideLoading();
+      }
     }, 500);
     
   } catch (error) {
