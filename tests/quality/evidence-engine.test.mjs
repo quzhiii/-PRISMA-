@@ -52,3 +52,32 @@ test('quality engine downgrades evidence for high overall risk', () => {
     ['overall_risk_high']
   );
 });
+
+test('quality engine hydrates assessment fields from import aliases', () => {
+  const assessment = QualityEngine.createQualityAssessment({
+    TI: 'Systematic review and meta-analysis of acupuncture for chronic pain',
+    AB: 'We conducted a systematic review and meta-analysis of randomized trials.',
+    TY: 'review',
+    OT: ['acupuncture', 'meta-analysis'],
+  });
+
+  assert.equal(
+    assessment.record_id,
+    'Systematic review and meta-analysis of acupuncture for chronic pain'
+  );
+  assert.equal(
+    assessment.title,
+    'Systematic review and meta-analysis of acupuncture for chronic pain'
+  );
+  assert.equal(
+    assessment.abstract,
+    'We conducted a systematic review and meta-analysis of randomized trials.'
+  );
+  assert.equal(assessment.publication_type, 'review');
+  assert.equal(
+    assessment.study_design,
+    QualityEngine.STUDY_DESIGN_FAMILIES.SYSTEMATIC_REVIEW
+  );
+  assert.equal(assessment.tool_family, QualityEngine.TOOL_FAMILIES.AMSTAR2_LITE);
+  assert.equal(assessment.evidence_initial, QualityEngine.EVIDENCE_LEVELS.HIGH);
+});

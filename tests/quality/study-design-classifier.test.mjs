@@ -33,3 +33,13 @@ test('study-design classifier keeps unrecognized text in the generic bucket', ()
 
   assert.equal(detected, QualityEngine.STUDY_DESIGN_FAMILIES.OTHER);
 });
+
+test('study-design classifier reads title and abstract aliases from imported records', () => {
+  const detected = QualityEngine.detectStudyDesignFamily({
+    T1: 'Randomized controlled trial of acupuncture for migraine',
+    N2: 'This randomized controlled trial evaluates acupuncture for migraine prevention.',
+    PT: 'journalArticle',
+  });
+
+  assert.equal(detected, QualityEngine.STUDY_DESIGN_FAMILIES.RCT);
+});

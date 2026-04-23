@@ -376,6 +376,58 @@ function createQualityAssessmentShellRecord(record, index) {
   };
 }
 
+function getQualitySourceField(record, fields = []) {
+  if (!record || typeof record !== 'object') return '';
+
+  for (const field of fields) {
+    const value = record[field];
+    if (Array.isArray(value)) {
+      const joined = value
+        .map((item) => String(item === undefined || item === null ? '' : item).trim())
+        .filter(Boolean)
+        .join('; ');
+      if (joined) return joined;
+      continue;
+    }
+
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+
+  return '';
+}
+
+function rehydrateQualityAssessmentFromSourceRecord(record, assessment, index) {
+  const recordId = buildQualityRecordId(record, index);
+
+  if (QUALITY_ENGINE && typeof QUALITY_ENGINE.createQualityAssessment === 'function') {
+    return QUALITY_ENGINE.createQualityAssessment(record, {
+      id: assessment.id || `qa-${recordId}`,
+      projectId: currentProjectId || assessment.project_id || assessment.projectId || null,
+      recordId,
+      status: assessment.status,
+      domainScores: assessment.domain_scores || assessment.domainScores || [],
+      overallRisk: assessment.overall_risk || assessment.overallRisk,
+      evidenceAdjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
+      evidenceFinal: assessment.evidence_final || assessment.evidenceFinal,
+      overrideReason: assessment.override_reason || assessment.overrideReason || '',
+      notes: assessment.notes || '',
+      updatedAt: assessment.updated_at || assessment.updatedAt,
+    });
+  }
+
+  return {
+    ...assessment,
+    id: assessment.id || `qa-${recordId}`,
+    project_id: currentProjectId || assessment.project_id || assessment.projectId || null,
+    record_id: recordId,
+    title: assessment.title || getQualitySourceField(record, ['title', 'TI', 'T1', 'dc:title', 'dcterms:title']) || recordId,
+    abstract: assessment.abstract || getQualitySourceField(record, ['abstract', 'AB', 'N2', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes']),
+    publication_type: assessment.publication_type || getQualitySourceField(record, ['publication_type', 'type', 'TY', 'PT', 'z:itemType']),
+  };
+}
+
 function prepareQualityAssessmentShell(options = {}) {
   const { persist = true, silent = false } = options;
   const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
@@ -397,10 +449,7 @@ function prepareQualityAssessmentShell(options = {}) {
     const recordId = buildQualityRecordId(record, index);
     const fromState = existing.get(recordId);
     if (fromState) {
-      return {
-        ...fromState,
-        project_id: currentProjectId || fromState.project_id || null,
-      };
+      return rehydrateQualityAssessmentFromSourceRecord(record, fromState, index);
     }
 
     return createQualityAssessmentShellRecord(record, index);
@@ -495,6 +544,20 @@ function renderQualityAssessmentShell() {
 
   qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
   const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  if (includedRecords.length > 0 && qualityAssessments.length > 0) {
+    const sourceRecordMap = new Map(
+      includedRecords.map((record, index) => [buildQualityRecordId(record, index), { record, index }])
+    );
+
+    qualityAssessments = qualityAssessments.map((assessment, index) => {
+      const recordId = String(assessment.record_id || assessment.recordId || '');
+      const source = sourceRecordMap.get(recordId);
+      return source
+        ? rehydrateQualityAssessmentFromSourceRecord(source.record, assessment, source.index)
+        : assessment;
+    });
+  }
+
   const summary = QUALITY_ENGINE && typeof QUALITY_ENGINE.summarizeQualityAssessments === 'function'
     ? QUALITY_ENGINE.summarizeQualityAssessments(qualityAssessments, includedRecords)
     : {

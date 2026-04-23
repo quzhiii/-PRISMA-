@@ -55,8 +55,8 @@
       record && record.record_id,
       record && record.id,
       record && record._engine_record_id,
-      record && record.doi,
-      record && record.title
+      getRecordDoi(record),
+      getRecordTitle(record)
     );
 
     if (candidate) {
@@ -64,6 +64,30 @@
     }
 
     return `record-${Number.isFinite(fallbackIndex) ? fallbackIndex + 1 : Date.now()}`;
+  }
+
+  function getRecordTitle(record) {
+    return readRecordField(record, ['title', 'TI', 'T1', 'dc:title', 'dcterms:title']);
+  }
+
+  function getRecordAbstract(record) {
+    return readRecordField(record, ['abstract', 'AB', 'N2', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes']);
+  }
+
+  function getRecordKeywords(record) {
+    return readRecordField(record, ['keywords', 'KW', 'OT', 'keyword', 'Manual Tags', 'Automatic Tags']);
+  }
+
+  function getRecordPublicationType(record) {
+    return readRecordField(record, ['publication_type', 'type', 'TY', 'PT', 'z:itemType']);
+  }
+
+  function getRecordStudyDesign(record) {
+    return readRecordField(record, ['study_design', 'studyDesign']);
+  }
+
+  function getRecordDoi(record) {
+    return readRecordField(record, ['doi', 'DOI', 'DO', 'identifier_raw']);
   }
 
   function detectStudyDesignFamily(recordOrText) {
@@ -223,9 +247,9 @@
       id: options.id || `qa-${recordId}`,
       project_id: options.projectId || null,
       record_id: recordId,
-      title: record && record.title ? record.title : '',
-      abstract: record && record.abstract ? record.abstract : '',
-      publication_type: record && record.publication_type ? record.publication_type : '',
+      title: getRecordTitle(record),
+      abstract: getRecordAbstract(record),
+      publication_type: getRecordPublicationType(record),
       status: options.status || ASSESSMENT_STATUS.NOT_STARTED,
       study_design: studyDesignFamily,
       tool_family: evidence.toolFamily,
@@ -282,12 +306,46 @@
 
     const record = recordOrText || {};
     return normalizeText([
-      record.title,
-      record.abstract,
-      record.keywords,
-      record.publication_type,
-      record.study_design,
+      getRecordTitle(record),
+      getRecordAbstract(record),
+      getRecordKeywords(record),
+      getRecordPublicationType(record),
+      getRecordStudyDesign(record),
     ].filter(Boolean).join(' '));
+  }
+
+  function readRecordField(record, fields) {
+    if (!record || typeof record !== 'object') {
+      return '';
+    }
+
+    for (let index = 0; index < fields.length; index += 1) {
+      const value = normalizeRecordFieldValue(record[fields[index]]);
+      if (value) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  function normalizeRecordFieldValue(value) {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => String(item === undefined || item === null ? '' : item).trim())
+        .filter(Boolean)
+        .join('; ');
+    }
+
+    if (value === undefined || value === null) {
+      return '';
+    }
+
+    if (typeof value === 'object') {
+      return '';
+    }
+
+    return String(value).trim();
   }
 
   function normalizeText(value) {
