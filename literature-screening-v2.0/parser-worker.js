@@ -23,6 +23,16 @@ try {
   // PARSE_FILE can still work without the shared engine; DEDUP will fallback if needed.
 }
 
+try {
+  if (typeof self !== 'undefined' && (!self.StreamingParser || typeof self.StreamingParser.createStreamingSession !== 'function')) {
+    importScripts('streaming-parser.js?v=20260422-streaming-v2');
+  }
+} catch (error) {
+  // Legacy PARSE_FILE can still work without the streaming parser module.
+}
+
+const STREAMING_SESSIONS = new Map();
+
 function parseCSV(content, delimiter = ',') {
   const records = [];
   const lines = content.split(/\r?\n/).filter(line => line.trim());
@@ -495,6 +505,32 @@ function parseTXT(content) {
   return records;
 }
 
+function resolveStreamingParser() {
+  if (typeof self !== 'undefined' && self.StreamingParser && typeof self.StreamingParser.createStreamingSession === 'function') {
+    return self.StreamingParser;
+  }
+
+  if (typeof StreamingParser !== 'undefined' && StreamingParser && typeof StreamingParser.createStreamingSession === 'function') {
+    return StreamingParser;
+  }
+
+  return null;
+}
+
+function postStreamingBatch(sessionId, sourceFile, records) {
+  if (!Array.isArray(records) || records.length === 0) {
+    return;
+  }
+
+  const normalized = records.map((record) => enrichImportedRecord(record, sourceFile));
+  self.postMessage({
+    type: 'PARSE_STREAM_BATCH',
+    sessionId,
+    records: normalized,
+    count: normalized.length
+  });
+}
+
 // 数据标准化（去小写、去标点等）
 function normalizeTitle(title) {
   if (!title) return '';
@@ -638,6 +674,66 @@ self.onmessage = async (event) => {
   
   try {
     switch (type) {
+      case 'PARSE_STREAM_INIT':
+        const streamingParser = resolveStreamingParser();
+        if (!streamingParser) {
+          throw new Error('Streaming parser is not available');
+        }
+
+        if (!streamingParser.supportsIncrementalFormat(data.format)) {
+          throw new Error(`Streaming parser does not support format: ${data.format}`);
+        }
+
+        STREAMING_SESSIONS.set(data.sessionId, {
+          parserSession: streamingParser.createStreamingSession({
+            format: data.format,
+            sourceFile: data.sourceFile
+          }),
+          sourceFile: data.sourceFile || 'unknown'
+        });
+
+        self.postMessage({
+          type: 'PARSE_STREAM_INIT_ACK',
+          sessionId: data.sessionId
+        });
+        break;
+
+      case 'PARSE_STREAM_CHUNK':
+        const chunkSession = STREAMING_SESSIONS.get(data.sessionId);
+        if (!chunkSession) {
+          throw new Error(`Unknown streaming session: ${data.sessionId}`);
+        }
+
+        const chunkResult = resolveStreamingParser().pushChunk(chunkSession.parserSession, data.chunk || '');
+        postStreamingBatch(data.sessionId, chunkSession.sourceFile, chunkResult.records);
+        self.postMessage({
+          type: 'PARSE_STREAM_PROGRESS',
+          sessionId: data.sessionId,
+          parsed: chunkResult.parsedCount || 0
+        });
+        self.postMessage({
+          type: 'PARSE_STREAM_CHUNK_ACK',
+          sessionId: data.sessionId,
+          parsed: chunkResult.parsedCount || 0
+        });
+        break;
+
+      case 'PARSE_STREAM_FINISH':
+        const finishSession = STREAMING_SESSIONS.get(data.sessionId);
+        if (!finishSession) {
+          throw new Error(`Unknown streaming session: ${data.sessionId}`);
+        }
+
+        const finishResult = resolveStreamingParser().finishSession(finishSession.parserSession);
+        postStreamingBatch(data.sessionId, finishSession.sourceFile, finishResult.records);
+        STREAMING_SESSIONS.delete(data.sessionId);
+        self.postMessage({
+          type: 'PARSE_STREAM_COMPLETE',
+          sessionId: data.sessionId,
+          count: finishResult.parsedCount || 0
+        });
+        break;
+
       case 'PARSE_FILE':
         const { content, format } = data;
         const parser = PARSERS[format] || parseTXT;
@@ -688,7 +784,10 @@ self.onmessage = async (event) => {
         self.postMessage({ type: 'ERROR', error: 'Unknown message type' });
     }
   } catch (error) {
-    self.postMessage({ type: 'ERROR', error: error.message, stack: error.stack });
+    if (data?.sessionId) {
+      STREAMING_SESSIONS.delete(data.sessionId);
+    }
+    self.postMessage({ type: 'ERROR', sessionId: data?.sessionId, error: error.message, stack: error.stack });
   }
 };
 

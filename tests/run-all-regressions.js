@@ -5,6 +5,10 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const testFiles = [
+  'tests/quality/evidence-engine.test.mjs',
+  'tests/quality/study-design-classifier.test.mjs',
+  'tests/import/import-job-state.test.mjs',
+  'tests/import/parser-chunk-boundary.test.mjs',
   'tests/dedup/benchmark-smoke.test.mjs',
   'tests/dedup/benchmark-regression.test.mjs',
   'tests/dedup/record-normalization.test.mjs',

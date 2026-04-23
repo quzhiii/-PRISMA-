@@ -5,7 +5,7 @@
 **A practical end-to-end literature screening workspace for systematic reviews, meta-analyses, and evidence synthesis**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.0-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.1-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![GitHub Pages](https://img.shields.io/badge/Demo-Live-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -20,26 +20,27 @@ English | [简体中文](./README.md)
 
 ---
 
-## Why V2.0
+## Why V2.1
 
-`V2.0` is not just another patch set on top of the old single-page tool. It restructures the product around more realistic research workflows:
+`V2.1` is not a ground-up rewrite. It is the formal next release on top of the stable `V2.0` homepage / login / workspace architecture, and it closes two gaps that were already visible in real use: quality assessment / evidence grading and true incremental parsing for common formats.
 
-- clearer entry points with a homepage, dual-review login page, and workspace
-- a more conservative deduplication model with hard duplicate auto-removal plus manual candidate review
-- support for both single-review and formal dual-review workflows
-- retained `30,000+` local record handling capacity for practical project use
+- the workflow expands from 5 steps to 6, with quality assessment before final export
+- `CSV / TSV / RIS / NBIB / ENW` move to Worker-based incremental parsing to reduce the “large import feels frozen” problem
+- a quality queue now carries study-design suggestions, tool-family suggestions, and evidence-level baselines
+- the published GitHub Pages path remains `literature-screening-v2.0/` so existing links and bookmarks do not break
 
-GitHub Pages now opens `V2.0` by default. The old `v1.7` page remains available only as a historical version.
+GitHub Pages now publishes `V2.1` by default. The old `v1.7` page remains available only as a historical version.
 
 ---
 
 ## What This Tool Solves
 
-| Common problem | What V2.0 does |
+| Common problem | What V2.1 does |
 |------|------|
-| Large libraries slow down or break browser-based tools | Retains the IndexedDB + Web Worker + virtual list architecture for large-scale handling |
+| Large libraries slow down or appear stuck | Enables Worker-based incremental parsing for `CSV / TSV / RIS / NBIB / ENW` to reduce long main-thread stalls |
 | Automatic deduplication feels risky and opaque | Uses a two-layer model: `hard duplicates` for safe auto-removal, `candidate duplicates` for human review |
 | Dual-review collaboration can overwrite or conflict | Stabilizes reviewer roles, shared project state, and logout cleanup |
+| Included studies still need a separate quality/evidence workflow | Adds a quality queue with study-design, tool-family, and baseline evidence tracking |
 | Full-text review shows incomplete abstracts and English content still needs manual translation | Improves multiline abstract parsing and adds `Translate this record` in the review modal |
 | Upload succeeds but the workspace does not show the loaded content | Fixes upload display, scrolling, step progression, and page visibility issues |
 | English entry paths are inconsistent | Fixes English homepage, dual-review routing, and page visibility behavior |
@@ -47,17 +48,30 @@ GitHub Pages now opens `V2.0` by default. The old `v1.7` page remains available 
 
 ---
 
-## V2.0 Highlights
+## V2.1 Release Highlights
 
-### 1. Closer to real review work, not just a single-page demo
+### 1. The full six-step workflow is now explicit
 
 - dedicated homepage, login page, and workspace
 - clearer split between single-review and dual-review access
-- better fit for an end-to-end screening flow from import to export
+- `Step 5` is now quality assessment / evidence setup
+- `Step 6` is the final export stage
 
-### 2. More conservative and explainable deduplication
+### 2. Common-format import is now genuinely incremental in the background
 
-`V2.0` extracts deduplication into a standalone [`dedup-engine.js`](./dedup-engine.js) module and uses a two-layer output:
+- `CSV / TSV / RIS / NBIB / ENW` are parsed chunk-by-chunk in a Worker
+- import jobs now expose stage, byte progress, and parsed-record counts
+- `BibTeX / RDF / TXT` still use the fallback whole-file path for now
+
+### 3. Quality assessment and evidence grading enter the main workflow
+
+- included studies can be turned into a quality queue inside the workspace
+- the app now seeds study-design suggestions, tool-family suggestions, and evidence baselines
+- project-level persistence is already wired so domain-level forms can extend real records later
+
+### 4. Conservative and explainable deduplication remains intact
+
+`V2.1` keeps the standalone [`dedup-engine.js`](./dedup-engine.js) model and does not reframe this release as a more aggressive dedup pass:
 
 ```text
 Layer 1: Hard duplicates
@@ -69,18 +83,18 @@ Surfaced for human review instead of silent auto-removal
 
 The goal is not "delete as much as possible automatically." The goal is a safer workflow for research use.
 
-### 3. Large-scale capacity is preserved while usability improves
+### 5. Large-scale capacity is preserved while usability improves
 
 - still supports `30,000+` records
 - upload display and page scrolling are more stable
 - sample import, real-file upload, and step progression are connected correctly
 - dual-review initialization and logout cleanup are fixed
 
-### 4. Cleaner bilingual entry paths
+### 6. Public docs and bilingual entry paths are now aligned
 
-- GitHub Pages root opens `V2.0` by default
+- GitHub Pages root opens `V2.1` by default
 - the English homepage now routes dual-review users to the English login page
-- mixed-language rendering and visibility bugs on English pages are fixed
+- README, workflow steps, and benchmark references now use one consistent release story
 
 ---
 
@@ -122,6 +136,12 @@ Supports `CSV / TSV / RIS / ENW / BibTeX / RDF / TXT / NBIB`, including mixed-so
 - shared project state is more stable
 - the full-text review modal supports full abstract viewing and `Translate this record`
 
+### Quality assessment / evidence grading
+
+- seeds a quality queue for included studies
+- suggests study design and tool family
+- records baseline evidence levels before final export
+
 ### PRISMA 2020 export
 
 - PRISMA 2020 flow diagram export
@@ -145,7 +165,10 @@ Step 3  Automatic screening
 Step 4  Manual review
         Use shortcuts 1-6 for exclusion reasons, with auto-saved progress
 
-Step 5  Export
+Step 5  Quality assessment
+        Prepare the quality queue and confirm study design, tool family, and evidence baseline
+
+Step 6  Export
         PRISMA 2020 flow diagram and detailed report
 ```
 
@@ -158,27 +181,27 @@ Step 5  Export
 | Import to IndexedDB | 30,000 records | ~3-5s | Batch insert, 500 per batch |
 | Paginated query | 100 records | ~213ms | Indexed query |
 | Virtual list render | 30,000 records | ~16ms/frame | Stable scrolling |
-| Deduplication (V2.0) | Full set | Background execution | Web Worker, no UI blocking |
+| Common-format import (V2.1) | CSV / TSV / RIS / NBIB / ENW | Incremental background parsing | Worker chunks reduce long UI stalls |
+| Deduplication (V2.1) | Full set | Background execution | Web Worker, no UI blocking |
 
 ---
 
-## V2.0 vs v1.7
+## V2.1 vs V2.0
 
-| Dimension | v1.7 | V2.0 |
+| Dimension | V2.0 | V2.1 |
 |------|------|------|
-| Default entry | Root opened the old single-page workspace | GitHub Pages opens the `V2.0` homepage |
-| Page structure | Mostly a single-page tool | Separate homepage, login page, and workspace |
-| Dedup architecture | Inline page logic | Standalone `dedup-engine.js` module |
-| Dedup output | Mostly one direct dedup result | Hard duplicate auto-removal plus candidate review |
-| Dual review | Functional but brittle in routing and state | More stable entry, language, and shared-state flow |
-| English path | Mixed-language and routing issues existed | Language routing and visibility are fixed |
-| Current role | Historical stable version | Current practical version for actual use |
+| Workflow | 5 steps ending at export | 6 steps with quality assessment before export |
+| Import parsing | Smart import still behaved like whole-file parsing | Common formats use true Worker-based incremental parsing |
+| Quality / evidence | Outside the main workflow | Built into the main workflow as a seeded queue |
+| Import observability | Mostly “upload finished” feedback | Explicit job stage, byte progress, and parsed counts |
+| Public docs | README and repo evidence links could drift | README, workflow, and benchmark references are aligned |
+| Current role | Previous main release | Current formal release |
 
 ---
 
-## Benchmarks and Objective Change
+## Existing Benchmarks and Objective Change
 
-The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmark-report.md`](./docs/benchmarks/dedup/post-implementation-benchmark-report.md).
+The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmark-report.md`](./docs/benchmarks/dedup/post-implementation-benchmark-report.md) and mainly cover the `V2.0` dedup baseline. `V2.1` keeps that conservative dedup strategy and layers the new workflow/import changes on top.
 
 | Metric | v1.7 | V2.0 | Meaning |
 |------|------|------|------|
@@ -190,9 +213,9 @@ The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmar
 
 ### Performance vs efficiency
 
-- There is no separate evidence yet that `V2.0` is materially faster than `v1.7` in raw import throughput
-- The gain in this round is mainly correctness, stability, explainability, and real workflow efficiency
-- In practice, the bigger improvement is that `V2.0` is more usable for actual review work, not simply faster
+- `V2.1` now adds true incremental parsing on the common import path, but there is not yet a cross-device benchmark number that should be overclaimed
+- The gain in this round is still mainly correctness, stability, explainability, and workflow completeness
+- In practice, the bigger improvement is that the formal review flow is more complete, not just faster
 
 ---
 
@@ -202,8 +225,11 @@ The numbers below come from [`docs/benchmarks/dedup/post-implementation-benchmar
 index.html / workspace.html   -> UI layer
 app.js                        -> Logic layer
 db-worker.js                  -> IndexedDB data layer
-parser-worker.js              -> Multi-format parsing layer
-dedup-engine.js               -> V2.0 standalone dedup engine
+parser-worker.js              -> Multi-format parsing and background message layer
+streaming-parser.js           -> Incremental parsing state machines
+quality-engine.js             -> Quality / evidence baseline engine
+import-job-runtime.js         -> Import job lifecycle and persistence
+dedup-engine.js               -> Conservative dedup engine
 virtual-list.js               -> Large-list rendering
 ```
 
@@ -211,9 +237,12 @@ virtual-list.js               -> Large-list rendering
 
 | Module | Responsibility |
 |------|------|
-| `dedup-engine.js` | Standalone V2.0 dedup engine for hard and candidate duplicate output |
+| `dedup-engine.js` | Standalone dedup engine for hard and candidate duplicate output |
 | `db-worker.js` | IndexedDB CRUD, batch insert, paginated query, transaction handling |
-| `parser-worker.js` | Multi-format parsing, DOI / title normalization, streaming file processing |
+| `parser-worker.js` | Multi-format parsing, DOI / title normalization, and background orchestration |
+| `streaming-parser.js` | Incremental parsing for `CSV / TSV / RIS / NBIB / ENW` |
+| `quality-engine.js` | Study-design suggestion, tool-family suggestion, and evidence baselines |
+| `import-job-runtime.js` | Import-job stage tracking, progress, and project persistence |
 | `virtual-list.js` | Virtual scrolling that renders only the visible area |
 | `app.js` | Main flow control, rule engine, export, and state management |
 
@@ -222,7 +251,19 @@ virtual-list.js               -> Large-list rendering
 ## Version History
 
 <details>
-<summary><b>V2.0 (current main version, 2026-03)</b></summary>
+<summary><b>V2.1 (current formal release, 2026-04)</b></summary>
+
+- expands the workflow to 6 steps with quality assessment before export
+- moves `CSV / TSV / RIS / NBIB / ENW` to Worker-based incremental parsing
+- adds `quality-engine.js`, `import-job-runtime.js`, and `streaming-parser.js`
+- persists import-job state and the quality queue at project level
+- aligns README, workflow messaging, and benchmark references with the shipped repo state
+- keeps the `literature-screening-v2.0/` path for GitHub Pages compatibility
+
+</details>
+
+<details>
+<summary><b>V2.0 (previous main release, 2026-03)</b></summary>
 
 - added a dedicated homepage, login page, and workspace structure
 - added the standalone `dedup-engine.js` deduplication engine
@@ -242,7 +283,7 @@ virtual-list.js               -> Large-list rendering
 - completed PubMed `.nbib` import support
 - fixed single / dual review session wiring
 - fixed post-dedup progression into later steps
-- regression verification passed: `tests/run-all-regressions.js` `5/5 PASS`
+- regression entry remains: `tests/run-all-regressions.js`
 
 </details>
 

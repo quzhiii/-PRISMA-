@@ -1,0 +1,47 @@
+[
+  {
+    "id": "fixture-rct",
+    "studyType": "rct",
+    "record": {
+      "title": "Randomized controlled trial of acupuncture for migraine",
+      "abstract": "This randomized controlled trial evaluates acupuncture for migraine prevention.",
+      "publication_type": "journalArticle"
+    }
+  },
+  {
+    "id": "fixture-review",
+    "studyType": "systematic_review",
+    "record": {
+      "title": "Systematic review and meta-analysis of acupuncture for chronic pain",
+      "abstract": "We conducted a systematic review and meta-analysis of randomized trials.",
+      "publication_type": "review"
+    }
+  },
+  {
+    "id": "fixture-cohort",
+    "studyType": "cohort",
+    "record": {
+      "title": "Prospective cohort study of hospital payment reform outcomes",
+      "abstract": "A prospective cohort study evaluated policy exposure and outcomes.",
+      "publication_type": "journalArticle"
+    }
+  },
+  {
+    "id": "fixture-cross",
+    "studyType": "cross_sectional",
+    "record": {
+      "title": "Cross-sectional survey of evidence use in hospitals",
+      "abstract": "This cross-sectional survey reports clinician evidence use.",
+      "publication_type": "journalArticle"
+    }
+  },
+  {
+    "id": "fixture-case-report",
+    "studyType": "case_report",
+    "record": {
+      "title": "Case report of pneumothorax after acupuncture",
+      "abstract": "We report a rare complication after acupuncture treatment.",
+      "publication_type": "case report"
+    }
+  }
+]

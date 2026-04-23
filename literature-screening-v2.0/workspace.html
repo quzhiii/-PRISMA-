@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="Professional PRISMA literature screening workspace with automatic filtering, full-text review, and PRISMA 2020 export.">
+  <meta name="description" id="metaDescription" content="Professional PRISMA literature screening workspace with screening, full-text review, quality assessment, evidence grading, and PRISMA 2020 export.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
-  <title>PRISMA Literature Screening v2.0</title>
+  <title>PRISMA Literature Screening v2.1</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
           </span>
           <span class="brand-copy">
             <span class="brand-title"><span class="zh">PRISMA 文献筛选</span><span class="en">PRISMA Literature Screening</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.0</span><span class="en">Research-grade workspace v2.0</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.1</span><span class="en">Research-grade workspace v2.1</span></span>
           </span>
         </a>
         <div class="nav-actions">
@@ -59,6 +59,11 @@
         <div class="step-divider"></div>
         <div class="step" id="step-indicator-5">
           <div class="step-circle">5</div>
+          <span class="step-label"><span class="zh">质量评价</span><span class="en">Quality</span></span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step" id="step-indicator-6">
+          <div class="step-circle">6</div>
           <span class="step-label"><span class="zh">结果导出</span><span class="en">Export</span></span>
         </div>
       </div>
@@ -153,6 +158,13 @@
           <p style="font-size: 18px; margin: 0 0 8px;"><span class="zh">拖拽文件到此处，或点击上传</span><span class="en">Drag files here or click to upload</span></p>
           <p class="muted-text" style="margin: 0;"><span class="zh">支持 .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf, .nbib</span><span class="en">Supports .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf, and .nbib</span></p>
           <input type="file" id="fileInput" multiple accept=".csv,.tsv,.ris,.bib,.bibtex,.txt,.enw,.rdf,.nbib" style="display: none;">
+        </div>
+
+        <div id="importJobShellPanel" class="info-box workspace-info-panel" style="margin-top: var(--space-20); border-left-color: var(--color-info);">
+          <h3><span class="zh">导入任务</span><span class="en">Import Jobs</span></h3>
+          <p><span class="zh">V2.1 已接入后台导入任务状态，并为常用格式启用真正的增量解析。当前版本先覆盖任务阶段、文件进度与解析计数，可恢复导入留待后续补齐。</span><span class="en">V2.1 now exposes import-job state and enables real incremental parsing for common formats. This release covers job stage, file progress, and parsed counts; resumable import is the next layer.</span></p>
+          <div id="importJobSummary" class="muted-text"></div>
+          <div id="importJobList" style="margin-top: 12px;"></div>
         </div>
 
         <div id="uploadInfo" class="hidden" style="margin-top: var(--space-24);">
@@ -480,7 +492,7 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">&#x7B5B;&#x9009;&#x62A5;&#x544A;</span><span class="en">Report</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">&#x5168;&#x90E8;&#x4E0B;&#x8F7D;</span><span class="en">Download All</span></button>
             </div>
-            <p class="muted-text" style="margin-top: 12px;"><span class="zh">&#x5982;&#x679C;&#x4F60;&#x8FD8;&#x5728;&#x6838;&#x67E5;&#x7ED3;&#x679C;&#x662F;&#x5426;&#x5408;&#x7406;&#xFF0C;&#x5EFA;&#x8BAE;&#x5148;&#x770B;&#x7EDF;&#x8BA1;&#x5361;&#x7247;&#x548C; PRISMA &#x9884;&#x89C8;&#xFF1B;Step 5 &#x518D;&#x8FDB;&#x884C;&#x6B63;&#x5F0F;&#x5BFC;&#x51FA;&#x3002;</span><span class="en">If you are still validating the result, review the stats cards and PRISMA preview first. Use Step 5 for the formal export.</span></p>
+            <p class="muted-text" style="margin-top: 12px;"><span class="zh">&#x5982;&#x679C;&#x4F60;&#x8FD8;&#x5728;&#x6838;&#x67E5;&#x7ED3;&#x679C;&#x662F;&#x5426;&#x5408;&#x7406;&#xFF0C;&#x5EFA;&#x8BAE;&#x5148;&#x770B;&#x7EDF;&#x8BA1;&#x5361;&#x7247;&#x548C; PRISMA &#x9884;&#x89C8;&#xFF1B;Step 6 &#x518D;&#x8FDB;&#x884C;&#x6B63;&#x5F0F;&#x5BFC;&#x51FA;&#x3002;</span><span class="en">If you are still validating the result, review the stats cards and PRISMA preview first. Use Step 6 for the formal export.</span></p>
             <p class="muted-text" style="margin-top: 12px;"><span class="zh">&#x5F53;&#x524D;&#x4E3B;&#x9898;&#xFF1A;</span><span class="en">Current theme:</span> <span id="currentThemeLabel">&#x67D4;&#x548C;&#x7248;</span></p>
           </div>
         </div>
@@ -596,14 +608,73 @@
 
         <div class="actions">
           <button type="button" class="btn btn-secondary" onclick="goToStep3()"><span class="zh">返回结果预览</span><span class="en">Back to Results</span></button>
-          <button type="button" class="btn btn-primary" onclick="finalizeFulltextReview()"><span class="zh">完成审核并生成最终结果</span><span class="en">Finalize Review</span></button>
+            <button type="button" class="btn btn-primary" onclick="finalizeFulltextReview()"><span class="zh">完成审核并进入质量评价</span><span class="en">Finalize and continue</span></button>
+          </div>
         </div>
-      </div>
 
       <div id="step5" class="card hidden workspace-step-card">
         <div class="card-header">
           <div>
             <div class="card-kicker step-badge">STEP 05</div>
+            <h2 class="card-title"><span class="zh">质量评价</span><span class="en">Quality Assessment</span></h2>
+            <p class="section-subtitle"><span class="zh">V2.1 首发提供研究设计、质量工具和证据等级的正式工作流入口，域级详细表单将在后续版本继续补强。</span><span class="en">V2.1 formally introduces study-design, quality-tool, and evidence-grading entry points, with deeper domain forms to be strengthened in later releases.</span></p>
+          </div>
+        </div>
+
+        <div class="task-start-strip workspace-toolbar primary-action-zone" style="margin-bottom: var(--space-20);">
+          <div class="task-start-copy">
+            <h3><span class="zh">建立质量评价队列</span><span class="en">Prepare the quality queue</span></h3>
+            <p><span class="zh">先为最终纳入研究生成质量评价条目，确认研究设计、工具族和证据等级基线，再进入正式导出。</span><span class="en">Seed quality-assessment entries for included studies, confirm design/tool/evidence defaults, then move to export.</span></p>
+            <ul class="task-checklist">
+              <li><span class="zh">先生成质量评价条目</span><span class="en">Seed assessment entries</span></li>
+              <li><span class="zh">再核对研究设计和工具族</span><span class="en">Review study design and tool family</span></li>
+              <li><span class="zh">最后进入 Step 6 导出</span><span class="en">Continue to Step 6 for export</span></li>
+            </ul>
+          </div>
+          <div class="task-start-actions">
+            <button type="button" class="btn btn-primary" onclick="prepareQualityAssessmentShell()"><span class="zh">生成质量评价队列</span><span class="en">Prepare quality queue</span></button>
+            <button type="button" class="btn btn-secondary" onclick="goToStep6()"><span class="zh">继续到结果导出</span><span class="en">Continue to export</span></button>
+          </div>
+        </div>
+
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
+          <h3><span class="zh">V2.1 质量评价工作流</span><span class="en">V2.1 quality workflow</span></h3>
+          <p><span class="zh">当前发布版已经提供项目级持久化、研究设计识别、工具族建议和证据等级基线。完整的域级问卷仍会在后续版本继续补充。</span><span class="en">This release already ships project-level persistence, study-design suggestions, tool-family mapping, and evidence baselines. Full domain forms remain a follow-on enhancement.</span></p>
+        </div>
+
+        <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
+          <div class="stat-card"><div class="stat-label"><span class="zh">待评价研究</span><span class="en">Included studies</span></div><div class="stat-value" id="quality-total-studies">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">未开始</span><span class="en">Not started</span></div><div class="stat-value" id="quality-status-not-started">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">进行中</span><span class="en">In progress</span></div><div class="stat-value" id="quality-status-in-progress">0</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="zh">已完成</span><span class="en">Completed</span></div><div class="stat-value" id="quality-status-completed">0</div></div>
+        </div>
+
+        <div class="two-column workspace-main-grid">
+          <div class="surface-panel workspace-side-panel secondary-info-zone">
+            <h3 style="margin-top: 0;"><span class="zh">研究队列</span><span class="en">Study queue</span></h3>
+            <div id="qualityAssessmentQueue" class="muted-text"></div>
+          </div>
+          <div class="surface-panel workspace-side-panel secondary-info-zone">
+            <h3 style="margin-top: 0;"><span class="zh">证据概览</span><span class="en">Evidence overview</span></h3>
+            <div id="qualityAssessmentSummary" class="muted-text"></div>
+          </div>
+        </div>
+
+        <div class="info-box workspace-info-panel secondary-info-zone" style="margin-top: 20px;">
+          <h3><span class="zh">下一步</span><span class="en">Next step</span></h3>
+          <p><span class="zh">这一步已经把纳入研究、建议研究设计、质量工具和证据基线稳定存下来。后续完整表单会直接挂接到这些正式记录上继续扩展。</span><span class="en">This step now persists included studies together with suggested design, tool, and baseline evidence so later domain forms can extend real records directly.</span></p>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep4()"><span class="zh">返回全文复核</span><span class="en">Back to full-text review</span></button>
+          <button type="button" class="btn btn-primary" onclick="goToStep6()"><span class="zh">继续到结果导出</span><span class="en">Continue to export</span></button>
+        </div>
+      </div>
+
+      <div id="step6" class="card hidden workspace-step-card">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge">STEP 06</div>
             <h2 class="card-title"><span class="zh">结果导出</span><span class="en">Export Deliverables</span></h2>
             <p class="section-subtitle"><span class="zh">汇总最终统计并导出图表、结果表与筛选报告。</span><span class="en">Summarize final counts and export diagrams, study tables, and the screening report.</span></p>
           </div>
@@ -645,7 +716,6 @@
         </div>
 
         <div id="dedupReviewSummaryFinal"></div>
-
 
         <div class="two-column workspace-main-grid">
           <div class="surface-panel workspace-side-panel secondary-info-zone">
@@ -692,7 +762,7 @@
 
         <div class="actions">
           <button type="button" class="btn btn-secondary" onclick="resetApp()"><span class="zh">重新开始</span><span class="en">Restart</span></button>
-          <button type="button" class="btn btn-secondary" onclick="goToStep4()"><span class="zh">返回人工审核</span><span class="en">Back to Manual Review</span></button>
+          <button type="button" class="btn btn-secondary" onclick="goToStep5()"><span class="zh">返回质量评价</span><span class="en">Back to Quality</span></button>
         </div>
       </div>
     </div>
@@ -729,12 +799,12 @@
       document.querySelectorAll('.en').forEach((el) => {
         el.hidden = isZh;
       });
-      document.title = isZh ? 'PRISMA 文献筛选工作台 v2.0' : 'PRISMA Literature Screening Workspace v2.0';
+      document.title = isZh ? 'PRISMA 文献筛选工作台 v2.1' : 'PRISMA Literature Screening Workspace v2.1';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? '专业级 PRISMA 文献筛选工作台，支持初筛结果、全文复核与 PRISMA 2020 导出。'
-          : 'Professional PRISMA literature screening workspace with screening summaries, full-text review, and PRISMA 2020 export.';
+          ? '专业级 PRISMA 文献筛选工作台，支持初筛结果、全文复核、质量评价与 PRISMA 2020 导出。'
+          : 'Professional PRISMA literature screening workspace with screening summaries, full-text review, quality assessment, and PRISMA 2020 export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
@@ -764,9 +834,9 @@
   <script src="virtual-list.js"></script>
   <script>
     /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
-    const dbWorker = new Worker('db-worker.js');
+    const dbWorker = new Worker('db-worker.js?v=20260422-v21-shell');
     /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
-    const parserWorker = new Worker('parser-worker.js?v=20260329-uploadfix3');
+    const parserWorker = new Worker('parser-worker.js?v=20260422-streaming-v2');
     /* biome-ignore lint/correctness/noUnusedVariables: helper preserved for app.js compatibility */
     function workerSend(worker, message) {
       return new Promise((resolve, _reject) => {
@@ -780,7 +850,9 @@
     }
   </script>
   <script src="../dedup-engine.js?v=20260329-uploadfix3"></script>
-  <script src="app.js?v=20260329-uploadfix3"></script>
+  <script src="quality-engine.js?v=20260422-v21-shell"></script>
+  <script src="import-job-runtime.js?v=20260422-v21-shell"></script>
+  <script src="app.js?v=20260422-v21-streaming-v2"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>
 </html>

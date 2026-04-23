@@ -7,6 +7,15 @@ let screeningResults = null;
 let fileFormat = 'unknown';
 let formatSource = 'Unknown';
 let currentTheme = 'subtle';
+const FEATURE_FLAGS = Object.freeze({
+  ENABLE_QUALITY_ASSESSMENT: true,
+  ENABLE_STREAMING_IMPORT_V21: true,
+});
+const WORKFLOW_STEP_COUNT = FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5;
+const QUALITY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.QualityEngine || null : null;
+const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.ImportJobRuntime || null : null;
+let qualityAssessments = [];
+let importJobs = [];
 
 // Runtime mode state (Task 8)
 const RUNTIME_MODE = {
@@ -36,7 +45,7 @@ const SMART_IMPORT_CONFIG = {
   PARSE_CHUNK_SIZE: 50000,     // 流式解析块大小(bytes)
   MAX_RETRY: 3                 // 最大重试次数
 };
-const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-import-fix';
+const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-streaming-v2';
 
 let importQueue = {
   tasks: [],                   // 待导入任务队列
@@ -227,6 +236,355 @@ const defaultRules = {
   },
   required_one_of: ["title", "abstract"]
 };
+
+function normalizeQualityAssessmentsState(list) {
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .filter(Boolean)
+    .map((assessment, index) => {
+      if (QUALITY_ENGINE && typeof QUALITY_ENGINE.createQualityAssessment === 'function') {
+        return QUALITY_ENGINE.createQualityAssessment(
+          {
+            id: assessment.record_id || assessment.recordId || `record-${index + 1}`,
+            title: assessment.title || '',
+            abstract: assessment.abstract || '',
+            publication_type: assessment.publication_type || assessment.study_design || '',
+          },
+          {
+            id: assessment.id || `qa-${index + 1}`,
+            projectId: assessment.project_id || assessment.projectId || currentProjectId || null,
+            recordId: assessment.record_id || assessment.recordId || `record-${index + 1}`,
+            status: assessment.status,
+            studyDesignFamily: assessment.study_design || assessment.studyDesignFamily,
+            toolFamily: assessment.tool_family || assessment.toolFamily,
+            domainScores: assessment.domain_scores || assessment.domainScores || [],
+            overallRisk: assessment.overall_risk || assessment.overallRisk,
+            evidenceAdjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
+            evidenceFinal: assessment.evidence_final || assessment.evidenceFinal,
+            overrideReason: assessment.override_reason || assessment.overrideReason || '',
+            notes: assessment.notes || '',
+            updatedAt: assessment.updated_at || assessment.updatedAt,
+          }
+        );
+      }
+
+      return {
+        id: assessment.id || `qa-${index + 1}`,
+        project_id: assessment.project_id || assessment.projectId || currentProjectId || null,
+        record_id: assessment.record_id || assessment.recordId || `record-${index + 1}`,
+        status: assessment.status || 'not_started',
+        study_design: assessment.study_design || assessment.studyDesignFamily || 'other',
+        tool_family: assessment.tool_family || assessment.toolFamily || 'generic_quality_shell',
+        domain_scores: assessment.domain_scores || assessment.domainScores || [],
+        overall_risk: assessment.overall_risk || assessment.overallRisk || 'unclear',
+        evidence_initial: assessment.evidence_initial || assessment.evidenceInitial || 'very_low',
+        evidence_adjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
+        evidence_final: assessment.evidence_final || assessment.evidenceFinal || 'very_low',
+        override_reason: assessment.override_reason || assessment.overrideReason || '',
+        notes: assessment.notes || '',
+        updated_at: assessment.updated_at || assessment.updatedAt || new Date().toISOString(),
+      };
+    });
+}
+
+function normalizeImportJobsState(list) {
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .filter(Boolean)
+    .map((job) => {
+      if (IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.createImportJob === 'function') {
+        const base = IMPORT_JOB_RUNTIME.createImportJob({
+          id: job.id,
+          projectId: job.project_id || job.projectId || currentProjectId || null,
+          fileName: job.file_name || job.fileName || 'unknown',
+          fileSize: job.file_size || job.fileSize || 0,
+          format: job.format || 'unknown',
+          stage: job.stage,
+          bytesRead: job.bytes_read || job.bytesRead || 0,
+          recordsParsed: job.records_parsed || job.recordsParsed || 0,
+          recordsWritten: job.records_written || job.recordsWritten || 0,
+          checkpoint: job.checkpoint_json || job.checkpoint || null,
+          error: job.error || '',
+          startedAt: job.started_at || job.startedAt,
+          timestamp: job.updated_at || job.updatedAt,
+        });
+
+        return IMPORT_JOB_RUNTIME.patchImportJob(base, {
+          stage: job.stage,
+          bytesRead: job.bytes_read || job.bytesRead || 0,
+          recordsParsed: job.records_parsed || job.recordsParsed || 0,
+          recordsWritten: job.records_written || job.recordsWritten || 0,
+          checkpoint: job.checkpoint_json || job.checkpoint || null,
+          error: job.error || '',
+          updatedAt: job.updated_at || job.updatedAt,
+        });
+      }
+
+      return {
+        id: job.id || `import-${Date.now()}`,
+        project_id: job.project_id || job.projectId || currentProjectId || null,
+        file_name: job.file_name || job.fileName || 'unknown',
+        file_size: job.file_size || job.fileSize || 0,
+        format: job.format || 'unknown',
+        stage: job.stage || 'queued',
+        bytes_read: job.bytes_read || job.bytesRead || 0,
+        records_parsed: job.records_parsed || job.recordsParsed || 0,
+        records_written: job.records_written || job.recordsWritten || 0,
+        checkpoint_json: job.checkpoint_json || job.checkpoint || null,
+        error: job.error || '',
+        started_at: job.started_at || job.startedAt || new Date().toISOString(),
+        updated_at: job.updated_at || job.updatedAt || new Date().toISOString(),
+      };
+    });
+}
+
+function buildQualityRecordId(record, fallbackIndex) {
+  if (QUALITY_ENGINE && typeof QUALITY_ENGINE.getAssessmentRecordId === 'function') {
+    return QUALITY_ENGINE.getAssessmentRecordId(record, fallbackIndex);
+  }
+
+  return String(record?.record_id || record?.id || record?.doi || record?.title || `record-${fallbackIndex + 1}`);
+}
+
+function createQualityAssessmentShellRecord(record, index) {
+  const recordId = buildQualityRecordId(record, index);
+
+  if (QUALITY_ENGINE && typeof QUALITY_ENGINE.createQualityAssessment === 'function') {
+    return QUALITY_ENGINE.createQualityAssessment(record, {
+      projectId: currentProjectId || null,
+      recordId,
+    });
+  }
+
+  return {
+    id: `qa-${recordId}`,
+    project_id: currentProjectId || null,
+    record_id: recordId,
+    status: 'not_started',
+    study_design: 'other',
+    tool_family: 'generic_quality_shell',
+    domain_scores: [],
+    overall_risk: 'unclear',
+    evidence_initial: 'very_low',
+    evidence_adjustments: [],
+    evidence_final: 'very_low',
+    override_reason: '',
+    notes: '',
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function prepareQualityAssessmentShell(options = {}) {
+  const { persist = true, silent = false } = options;
+  const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+
+  if (!FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT || includedRecords.length === 0) {
+    qualityAssessments = [];
+    renderQualityAssessmentShell();
+    return qualityAssessments;
+  }
+
+  const existing = new Map(
+    normalizeQualityAssessmentsState(qualityAssessments).map((assessment) => [
+      String(assessment.record_id),
+      assessment,
+    ])
+  );
+
+  qualityAssessments = includedRecords.map((record, index) => {
+    const recordId = buildQualityRecordId(record, index);
+    const fromState = existing.get(recordId);
+    if (fromState) {
+      return {
+        ...fromState,
+        project_id: currentProjectId || fromState.project_id || null,
+      };
+    }
+
+    return createQualityAssessmentShellRecord(record, index);
+  });
+
+  if (persist) persistCurrentProjectState();
+  renderQualityAssessmentShell();
+
+  if (!silent) {
+    showToast(`已准备 ${qualityAssessments.length} 条质量评价记录`, 'success');
+  }
+
+  return qualityAssessments;
+}
+
+function upsertImportJobState(importJob, options = {}) {
+  const { persist = true, render = true } = options;
+  const normalized = normalizeImportJobsState([importJob])[0];
+  const existingIndex = importJobs.findIndex((job) => job.id === normalized.id);
+
+  if (existingIndex >= 0) {
+    importJobs.splice(existingIndex, 1, normalized);
+  } else {
+    importJobs.push(normalized);
+  }
+
+  if (render) renderImportJobShell();
+  if (persist) persistCurrentProjectState();
+
+  return normalized;
+}
+
+function renderImportJobShell() {
+  const summaryEl = document.getElementById('importJobSummary');
+  const listEl = document.getElementById('importJobList');
+  if (!summaryEl || !listEl) return;
+
+  importJobs = normalizeImportJobsState(importJobs);
+  const jobs = importJobs.slice();
+
+  if (jobs.length === 0) {
+    summaryEl.innerHTML = '<span class="zh">当前还没有导入任务。</span><span class="en">There are no import jobs yet.</span>';
+    listEl.innerHTML = '';
+    if (typeof applyLangVisibility === 'function') {
+      applyLangVisibility();
+    }
+    return;
+  }
+
+  const summary = IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.summarizeImportJobs === 'function'
+    ? IMPORT_JOB_RUNTIME.summarizeImportJobs(jobs)
+    : {
+      totalJobs: jobs.length,
+      activeCount: jobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.stage)).length,
+      completedCount: jobs.filter((job) => job.stage === 'completed').length,
+      failedCount: jobs.filter((job) => job.stage === 'failed').length,
+    };
+
+  summaryEl.innerHTML = `
+    <span class="zh">共 ${summary.totalJobs} 个任务，进行中 ${summary.activeCount} 个，完成 ${summary.completedCount} 个，失败 ${summary.failedCount || 0} 个。</span>
+    <span class="en">Total ${summary.totalJobs} jobs, ${summary.activeCount} active, ${summary.completedCount} completed, ${summary.failedCount || 0} failed.</span>
+  `;
+
+  listEl.innerHTML = jobs
+    .slice()
+    .reverse()
+    .slice(0, 4)
+    .map((job) => `
+      <div class="surface-panel" style="margin-bottom: 10px; padding: var(--space-12);">
+        <div style="display: flex; justify-content: space-between; gap: var(--space-12);">
+          <strong>${escapeShellText(job.file_name)}</strong>
+          <span class="format-tag">${escapeShellText(job.stage)}</span>
+        </div>
+        <div class="muted-text" style="margin-top: 6px;">
+          <span class="zh">已读 ${job.bytes_read || 0} bytes，解析 ${job.records_parsed || 0} 条，写入 ${job.records_written || 0} 条</span>
+          <span class="en">Read ${job.bytes_read || 0} bytes, parsed ${job.records_parsed || 0}, wrote ${job.records_written || 0}</span>
+        </div>
+        ${job.error ? `<div class="muted-text" style="margin-top: 6px; color: var(--color-danger);">${escapeShellText(job.error)}</div>` : ''}
+      </div>
+    `)
+    .join('');
+
+  if (typeof applyLangVisibility === 'function') {
+    applyLangVisibility();
+  }
+}
+
+function renderQualityAssessmentShell() {
+  const queueEl = document.getElementById('qualityAssessmentQueue');
+  const summaryEl = document.getElementById('qualityAssessmentSummary');
+  if (!queueEl || !summaryEl) return;
+
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  const summary = QUALITY_ENGINE && typeof QUALITY_ENGINE.summarizeQualityAssessments === 'function'
+    ? QUALITY_ENGINE.summarizeQualityAssessments(qualityAssessments, includedRecords)
+    : {
+      totalIncluded: includedRecords.length,
+      byStatus: { not_started: qualityAssessments.length, in_progress: 0, completed: 0 },
+      completedAssessments: 0,
+      missingAssessments: Math.max(includedRecords.length - qualityAssessments.length, 0),
+      byToolFamily: {},
+      byEvidence: {},
+    };
+
+  updateQualityAssessmentCounters(summary);
+
+  if (!screeningResults || includedRecords.length === 0) {
+    queueEl.innerHTML = '<span class="zh">完成全文复核后，这里会出现待评价研究队列。</span><span class="en">The included-study queue appears here after full-text review.</span>';
+    summaryEl.innerHTML = '<span class="zh">当前还没有可评价研究。</span><span class="en">There are no included studies to assess yet.</span>';
+    if (typeof applyLangVisibility === 'function') {
+      applyLangVisibility();
+    }
+    return;
+  }
+
+  if (qualityAssessments.length === 0) {
+    queueEl.innerHTML = '<span class="zh">点击上方“生成质量评价队列”后，这里会列出纳入研究及其建议研究设计。</span><span class="en">Click "Prepare quality queue" to list included studies and suggested study designs here.</span>';
+    summaryEl.innerHTML = '<span class="zh">当前尚未生成质量评价条目。</span><span class="en">No quality-assessment entries have been prepared yet.</span>';
+    if (typeof applyLangVisibility === 'function') {
+      applyLangVisibility();
+    }
+    return;
+  }
+
+  queueEl.innerHTML = qualityAssessments
+    .slice(0, 8)
+    .map((assessment) => `
+      <div class="surface-panel" style="margin-bottom: 10px; padding: var(--space-12);">
+        <div style="display: flex; justify-content: space-between; gap: var(--space-12); align-items: center;">
+          <strong>${escapeShellText(assessment.title || assessment.record_id)}</strong>
+          <span class="format-tag">${escapeShellText(assessment.status)}</span>
+        </div>
+        <div class="muted-text" style="margin-top: 6px;">
+          <span class="zh">研究设计 ${escapeShellText(assessment.study_design)}，工具 ${escapeShellText(assessment.tool_family)}，证据基线 ${escapeShellText(assessment.evidence_initial)}</span>
+          <span class="en">Design ${escapeShellText(assessment.study_design)}, tool ${escapeShellText(assessment.tool_family)}, baseline evidence ${escapeShellText(assessment.evidence_initial)}</span>
+        </div>
+      </div>
+    `)
+    .join('');
+
+  const toolFamilyEntries = Object.entries(summary.byToolFamily || {});
+  const evidenceEntries = Object.entries(summary.byEvidence || {});
+
+  summaryEl.innerHTML = `
+    <div class="muted-text">
+      <span class="zh">总纳入 ${summary.totalIncluded} 篇，已完成 ${summary.completedAssessments} 篇，缺少 ${summary.missingAssessments} 篇。</span>
+      <span class="en">${summary.totalIncluded} included, ${summary.completedAssessments} completed, ${summary.missingAssessments} missing.</span>
+    </div>
+    <div style="margin-top: 10px;">
+      <strong><span class="zh">工具分布</span><span class="en">Tool families</span></strong>
+      <div class="muted-text" style="margin-top: 6px;">${toolFamilyEntries.length > 0 ? toolFamilyEntries.map(([key, value]) => `${escapeShellText(key)}: ${value}`).join(' / ') : 'pending'}</div>
+    </div>
+    <div style="margin-top: 10px;">
+      <strong><span class="zh">证据等级分布</span><span class="en">Evidence levels</span></strong>
+      <div class="muted-text" style="margin-top: 6px;">${evidenceEntries.length > 0 ? evidenceEntries.map(([key, value]) => `${escapeShellText(key)}: ${value}`).join(' / ') : 'pending'}</div>
+    </div>
+  `;
+
+  if (typeof applyLangVisibility === 'function') {
+    applyLangVisibility();
+  }
+}
+
+function updateQualityAssessmentCounters(summary) {
+  const totalEl = document.getElementById('quality-total-studies');
+  const notStartedEl = document.getElementById('quality-status-not-started');
+  const inProgressEl = document.getElementById('quality-status-in-progress');
+  const completedEl = document.getElementById('quality-status-completed');
+
+  if (totalEl) totalEl.textContent = summary.totalIncluded || 0;
+  if (notStartedEl) notStartedEl.textContent = summary.byStatus?.not_started || 0;
+  if (inProgressEl) inProgressEl.textContent = summary.byStatus?.in_progress || 0;
+  if (completedEl) completedEl.textContent = summary.byStatus?.completed || 0;
+}
+
+function escapeShellText(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // v1.3: 研究方法自动识别函数
 function guessStudyDesign(record) {
@@ -452,6 +810,8 @@ function init() {
   // v1.4: Render exclusion template UI (Step 4)
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
+  renderImportJobShell();
+  renderQualityAssessmentShell();
 
   // v1.4: Ensure Step4 entry button reflects readiness
   updateStep4EntryLock();
@@ -476,7 +836,10 @@ function init() {
 
       if (screeningResults) {
         try { displayResults(screeningResults); } catch (_) {}
-        setStep(3);
+        if (currentStep >= 5 && FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+          try { prepareQualityAssessmentShell({ persist: false, silent: true }); } catch (_) {}
+        }
+        setStep(Math.min(currentStep || 3, WORKFLOW_STEP_COUNT));
       } else if (uploadedData && uploadedData.length > 0) {
         setStep(2);
         try { syncFormToYAML(); } catch (_) {}
@@ -520,7 +883,9 @@ function applyCollaborativeProjectState() {
     formatSource: projectData.formatSource || 'Unknown',
     currentStep: projectData.currentStep || inferCollaborativeStep(),
     filterRules: projectData.filterRules || null,
-    exclusionReasons: projectData.exclusionReasons || [...DEFAULT_EXCLUSION_REASONS]
+    exclusionReasons: projectData.exclusionReasons || [...DEFAULT_EXCLUSION_REASONS],
+    qualityAssessments: projectData.qualityAssessments || [],
+    importJobs: projectData.importJobs || []
   });
 
   if (uploadedData && uploadedData.length > 0) {
@@ -537,6 +902,9 @@ function applyCollaborativeProjectState() {
   if (screeningResults) {
     try { displayResults(screeningResults); } catch (_) {}
     const targetStep = Math.max(3, projectData.currentStep || inferCollaborativeStep());
+    if (targetStep >= 5 && FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+      try { prepareQualityAssessmentShell({ persist: false, silent: true }); } catch (_) {}
+    }
     setStep(targetStep);
     if (targetStep >= 4) {
       try { displayFulltextReviewUI(); } catch (_) {}
@@ -838,53 +1206,214 @@ function parseTextWithWorker(text, ext, sourceFile, onProgress) {
   });
 }
 
-async function parseFileInChunks(file, onProgress = null) {
-  const CHUNK_SIZE = SMART_IMPORT_CONFIG.PARSE_CHUNK_SIZE;
-  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  
+function supportsIncrementalWorkerFormat(ext) {
+  const parserFormat = getParserFormatFromExt(ext);
+  return ['csv', 'tsv', 'ris', 'nbib', 'enw'].includes(parserFormat);
+}
+
+function readBlobAsText(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    let allText = '';
-    let offset = 0;
-    
-    const readChunk = () => {
-      const blob = file.slice(offset, offset + CHUNK_SIZE);
-      reader.readAsText(blob);
-    };
-    
-    reader.onload = (e) => {
-      allText += e.target.result;
-      offset = Math.min(offset + CHUNK_SIZE, file.size);
+    reader.onload = (event) => resolve(String(event?.target?.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.readAsText(blob);
+  });
+}
 
-      if (typeof onProgress === 'function') {
-        onProgress({
-          phase: 'read',
-          loadedBytes: offset,
-          totalBytes: file.size
+function parseFileIncrementallyWithWorker(file, ext, onProgress = null) {
+  const parserFormat = getParserFormatFromExt(ext);
+  if (!parserFormat || typeof Worker === 'undefined') {
+    return Promise.reject(new Error('Incremental worker parsing is unavailable'));
+  }
+
+  return new Promise((resolve, reject) => {
+    let worker;
+    let hasSettled = false;
+    let offset = 0;
+    const records = [];
+    const sessionId = `stream-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const chunkSize = SMART_IMPORT_CONFIG.PARSE_CHUNK_SIZE;
+
+    const cleanup = () => {
+      if (!worker) return;
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+    };
+
+    const settle = (resolver, value) => {
+      if (hasSettled) return;
+      hasSettled = true;
+      cleanup();
+      resolver(value);
+    };
+
+    const readAndSendNextChunk = async () => {
+      if (hasSettled) return;
+
+      if (offset >= file.size) {
+        worker.postMessage({
+          type: 'PARSE_STREAM_FINISH',
+          data: { sessionId }
         });
+        return;
       }
-      
-      if (offset < file.size) {
-        // 继续读取下一块
-        setTimeout(readChunk, 10); // 让主线程透气
-      } else {
-        parseTextWithWorker(allText, ext, file.name, onProgress)
-          .then(resolve)
-          .catch((workerError) => {
-            console.warn('Worker parsing failed, falling back to main-thread parser:', workerError);
-            try {
-              const records = parseFileContent(allText, ext);
-              resolve(records);
-            } catch (error) {
-              reject(error);
+
+      try {
+        const nextOffset = Math.min(offset + chunkSize, file.size);
+        const chunk = await readBlobAsText(file.slice(offset, nextOffset));
+        offset = nextOffset;
+
+        if (typeof onProgress === 'function') {
+          onProgress({
+            phase: 'read',
+            loadedBytes: offset,
+            totalBytes: file.size
+          });
+        }
+
+        worker.postMessage({
+          type: 'PARSE_STREAM_CHUNK',
+          data: {
+            sessionId,
+            chunk
+          }
+        });
+      } catch (error) {
+        settle(reject, error);
+      }
+    };
+
+    try {
+      worker = new Worker(PARSER_WORKER_URL);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    worker.onerror = (event) => {
+      const message = event?.message || 'Worker 流式解析失败';
+      settle(reject, new Error(message));
+    };
+
+    worker.onmessage = (event) => {
+      const payload = event?.data || {};
+      switch (payload.type) {
+        case 'PARSER_WORKER_READY':
+          worker.postMessage({
+            type: 'PARSE_STREAM_INIT',
+            data: {
+              sessionId,
+              format: parserFormat,
+              sourceFile: file.name
             }
           });
+          break;
+        case 'PARSE_STREAM_INIT_ACK':
+          if (payload.sessionId !== sessionId) return;
+          readAndSendNextChunk();
+          break;
+        case 'PARSE_STREAM_BATCH':
+          if (payload.sessionId !== sessionId) return;
+          if (Array.isArray(payload.records) && payload.records.length > 0) {
+            records.push(...payload.records);
+          }
+          break;
+        case 'PARSE_STREAM_PROGRESS':
+          if (payload.sessionId !== sessionId) return;
+          if (typeof onProgress === 'function') {
+            onProgress({
+              phase: 'parse',
+              loadedBytes: offset,
+              totalBytes: file.size,
+              parsed: payload.parsed || records.length
+            });
+          }
+          break;
+        case 'PARSE_STREAM_CHUNK_ACK':
+          if (payload.sessionId !== sessionId) return;
+          if (offset < file.size) {
+            setTimeout(() => {
+              readAndSendNextChunk();
+            }, 0);
+          } else {
+            worker.postMessage({
+              type: 'PARSE_STREAM_FINISH',
+              data: { sessionId }
+            });
+          }
+          break;
+        case 'PARSE_STREAM_COMPLETE':
+          if (payload.sessionId !== sessionId) return;
+          if (typeof onProgress === 'function') {
+            onProgress({
+              phase: 'parse',
+              loadedBytes: file.size,
+              totalBytes: file.size,
+              parsed: payload.count || records.length,
+              complete: true
+            });
+          }
+          settle(resolve, records);
+          break;
+        case 'ERROR':
+          settle(reject, new Error(payload.error || 'Worker 流式解析失败'));
+          break;
+        default:
+          break;
       }
     };
-    
-    reader.onerror = reject;
-    readChunk();
   });
+}
+
+async function parseFileInChunks(file, onProgress = null) {
+  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+  if (supportsIncrementalWorkerFormat(ext)) {
+    try {
+      return await parseFileIncrementallyWithWorker(file, ext, onProgress);
+    } catch (workerError) {
+      console.warn('Incremental worker parsing failed, falling back to whole-file parser:', workerError);
+    }
+  }
+
+  const text = await readBlobAsText(file);
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'read',
+      loadedBytes: file.size,
+      totalBytes: file.size
+    });
+  }
+
+  try {
+    const records = await parseTextWithWorker(text, ext, file.name, onProgress);
+    if (typeof onProgress === 'function') {
+      onProgress({
+        phase: 'parse',
+        loadedBytes: file.size,
+        totalBytes: file.size,
+        parsed: records.length,
+        total: records.length,
+        complete: true
+      });
+    }
+    return records;
+  } catch (workerError) {
+    console.warn('Worker parsing failed, falling back to main-thread parser:', workerError);
+    const records = parseFileContent(text, ext);
+    if (typeof onProgress === 'function') {
+      onProgress({
+        phase: 'parse',
+        loadedBytes: file.size,
+        totalBytes: file.size,
+        parsed: records.length,
+        total: records.length,
+        complete: true
+      });
+    }
+    return records;
+  }
 }
 
 /**
@@ -1078,6 +1607,71 @@ async function handleMultipleFilesV15(files) {
     }
   }
 
+  startNewProjectSession();
+  importJobs = [];
+
+  const fileJobIds = new Map();
+  const updateImportJobForFile = (file, patch = {}, options = {}) => {
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const jobId = fileJobIds.get(file.name) || (IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.createImportJob === 'function'
+      ? IMPORT_JOB_RUNTIME.createImportJob({
+        projectId: currentProjectId,
+        fileName: file.name,
+        fileSize: file.size,
+        format: ext,
+      }).id
+      : `import-${file.name}-${Date.now()}`);
+
+    fileJobIds.set(file.name, jobId);
+
+    const existing = importJobs.find((job) => job.id === jobId) || {
+      id: jobId,
+      project_id: currentProjectId,
+      file_name: file.name,
+      file_size: file.size,
+      format: ext,
+      stage: 'queued',
+      bytes_read: 0,
+      records_parsed: 0,
+      records_written: 0,
+      checkpoint_json: null,
+      error: '',
+      started_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const next = IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.patchImportJob === 'function'
+      ? IMPORT_JOB_RUNTIME.patchImportJob(existing, {
+        projectId: currentProjectId,
+        fileName: file.name,
+        fileSize: file.size,
+        format: ext,
+        ...patch,
+      })
+      : {
+        ...existing,
+        project_id: currentProjectId,
+        file_name: file.name,
+        file_size: file.size,
+        format: ext,
+        stage: patch.stage || existing.stage,
+        bytes_read: Number.isFinite(patch.bytesRead) ? patch.bytesRead : existing.bytes_read,
+        records_parsed: Number.isFinite(patch.recordsParsed) ? patch.recordsParsed : existing.records_parsed,
+        records_written: Number.isFinite(patch.recordsWritten) ? patch.recordsWritten : existing.records_written,
+        error: patch.error !== undefined ? patch.error : existing.error,
+        checkpoint_json: patch.checkpoint !== undefined ? patch.checkpoint : existing.checkpoint_json,
+        updated_at: patch.updatedAt || new Date().toISOString(),
+      };
+
+    return upsertImportJobState(next, options);
+  };
+
+  validFiles.forEach((file) => {
+    updateImportJobForFile(file, { stage: 'queued' }, { persist: false, render: false });
+  });
+  renderImportJobShell();
+  persistCurrentProjectState();
+
   showLoading(`正在智能处理${validFiles.length}个文件...`);
   showProgress(`文件解析中...`, 0);
 
@@ -1092,6 +1686,7 @@ async function handleMultipleFilesV15(files) {
       const parsePhaseStart = (i / validFiles.length) * 30;
       const parsePhaseSpan = 30 / validFiles.length;
       updateProgress(Math.round(parsePhaseStart)); // 前30%用于解析
+      updateImportJobForFile(file, { stage: 'reading' }, { persist: false, render: true });
       
       const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
       const records = await parseFileInChunks(file, (progressState) => {
@@ -1101,15 +1696,30 @@ async function handleMultipleFilesV15(files) {
             ? Math.min(progressState.loadedBytes / progressState.totalBytes, 1) * 0.45
             : 0;
         } else if (progressState?.phase === 'parse') {
+          const byteRatio = progressState.totalBytes > 0
+            ? Math.min(progressState.loadedBytes / progressState.totalBytes, 1)
+            : 0;
+          const legacyRatio = progressState.total > 0
+            ? Math.min(progressState.parsed / progressState.total, 1)
+            : 0;
+          const parseRatio = progressState.complete ? 1 : Math.max(byteRatio, legacyRatio);
           localRatio = 0.45 + (
-            progressState.total > 0
-              ? Math.min(progressState.parsed / progressState.total, 1) * 0.55
-              : 0
+            parseRatio * 0.55
           );
         }
         const overallPercent = parsePhaseStart + (localRatio * parsePhaseSpan);
         updateProgress(Math.round(overallPercent));
+        updateImportJobForFile(file, {
+          stage: progressState?.phase === 'read' ? 'reading' : 'parsing',
+          bytesRead: progressState?.loadedBytes ?? (progressState?.phase === 'parse' ? file.size : 0),
+          recordsParsed: progressState?.parsed || 0,
+        }, { persist: false, render: true });
       });
+      updateImportJobForFile(file, {
+        stage: 'normalizing',
+        bytesRead: file.size,
+        recordsParsed: records.length,
+      }, { persist: false, render: true });
       
       const fileData = {
         name: file.name,
@@ -1131,6 +1741,13 @@ async function handleMultipleFilesV15(files) {
     
     totalRecords = allRecords.length;
     updateProgress(30);
+    validFiles.forEach((file, index) => {
+      const fileInfo = uploadedFilesInfo[index];
+      updateImportJobForFile(file, {
+        stage: 'writing',
+        recordsParsed: fileInfo ? fileInfo.recordCount : 0,
+      }, { persist: false, render: true });
+    });
     
     // Step 2: 智能分批导入（自动分批 + Checkpoint + 队列控制）
     if (totalRecords <= SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE) {
@@ -1170,7 +1787,16 @@ async function handleMultipleFilesV15(files) {
     }
     
     uploadedFiles = uploadedFilesInfo;
-    startNewProjectSession();
+    validFiles.forEach((file, index) => {
+      const fileInfo = uploadedFilesInfo[index];
+      updateImportJobForFile(file, {
+        stage: 'completed',
+        bytesRead: file.size,
+        recordsParsed: fileInfo ? fileInfo.recordCount : 0,
+        recordsWritten: fileInfo ? fileInfo.recordCount : 0,
+        error: '',
+      }, { persist: false, render: true });
+    });
     clearImportProgress();
     
     hideProgress();
@@ -1205,6 +1831,13 @@ async function handleMultipleFilesV15(files) {
     }, 500);
     
   } catch (error) {
+    validFiles.forEach((file) => {
+      updateImportJobForFile(file, {
+        stage: 'failed',
+        error: error.message || 'Import failed',
+      }, { persist: false, render: true });
+    });
+    persistCurrentProjectState();
     hideProgress();
     hideLoading();
     showDetailedError('parsing_error', {
@@ -2473,24 +3106,34 @@ function startNewProjectSession() {
   const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
     ? runtimeSession.projectId.trim()
     : '';
-  currentProjectId = sessionProjectId || generateProjectId();
+  currentProjectId = sessionProjectId || currentProjectId || generateProjectId();
   localStorage.setItem('prisma_current_project_id', currentProjectId);
 
   // Reset project-scoped pieces
+  uploadedData = [];
+  uploadedFiles = [];
+  columnMapping = {};
+  fileFormat = 'unknown';
+  formatSource = 'Unknown';
   exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
   filterRules = null;
   screeningResults = null;
+  currentStep = 1;
+  qualityAssessments = [];
+  importJobs = [];
 
   persistCurrentProjectState();
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
+  renderImportJobShell();
+  renderQualityAssessmentShell();
   updateStep4EntryLock();
 }
 
 function persistCurrentProjectState() {
   const projectId = ensureProjectId();
   const snapshot = {
-    version: '1.4',
+    version: '2.1-shell',
     timestamp: new Date().toISOString(),
     projectId,
     uploadedData,
@@ -2501,7 +3144,9 @@ function persistCurrentProjectState() {
     formatSource,
     currentStep,
     filterRules,
-    exclusionReasons
+    exclusionReasons,
+    qualityAssessments,
+    importJobs
   };
   try {
     localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
@@ -2523,6 +3168,8 @@ function restoreProjectState(snapshot) {
   formatSource = snapshot.formatSource || 'Unknown';
   currentStep = snapshot.currentStep || 1;
   filterRules = snapshot.filterRules || null;
+  qualityAssessments = normalizeQualityAssessmentsState(snapshot.qualityAssessments || []);
+  importJobs = normalizeImportJobsState(snapshot.importJobs || []);
 
   // v1.4: template
   if (Array.isArray(snapshot.exclusionReasons) && snapshot.exclusionReasons.length > 0) {
@@ -2530,6 +3177,9 @@ function restoreProjectState(snapshot) {
   } else {
     exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
   }
+
+  renderImportJobShell();
+  renderQualityAssessmentShell();
 }
 
 function shouldAutoRestoreProjectState() {
@@ -2853,18 +3503,31 @@ function goToStep4() {
   displayFulltextReviewUI();
 }
 
-// v1.4: Step 5 for final results
+// v2.1: Step 5 for quality assessment shell
 function goToStep5() {
   if (!screeningResults) {
     showToast('请先完成文献筛选', 'warning');
     return;
   }
+  if (FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+    prepareQualityAssessmentShell({ silent: true });
+  }
   setStep(5);
+  renderQualityAssessmentShell();
+}
+
+function goToStep6() {
+  if (!screeningResults) {
+    showToast('请先完成文献筛选', 'warning');
+    return;
+  }
+  setStep(FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5);
   displayResults(screeningResults);
 }
 
 function setStep(step) {
-  currentStep = step;
+  const nextStep = Math.max(1, Math.min(step, WORKFLOW_STEP_COUNT));
+  currentStep = nextStep;
   
   // Hide all steps
   document.getElementById('step1').classList.add('hidden');
@@ -2874,21 +3537,31 @@ function setStep(step) {
   if (step4) step4.classList.add('hidden');
   const step5 = document.getElementById('step5');
   if (step5) step5.classList.add('hidden');
+  const step6 = document.getElementById('step6');
+  if (step6) step6.classList.add('hidden');
   
   // Show current step
-  document.getElementById('step' + step).classList.remove('hidden');
+  const currentStepPanel = document.getElementById('step' + nextStep);
+  if (currentStepPanel) currentStepPanel.classList.remove('hidden');
   
   // Update indicators
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= WORKFLOW_STEP_COUNT; i++) {
     const indicator = document.getElementById('step-indicator-' + i);
     if (indicator) {
       indicator.classList.remove('active', 'completed');
-      if (i < step) {
+      if (i < nextStep) {
         indicator.classList.add('completed');
-      } else if (i === step) {
+      } else if (i === nextStep) {
         indicator.classList.add('active');
       }
     }
+  }
+
+  if (nextStep === 5) {
+    renderQualityAssessmentShell();
+  }
+  if (nextStep === 6 || (!FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT && nextStep === 5)) {
+    renderImportJobShell();
   }
 }
 
@@ -3824,6 +4497,8 @@ function displayResults(results) {
   });
   
   updateCurrentThemeLabel();
+  renderQualityAssessmentShell();
+  renderImportJobShell();
 }
 
 function updateThemePreview() {
@@ -5182,11 +5857,14 @@ function finalizeFulltextReview() {
 
   console.log('- 更新后总排除文献数:', screeningResults.excluded.length);
 
-  // v1.4: Go to Step 5 (Final Results)
+  // v2.1: Go to Step 5 (Quality Assessment)
   persistCurrentProjectState();
+  if (FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+    prepareQualityAssessmentShell({ silent: true });
+  }
   goToStep5();
   scrollToStep(5);
-  showToast('✅ 人工审核完成，已生成最终结果', 'success');
+  showToast('✅ 全文复核完成，已进入质量评价步骤', 'success');
 }
 
 // v1.4: View fulltext in a new tab (DOI preferred)
@@ -5594,7 +6272,7 @@ function saveProject() {
   const safeTemplate = sanitizeExclusionTemplate(exclusionReasons);
 
   const project = {
-    version: '1.4',
+    version: '2.1-shell',
     timestamp: new Date().toISOString(),
     projectId: currentProjectId,
     uploadedData: uploadedData,
@@ -5605,7 +6283,9 @@ function saveProject() {
     formatSource: formatSource,
     currentStep: currentStep,
     exclusionReasons: safeTemplate,
-    filterRules: filterRules || null
+    filterRules: filterRules || null,
+    qualityAssessments: qualityAssessments,
+    importJobs: importJobs
   };
 
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -5653,6 +6333,8 @@ function loadProject() {
         formatSource = project.formatSource || 'Unknown';
         currentStep = project.currentStep || 1;
         filterRules = project.filterRules || null;
+        qualityAssessments = normalizeQualityAssessmentsState(project.qualityAssessments || []);
+        importJobs = normalizeImportJobsState(project.importJobs || []);
 
         // Backward compatible: old versions may store exclusionReasons as an object map
         let templateFromFile = project.exclusionReasons;
@@ -5669,7 +6351,13 @@ function loadProject() {
 
         if (screeningResults) {
           displayResults(screeningResults);
-          setStep(3);
+          if (currentStep >= 5 && FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+            prepareQualityAssessmentShell({ persist: false, silent: true });
+          }
+          setStep(Math.min(currentStep || 3, WORKFLOW_STEP_COUNT));
+          if (currentStep >= 4) {
+            displayFulltextReviewUI();
+          }
         } else if (uploadedData.length > 0) {
           displayUploadInfo();
           setStep(2);
@@ -5708,7 +6396,7 @@ function autoSaveToggle() {
     autoSaveInterval = setInterval(() => {
       if (uploadedData && uploadedData.length > 0) {
         localStorage.setItem('prisma_autosave', JSON.stringify({
-          version: '1.4',
+          version: '2.1-shell',
           timestamp: new Date().toISOString(),
           projectId: currentProjectId || null,
           uploadedData: uploadedData,
@@ -5719,7 +6407,9 @@ function autoSaveToggle() {
           formatSource: formatSource,
           currentStep: currentStep,
           exclusionReasons: sanitizeExclusionTemplate(exclusionReasons),
-          filterRules: filterRules || null
+          filterRules: filterRules || null,
+          qualityAssessments: qualityAssessments,
+          importJobs: importJobs
         }));
         
         const now = new Date().toLocaleString('zh-CN');
@@ -6156,7 +6846,9 @@ function loadProjectData() {
       formatSource: 'Unknown',
       currentStep: 1,
       filterRules: null,
-      exclusionReasons: [...DEFAULT_EXCLUSION_REASONS]
+      exclusionReasons: [...DEFAULT_EXCLUSION_REASONS],
+      qualityAssessments: [],
+      importJobs: []
     };
     
     // Register current user
@@ -6185,6 +6877,8 @@ function loadProjectData() {
     currentStep = projectData.currentStep || inferCollaborativeStep();
     filterRules = projectData.filterRules || null;
     exclusionReasons = sanitizeExclusionTemplate(projectData.exclusionReasons);
+    qualityAssessments = normalizeQualityAssessmentsState(projectData.qualityAssessments || []);
+    importJobs = normalizeImportJobsState(projectData.importJobs || []);
 
     // Existing project - register current user
     if (!projectData.reviewers[currentUserSession.role]) {
@@ -6305,6 +6999,8 @@ function saveProjectData() {
   );
   projectData.filterRules = filterRules || projectData.filterRules || null;
   projectData.exclusionReasons = sanitizeExclusionTemplate(exclusionReasons);
+  projectData.qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  projectData.importJobs = normalizeImportJobsState(importJobs);
   projectData.lastSync = new Date().toISOString();
   
   // Save to shared storage

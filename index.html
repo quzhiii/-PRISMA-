@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="PRISMA 文献筛选助手历史版本入口。默认已切换到 V2.0 工作台，本页保留为 v1.7 历史版本。">
+  <meta name="description" content="PRISMA 文献筛选助手历史版本入口。默认已切换到 V2.1 工作台，访问路径继续保留 literature-screening-v2.0/ 以兼容旧链接。">
   <meta name="keywords" content="文献筛选,PRISMA流程图,系统综述,荟萃分析,Meta分析,大规模处理">
+  <title>PRISMA文献筛选助手 v1.7 历史版本</title>
   <meta http-equiv="refresh" content="0; url=literature-screening-v2.0/index.html">
   <script>
     (function redirectToV2() {
@@ -18,7 +19,6 @@
       window.location.replace(target.toString());
     })();
   </script>
-  <title>PRISMA文献筛选助手 v1.7 历史版本</title>
   <style>
     :root {
   /* Primitive Color Tokens */
@@ -864,7 +864,36 @@ input[type="range"]::-moz-range-thumb {
   <div class="app-container">
     <div class="header">
       <h1>📚 PRISMA 文献筛选助手 v1.7 历史版本</h1>
-      <p>当前默认版本已切换至 V2.0。本页保留为旧版入口，用于兼容历史使用路径。</p>
+      <p>当前默认版本已切换至 V2.1，访问路径继续保留为 <code>literature-screening-v2.0/</code> 以兼容历史链接。本页保留为旧版入口。</p>
+      <div style="margin-top: var(--space-16); display: flex; justify-content: center; gap: var(--space-12); flex-wrap: wrap;">
+        <a href="literature-screening-v2.0/index.html" style="
+          display: inline-block;
+          padding: var(--space-8) var(--space-16);
+          background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+          color: white;
+          text-decoration: none;
+          border-radius: var(--radius-lg);
+          font-weight: var(--font-weight-semibold);
+          font-size: var(--font-size-sm);
+          transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+          🚀 打开 V2.1 工作台
+        </a>
+        <a href="literature-screening-v2.0/login.html" style="
+          display: inline-block;
+          padding: var(--space-8) var(--space-16);
+          background: rgba(15, 118, 110, 0.08);
+          color: var(--color-text);
+          text-decoration: none;
+          border-radius: var(--radius-lg);
+          border: 1px solid rgba(15, 118, 110, 0.18);
+          font-weight: var(--font-weight-semibold);
+          font-size: var(--font-size-sm);
+          transition: all 0.2s ease;
+        " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+          👥 打开 V2.1 双人复核
+        </a>
+      </div>
       
       <!-- v1.1: Quick access to dual-review mode -->
       <div style="margin-top: var(--space-16); text-align: center;">
@@ -1086,8 +1115,8 @@ input[type="range"]::-moz-range-thumb {
           <line x1="12" y1="3" x2="12" y2="15"></line>
         </svg>
         <p style="font-size: var(--font-size-lg); margin-bottom: var(--space-8);">拖拽文件到此处，或点击上传</p>
-         <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">支持 .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf, .nbib 格式</p>
-         <input type="file" id="fileInput" multiple accept=".csv,.tsv,.ris,.bib,.bibtex,.txt,.enw,.rdf,.nbib" style="display: none;">
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">支持 .csv, .tsv, .ris, .bib, .bibtex, .txt, .enw, .rdf 格式</p>
+        <input type="file" id="fileInput" multiple accept=".csv,.tsv,.ris,.bib,.bibtex,.txt,.enw,.rdf" style="display: none;">
       </div>
 
       <div id="uploadInfo" class="hidden" style="margin-top: var(--space-24);">
@@ -1203,15 +1232,10 @@ input[type="range"]::-moz-range-thumb {
             <div class="form-group" style="border-top: 1px solid var(--color-border); padding-top: var(--space-16); margin-top: var(--space-16);">
               <label class="form-label" style="font-weight: var(--font-weight-bold);">⚙️ 高级参数</label>
               <div>
-                <label class="form-label" style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">全文排除比例（规划参数，不会自动删除文献）</label>
+                <label class="form-label" style="font-size: var(--font-size-sm); margin-bottom: var(--space-8);">全文排除比例 (模拟比例)</label>
                 <div class="slider-container">
                   <input type="range" id="ftExcludeRatio" min="0" max="1" step="0.05" value="0.2">
                   <span class="slider-value" id="ftExcludeValue">20%</span>
-                </div>
-                <div class="info-box" style="margin-top: var(--space-12); background: var(--color-bg-1); border-left: 4px solid var(--color-info);">
-                  <strong>使用说明</strong>
-                  <p style="margin-top: var(--space-8); margin-bottom: 0;">该参数当前用于记录您预估的全文阶段排除比例，便于提前规划人工审核工作量与报告说明，<strong>不会在系统里自动排除任何全文文献</strong>。</p>
-                  <p style="margin-top: var(--space-8); margin-bottom: 0;">建议使用：您已有领域经验，想预估全文阶段大约还会排除多少文献时。<br>不建议使用：您希望系统按该比例自动删除文献时，此时请保持 0%，并在第 4 步人工审核后得到真实全文排除数。</p>
                 </div>
               </div>
             </div>
@@ -1362,7 +1386,6 @@ input[type="range"]::-moz-range-thumb {
       </div>
 
       <div class="button-group" style="margin-bottom: var(--space-24);">
-        <button class="btn btn-secondary" onclick="returnToRulesConfig()">← 返回配置规则</button>
         <button class="btn btn-secondary" onclick="editRulesAndRerun()">修改筛选规则并重新运行</button>
       </div>
 
@@ -1419,7 +1442,7 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
 
-      <div id="screeningDiagnostics" class="info-box" style="margin-top: var(--space-20); background: var(--color-bg-2); border-left: 4px solid var(--color-warning);"></div>
+      <div id="dedupReviewSummary" style="margin-top: var(--space-20);"></div>
 
       <h3 style="margin: var(--space-32) 0 var(--space-16); font-size: var(--font-size-lg);">颜色主题选择</h3>
       <div class="info-box" style="margin-bottom: var(--space-24);">
@@ -1529,7 +1552,6 @@ input[type="range"]::-moz-range-thumb {
       </div>
 
       <div class="actions">
-        <button class="btn btn-secondary" onclick="returnToRulesConfig()">← 返回配置规则</button>
         <button class="btn btn-secondary" onclick="resetApp()">🔄 重新开始</button>
         <button class="btn btn-primary" id="btnGoStep4" onclick="goToStep4()">下一步: 人工审核 →</button>
       </div>
@@ -1561,7 +1583,7 @@ input[type="range"]::-moz-range-thumb {
           </button>
         </div>
         <p style="margin: var(--space-12) 0 0; font-size: var(--font-size-sm); color: rgba(255,255,255,0.9);">
-          💡 每位审查员在独立的浏览器会话中进行审查，系统会自动同步数据并计算一致性指标
+          💡 过渡版支持同一设备、同一浏览器中的双会话协作；系统会自动同步项目数据并计算一致性指标
         </p>
       </div>
 
@@ -1721,6 +1743,8 @@ input[type="range"]::-moz-range-thumb {
         </div>
       </div>
 
+      <div id="dedupReviewSummaryFinal" style="margin-top: var(--space-20); margin-bottom: var(--space-20);"></div>
+
       <div class="info-box" style="margin-bottom: var(--space-24);">
         <p style="margin-bottom: var(--space-12); font-weight: var(--font-weight-semibold);">当前版本：v1.6 - 工程化增强（进度可视化、容错机制、去重可解释、Kappa分析恢复）</p>
         <p style="margin-bottom: var(--space-16);">选择您偏好的流程图颜色主题：</p>
@@ -1842,7 +1866,7 @@ input[type="range"]::-moz-range-thumb {
   <script>
     // 初始化 Web Worker
     const dbWorker = new Worker('db-worker.js');
-    const parserWorker = new Worker('parser-worker.js');
+    const parserWorker = new Worker('parser-worker.js?v=20260328-enwfix');
     
     // 创建 Promise 包装器，便于 async/await 调用
     function workerSend(worker, message) {
@@ -1856,9 +1880,10 @@ input[type="range"]::-moz-range-thumb {
       });
     }
   </script>
-  <script src="app.js"></script>
+  <script src="dedup-engine.js"></script>
+  <script src="app.js?v=20260329-collabfix3"></script>
   
   <!-- v1.7 Patch (Must be loaded after app.js) -->
-  <script src="v1.7-core-patch.js"></script>
+  <script src="v1.7-core-patch.js?v=20260328-enwfix"></script>
 </body>
 </html>
