@@ -26,6 +26,7 @@
     IMPORT_JOB_STAGES.FAILED,
     IMPORT_JOB_STAGES.CANCELLED,
   ]);
+  const INCREMENTAL_WORKER_EXTENSIONS = Object.freeze(['.csv', '.tsv', '.ris', '.nbib', '.enw']);
 
   function createImportJob(input) {
     const payload = input || {};
@@ -102,6 +103,101 @@
     return Object.values(IMPORT_JOB_STAGES).includes(stage);
   }
 
+  function normalizeImportExtension(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return '';
+
+    if (normalized.startsWith('.')) {
+      return normalized;
+    }
+
+    const dotIndex = normalized.lastIndexOf('.');
+    return dotIndex >= 0 ? normalized.slice(dotIndex) : `.${normalized}`;
+  }
+
+  function supportsIncrementalWorkerExt(value) {
+    return INCREMENTAL_WORKER_EXTENSIONS.includes(normalizeImportExtension(value));
+  }
+
+  function shouldAllowWholeFileParseFallback(value) {
+    return !supportsIncrementalWorkerExt(value);
+  }
+
+  function toImportError(error, fallbackMessage) {
+    if (error instanceof Error) return error;
+    return new Error(String(error || fallbackMessage || 'Import failed'));
+  }
+
+  async function finalizeImportLifecycle(result, effects) {
+    const payload = result || {};
+    const hooks = effects || {};
+    const finalState = {
+      status: payload.outcome === 'success' ? IMPORT_JOB_STAGES.COMPLETED : IMPORT_JOB_STAGES.FAILED,
+      error: null,
+      finalizationFailed: false,
+      errorShown: false,
+      cleanupErrors: [],
+    };
+
+    const callHook = async (name, args = []) => {
+      if (typeof hooks[name] === 'function') {
+        return hooks[name](...args);
+      }
+      return undefined;
+    };
+
+    const captureHookError = async (name, args = []) => {
+      try {
+        await callHook(name, args);
+      } catch (hookError) {
+        finalState.cleanupErrors.push(toImportError(hookError, `${name} failed`));
+      }
+    };
+
+    const reportFailure = async (error, context) => {
+      await captureHookError('failImportJobs', [error, context]);
+      try {
+        await callHook('showError', [error, context]);
+        finalState.errorShown = true;
+      } catch (showErrorFailure) {
+        finalState.cleanupErrors.push(toImportError(showErrorFailure, 'showError failed'));
+      }
+    };
+
+    try {
+      if (payload.outcome === 'success') {
+        const delayMs = Number.isFinite(payload.delayMs) ? payload.delayMs : 0;
+        if (delayMs > 0) {
+          if (typeof hooks.delay === 'function') {
+            await hooks.delay(delayMs);
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+        }
+        await callHook('completeSuccess', [payload]);
+      } else {
+        const error = toImportError(payload.error, 'Import failed');
+        finalState.error = error;
+        await reportFailure(error, { ...payload, finalizationFailed: false });
+      }
+    } catch (error) {
+      finalState.status = IMPORT_JOB_STAGES.FAILED;
+      finalState.error = toImportError(error, 'Import finalization failed');
+      finalState.finalizationFailed = true;
+      await reportFailure(finalState.error, {
+        ...payload,
+        outcome: 'failure',
+        finalizationFailed: true,
+      });
+    } finally {
+      await captureHookError('hideProgress');
+      await captureHookError('hideLoading');
+      await captureHookError('persist');
+    }
+
+    return finalState;
+  }
+
   function buildImportJobId(fileName) {
     const safeName = String(fileName || 'file')
       .trim()
@@ -115,9 +211,14 @@
   return {
     IMPORT_JOB_STAGES,
     TERMINAL_STAGES,
+    INCREMENTAL_WORKER_EXTENSIONS,
     createImportJob,
     patchImportJob,
     summarizeImportJobs,
     isKnownStage,
+    normalizeImportExtension,
+    supportsIncrementalWorkerExt,
+    shouldAllowWholeFileParseFallback,
+    finalizeImportLifecycle,
   };
 });

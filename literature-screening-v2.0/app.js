@@ -848,14 +848,14 @@ function init() {
     uploadArea.classList.remove('dragover');
     // v3.0: Support multiple files | v1.5: Smart batch import
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) handleMultipleFilesV15(files);
+    if (files.length > 0) handleImportFiles(files);
   });
 
   // v3.0: Change fileInput to support multiple files | v1.5: Smart batch import
   fileInput.multiple = true;
   fileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) handleMultipleFilesV15(files);
+    if (files.length > 0) handleImportFiles(files);
   });
 
   // Initialize sliders (with safety check)
@@ -1027,144 +1027,9 @@ function syncCollaborativeProjectFromStorage(silent = false) {
   }
 }
 
-// v3.0: Handle multiple file uploads
+// Compatibility wrapper: all multi-file imports must go through handleImportFiles.
 function handleMultipleFiles(files) {
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
-  const validFiles = files.filter(file => {
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    return validExts.includes(ext);
-  });
-
-  if (validFiles.length === 0) {
-    // v4.0: Enhanced error message
-    showDetailedError('invalid_format', {
-      fileName: files[0].name,
-      supportedFormats: validExts
-    });
-    return;
-  }
-
-  if (validFiles.length !== files.length) {
-    showToast(`仅${validFiles.length}个文件格式有效，其他文件已跳过`, 'warning');
-  }
-
-  showLoading(`正在处理${validFiles.length}个文件...`);
-  showProgress(`正在上传文件...`, 0);
-
-  let processedCount = 0;
-  let allRecords = [];
-  let uploadedFilesInfo = [];
-
-  const processFile = (index) => {
-    if (index >= validFiles.length) {
-      // All files processed
-      if (allRecords.length === 0) {
-        hideProgress();
-        hideLoading();
-        showDetailedError('empty_file', { fileCount: validFiles.length });
-        return;
-      }
-      
-      uploadedData = allRecords;
-      uploadedFiles = uploadedFilesInfo;
-      startNewProjectSession();
-      hideProgress();
-      setTimeout(() => {
-        detectColumns();
-        displayUploadInfo();
-        persistCurrentProjectState();
-        hideLoading();
-        showToast(`✅ 成功上传${validFiles.length}个文件，共${allRecords.length}条记录`, 'success');
-        addSuccessAnimation();
-      }, 500);
-      return;
-    }
-
-    const file = validFiles[index];
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    const progress = Math.round((index / validFiles.length) * 100);
-    updateProgress(progress);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const fileData = {
-          name: file.name,
-          format: ext,
-          recordCount: 0,
-          source: 'Unknown'
-        };
-
-        // Parse file and get records
-        const records = parseFileContent(text, ext);
-        
-        if (!records || records.length === 0) {
-          console.warn(`文件 ${file.name} 解析结果为空`);
-        }
-        
-        fileData.recordCount = records.length;
-        
-        // Detect source from format
-        switch (ext) {
-          case '.ris':
-            fileData.source = 'PubMed/Scopus/Endnote';
-            break;
-          case '.enw':
-            fileData.source = 'CNKI';
-            break;
-        case '.rdf':
-          fileData.source = 'Zotero';
-          break;
-        case '.csv':
-        case '.tsv':
-          fileData.source = 'Excel/Generic';
-          break;
-        case '.bib':
-        case '.bibtex':
-          fileData.source = 'Google Scholar/arXiv';
-          break;
-        default:
-          fileData.source = 'Unknown';
-      }
-
-      uploadedFilesInfo.push(fileData);
-      
-      // Mark records with source for PRISMA identification stage
-      records.forEach(record => {
-        record._source = fileData.source;
-        record._sourceFile = file.name;
-      });
-
-      allRecords = allRecords.concat(records);
-      processFile(index + 1);
-      
-      } catch (error) {
-        hideProgress();
-        hideLoading();
-        showDetailedError('parsing_error', {
-          fileName: file.name,
-          message: error.message,
-          line: error.line || '未知',
-          content: error.content || '未知'
-        });
-        console.error(`解析文件 ${file.name} 时出错:`, error);
-      }
-    };
-
-    reader.onerror = () => {
-      hideProgress();
-      hideLoading();
-      showDetailedError('invalid_format', {
-        fileName: file.name,
-        message: '文件读取失败，可能是文件已损坏或编码不正确'
-      });
-    };
-
-    reader.readAsText(file);
-  };
-
-  processFile(0);
+  return handleImportFiles(files);
 }
 
 // v1.5: Smart auto-batch import system
@@ -1190,7 +1055,18 @@ function getParserFormatFromExt(ext) {
 
 function parseTextWithWorker(text, ext, sourceFile, onProgress) {
   const parserFormat = getParserFormatFromExt(ext);
-  if (!parserFormat || typeof Worker === 'undefined') {
+  if (!parserFormat) {
+    return Promise.resolve(parseFileContent(text, ext));
+  }
+
+  if (typeof Worker === 'undefined') {
+    if (!shouldAllowWholeFileParseFallback(ext)) {
+      return Promise.reject(createIncrementalWorkerFailureError(
+        { name: sourceFile },
+        ext,
+        new Error('Worker is unavailable')
+      ));
+    }
     return Promise.resolve(parseFileContent(text, ext));
   }
 
@@ -1270,8 +1146,34 @@ function parseTextWithWorker(text, ext, sourceFile, onProgress) {
 }
 
 function supportsIncrementalWorkerFormat(ext) {
+  if (IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.supportsIncrementalWorkerExt === 'function') {
+    return IMPORT_JOB_RUNTIME.supportsIncrementalWorkerExt(ext);
+  }
+
   const parserFormat = getParserFormatFromExt(ext);
   return ['csv', 'tsv', 'ris', 'nbib', 'enw'].includes(parserFormat);
+}
+
+function shouldAllowWholeFileParseFallback(ext) {
+  if (IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.shouldAllowWholeFileParseFallback === 'function') {
+    return IMPORT_JOB_RUNTIME.shouldAllowWholeFileParseFallback(ext);
+  }
+
+  return !supportsIncrementalWorkerFormat(ext);
+}
+
+function createIncrementalWorkerFailureError(file, ext, cause) {
+  const causeMessage = cause?.message || '未知 worker 错误';
+  const formatLabel = ext || 'unknown';
+  const fileName = file?.name || 'Unknown file';
+  const error = new Error(
+    `${fileName} (${formatLabel}) 必须使用后台增量解析，但 worker 解析失败：${causeMessage}。为避免页面卡住，已停止导入，没有退回主线程整包解析。`
+  );
+  error.code = 'incremental_worker_failed';
+  error.fileName = fileName;
+  error.ext = formatLabel;
+  error.cause = cause;
+  return error;
 }
 
 function readBlobAsText(blob) {
@@ -1436,7 +1338,7 @@ async function parseFileInChunks(file, onProgress = null) {
     try {
       return await parseFileIncrementallyWithWorker(file, ext, onProgress);
     } catch (workerError) {
-      console.warn('Incremental worker parsing failed, falling back to whole-file parser:', workerError);
+      throw createIncrementalWorkerFailureError(file, ext, workerError);
     }
   }
 
@@ -1463,6 +1365,10 @@ async function parseFileInChunks(file, onProgress = null) {
     }
     return records;
   } catch (workerError) {
+    if (!shouldAllowWholeFileParseFallback(ext)) {
+      throw createIncrementalWorkerFailureError(file, ext, workerError);
+    }
+
     console.warn('Worker parsing failed, falling back to main-thread parser:', workerError);
     const records = parseFileContent(text, ext);
     if (typeof onProgress === 'function') {
@@ -1642,11 +1548,117 @@ function clearImportProgress() {
   localStorage.removeItem('import_progress');
 }
 
+function createEmptyImportError(fileCount) {
+  const error = new Error(`未解析到有效记录（${fileCount || 0} 个文件）`);
+  error.code = 'empty_file';
+  return error;
+}
+
+function getImportErrorType(error) {
+  if (error?.code === 'empty_file') {
+    return 'empty_file';
+  }
+  return 'parsing_error';
+}
+
+async function finalizeImportOutcome({
+  outcome,
+  error = null,
+  validFiles = [],
+  totalRecords = 0,
+  updateImportJobForFile,
+}) {
+  const finalizeLifecycle = IMPORT_JOB_RUNTIME && typeof IMPORT_JOB_RUNTIME.finalizeImportLifecycle === 'function'
+    ? IMPORT_JOB_RUNTIME.finalizeImportLifecycle
+    : async (result, effects) => {
+      try {
+        if (result.outcome === 'success') {
+          await effects.completeSuccess?.(result);
+          return { status: 'completed', error: null, finalizationFailed: false, errorShown: false, cleanupErrors: [] };
+        }
+
+        const failure = result.error || new Error('Import failed');
+        await effects.failImportJobs?.(failure, result);
+        await effects.showError?.(failure, result);
+        return { status: 'failed', error: failure, finalizationFailed: false, errorShown: true, cleanupErrors: [] };
+      } catch (finalizeError) {
+        await effects.failImportJobs?.(finalizeError, { ...result, finalizationFailed: true });
+        await effects.showError?.(finalizeError, { ...result, finalizationFailed: true });
+        return { status: 'failed', error: finalizeError, finalizationFailed: true, errorShown: true, cleanupErrors: [] };
+      } finally {
+        effects.hideProgress?.();
+        effects.hideLoading?.();
+        effects.persist?.();
+      }
+    };
+
+  const markFailed = (failure) => {
+    if (typeof updateImportJobForFile !== 'function') return;
+    validFiles.forEach((file) => {
+      updateImportJobForFile(file, {
+        stage: 'failed',
+        error: failure?.message || 'Import failed',
+      }, { persist: false, render: true });
+    });
+  };
+
+  const showImportFailure = (failure) => {
+    const normalizedError = failure || new Error('Import failed');
+    showDetailedError(getImportErrorType(normalizedError), {
+      fileName: normalizedError.fileName || 'Multiple files',
+      fileCount: validFiles.length,
+      message: normalizedError.message || 'Import failed',
+      line: normalizedError.line || '未知',
+      content: normalizedError.content || '未知',
+    });
+  };
+
+  return finalizeLifecycle({
+    outcome,
+    error,
+    delayMs: outcome === 'success' ? 500 : 0,
+    totalRecords,
+    fileCount: validFiles.length,
+  }, {
+    completeSuccess: () => {
+      detectColumns();
+      displayUploadInfo();
+      setStep(2);
+      syncFormToYAML();
+      displayRulesPreview();
+      persistCurrentProjectState();
+
+      const batchCount = Math.ceil(totalRecords / SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE);
+      const message = totalRecords > SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE
+        ? `✅ 智能分${batchCount}批导入成功！共${validFiles.length}个文件，${totalRecords}条记录`
+        : `✅ 成功上传${validFiles.length}个文件，共${totalRecords}条记录`;
+
+      showToast(message, 'success');
+      addSuccessAnimation();
+      const step2 = document.getElementById('step2');
+      if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    failImportJobs: (failure) => {
+      markFailed(failure);
+      clearImportProgress();
+    },
+    showError: showImportFailure,
+    hideProgress,
+    hideLoading,
+    persist: persistCurrentProjectState,
+  });
+}
+
+// Legacy name retained for older inline calls; do not add behavior here.
+async function handleMultipleFilesV15(files) {
+  return handleImportFiles(files);
+}
+
 /**
- * Enhanced handleMultipleFiles with smart batch system
+ * Canonical multi-file import orchestrator with smart batch system.
  * 集成4大机制的智能上传函数
  */
-async function handleMultipleFilesV15(files) {
+async function handleImportFiles(files) {
   const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
   const validFiles = files.filter(file => {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
@@ -1803,6 +1815,10 @@ async function handleMultipleFilesV15(files) {
     }
     
     totalRecords = allRecords.length;
+    if (totalRecords === 0) {
+      throw createEmptyImportError(validFiles.length);
+    }
+
     updateProgress(30);
     validFiles.forEach((file, index) => {
       const fileInfo = uploadedFilesInfo[index];
@@ -1861,51 +1877,20 @@ async function handleMultipleFilesV15(files) {
       }, { persist: false, render: true });
     });
     clearImportProgress();
-    
-    hideProgress();
-    setTimeout(() => {
-      try {
-        detectColumns();
-        displayUploadInfo();
-        setStep(2);
-        syncFormToYAML();
-        displayRulesPreview();
-        persistCurrentProjectState();
-
-        // 提示分批信息
-        const batchCount = Math.ceil(totalRecords / SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE);
-        const message = totalRecords > SMART_IMPORT_CONFIG.MAX_CHUNK_SIZE
-          ? `✅ 智能分${batchCount}批导入成功！共${validFiles.length}个文件，${totalRecords}条记录`
-          : `✅ 成功上传${validFiles.length}个文件，共${totalRecords}条记录`;
-
-        showToast(message, 'success');
-        addSuccessAnimation();
-        const step2 = document.getElementById('step2');
-        if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } catch (error) {
-        console.error('Failed to finalize import UI:', error);
-        showDetailedError('parsing_error', {
-          fileName: 'Multiple files',
-          message: error.message
-        });
-      } finally {
-        hideLoading();
-      }
-    }, 500);
+    await finalizeImportOutcome({
+      outcome: 'success',
+      validFiles,
+      totalRecords,
+      updateImportJobForFile,
+    });
     
   } catch (error) {
-    validFiles.forEach((file) => {
-      updateImportJobForFile(file, {
-        stage: 'failed',
-        error: error.message || 'Import failed',
-      }, { persist: false, render: true });
-    });
-    persistCurrentProjectState();
-    hideProgress();
-    hideLoading();
-    showDetailedError('parsing_error', {
-      fileName: 'Multiple files',
-      message: error.message
+    await finalizeImportOutcome({
+      outcome: 'failure',
+      error,
+      validFiles,
+      totalRecords,
+      updateImportJobForFile,
     });
     console.error('Smart import failed:', error);
   }
