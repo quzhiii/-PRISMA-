@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PRISMA文献筛选助手 v1.7 核心补丁
  * 包含：关键词优先级机制 + 去重增强UI
  */
@@ -22,17 +22,8 @@ function performScreeningV17(data, rulesParam) {
   let rules = rulesParam;
   
   if (!rules) {
-    const yamlParser = (typeof jsyaml !== 'undefined' && jsyaml && typeof jsyaml.load === 'function')
-      ? jsyaml
-      : (window.jsyaml && typeof window.jsyaml.load === 'function' ? window.jsyaml : null);
-
-    if (!yamlParser) {
-      showToast('缺少 YAML 解析器，无法执行筛选', 'error');
-      return null;
-    }
-
     try {
-      rules = yamlParser.load(document.getElementById('yamlEditor').value);
+      rules = jsyaml.load(document.getElementById('yamlEditor').value);
       filterRules = rules;
     } catch (e) {
       console.error('YAML 格式错误:', e);
@@ -48,17 +39,12 @@ function performScreeningV17(data, rulesParam) {
   
   // 1. Pre-processing
   const processedData = inputData.map(row => {
-      const mappedTitle = getValue(row, 'title') || row.title || row.TI || row.T1 || '';
-      const mappedAbstract = getValue(row, 'abstract') || row.abstract || row.AB || '';
-      const mappedKeywords = getValue(row, 'keywords') || row.keywords || row.KW || '';
-      const mappedYear = getValue(row, 'year') || row.year || row.PY || row.DP || row.publication_year || '';
-
       // Normalize fields
-      const yearStr = String(mappedYear || '');
+      const yearStr = (row.year || row.PY || row.publication_year || '').toString();
       
       // Determine language
       let lang = 'unknown';
-      const text = `${mappedTitle} ${mappedAbstract}`.toLowerCase();
+      const text = (row.title + ' ' + row.abstract).toLowerCase();
       if (/[\u4e00-\u9fa5]/.test(text)) {
         lang = 'chinese';
       } else {
@@ -67,10 +53,7 @@ function performScreeningV17(data, rulesParam) {
 
       return {
         ...row,
-        _normalized_title: normalizeTitle(mappedTitle || ''),
-        _mapped_title: mappedTitle,
-        _mapped_abstract: mappedAbstract,
-        _mapped_keywords: mappedKeywords,
+        _normalized_title: normalizeTitle(row.title || ''),
         _year_str: yearStr,
         _lang: lang
       };
@@ -133,14 +116,10 @@ function performScreeningV17(data, rulesParam) {
     dedupStats.afterDedupCount = deduped.length;
 
     // 3. Time window filter
-    const timeWindowRejected = [];
     const inTimeWindow = deduped.filter(row => {
       // Logic for year extraction
       const yearValue = row._year_str;
-      if (!yearValue) {
-        timeWindowRejected.push(row);
-        return false;
-      }
+      if (!yearValue) return false;
       
       let year = parseInt(yearValue);
       // Try extracting 4-digit year if parseInt fails or returns weird value
@@ -149,11 +128,7 @@ function performScreeningV17(data, rulesParam) {
         if (match) year = parseInt(match[0]);
       }
       
-      const inRange = year >= rules.time_window.start_year && year <= rules.time_window.end_year;
-      if (!inRange) {
-        timeWindowRejected.push(row);
-      }
-      return inRange;
+      return year >= rules.time_window.start_year && year <= rules.time_window.end_year;
     });
 
     // 4. Include keywords filter (Step 2)
@@ -164,12 +139,11 @@ function performScreeningV17(data, rulesParam) {
     const includePriority = document.getElementById('includePriorityToggle')?.checked ?? true;
 
     if (validKeywords.length > 0) {
-      const includeRejected = [];
       withIncludeKW = inTimeWindow.filter(row => {
         const text = (
-          (row._mapped_title || '') + ' ' + 
-          (row._mapped_abstract || '') + ' ' + 
-          (row._mapped_keywords || '')
+          (row.title || '') + ' ' + 
+          (row.abstract || '') + ' ' + 
+          (row.keywords || '')
         ).toLowerCase();
         
         // Check if matches ANY include keyword
@@ -180,10 +154,8 @@ function performScreeningV17(data, rulesParam) {
           row._matches_include = true;
         }
         
-        if (!matches) includeRejected.push(row);
         return matches;
       });
-      rules.__includeRejectedCount = includeRejected.length;
     } else {
       // If no include keywords, mark all as matching (implicitly)
       // But for priority logic, we only protect if EXPLICITLY matched
@@ -194,26 +166,20 @@ function performScreeningV17(data, rulesParam) {
     let withRequiredFields = withIncludeKW;
     const mappedRequiredFields = (rules.required_one_of || []).filter(field => columnMapping[field]);
 
-    let requiredRejectedCount = 0;
     if (mappedRequiredFields.length > 0) {
       withRequiredFields = withIncludeKW.filter(row => {
-        const keep = mappedRequiredFields.some(field => {
+        return mappedRequiredFields.some(field => {
           const value = getValue(row, field);
           return value && value.trim().length > 0;
         });
-        if (!keep) requiredRejectedCount++;
-        return keep;
       });
     }
 
     // 6. Language filter
     let withLanguage = withRequiredFields;
-    let languageRejectedCount = 0;
     if (rules.language?.allow?.length > 0) {
       withLanguage = withRequiredFields.filter(row => {
-        const keep = rules.language.allow.includes(row._lang);
-        if (!keep) languageRejectedCount++;
-        return keep;
+        return rules.language.allow.includes(row._lang);
       });
     }
 
@@ -223,9 +189,9 @@ function performScreeningV17(data, rulesParam) {
     let protectedCount = 0; // v1.7 Stat
 
     withLanguage.forEach(row => {
-      const title = row._mapped_title || '';
-      const abstract = row._mapped_abstract || '';
-      const keywords = row._mapped_keywords || '';
+      const title = row.title || '';
+      const abstract = row.abstract || '';
+      const keywords = row.keywords || '';
       const text = (title + ' ' + abstract + ' ' + keywords).toLowerCase();
       
       let excluded = false;
@@ -263,31 +229,24 @@ function performScreeningV17(data, rulesParam) {
     });
 // Save results (but don't display yet - let caller handle that)
   const results = {
-      counts: {
-        identified_db: dedupStats.originalCount,
-        identified_other: 0,
-        duplicates: duplicates.length,
-        after_dupes: deduped.length,
-        screened: deduped.length,
-        excluded_ta: timeWindowRejected.length + (rules.__includeRejectedCount || 0) + requiredRejectedCount + languageRejectedCount + excluded_ta.length,
-        fulltext: afterTA.length,
-        excluded_ft: 0,
-        included: afterTA.length,
-        protected: protectedCount
-      },
+    counts: {
+      identified_db: dedupStats.originalCount,
+      identified_other: 0,
+      duplicates: duplicates.length,
+      after_dupes: deduped.length,
+      screened: deduped.length,
+      excluded_ta: deduped.length - afterTA.length,
+      fulltext: afterTA.length,
+      excluded_ft: 0,
+      included: afterTA.length,
+      protected: protectedCount
+    },
     duplicates: duplicates,
     included: afterTA,
     excluded: excluded_ta,
     rules: rules,
-      sourceDistribution: {}, // Placeholder for v3.0 compatibility
-      diagnostics: {
-        excluded_time_window: timeWindowRejected.length,
-        excluded_include_keywords: rules.__includeRejectedCount || 0,
-        excluded_required_fields: requiredRejectedCount,
-        excluded_language: languageRejectedCount,
-        excluded_by_keyword: excluded_ta.length
-      }
-    };
+    sourceDistribution: {} // Placeholder for v3.0 compatibility
+  };
 
   // Auto-identify study designs (v1.3)
   results.included.forEach(record => {
@@ -338,7 +297,7 @@ function displayUploadInfoV17() {
         <div class="stat-card bg-2">
           <div class="stat-label">重复文献</div>
           <div class="stat-value" style="color:var(--color-warning)">${quickStats.duplicates}</div>
-          <div style="font-size:10px; color:var(--color-text-secondary)">DOI: ${quickStats.doiDupes} | Title: ${quickStats.titleDupes}</div>
+          <div style="font-size:10px; color:var(--color-text-secondary)">DOI: ${quickStats.doiDupes} | Title: ${quickStats.titleDupes} | Candidate: ${quickStats.candidateDuplicates}</div>
         </div>
         <div class="stat-card bg-3">
           <div class="stat-label">去重后</div>
@@ -374,88 +333,203 @@ function displayUploadInfoV17() {
   infoDiv.classList.remove('hidden');
 }
 
-// Helper: Quick Dedup Stats
-function runQuickDedupStats() {
-  let uniqueCount = 0;
+function getLegacyDedupSummary(records = uploadedData) {
+  const inputRecords = Array.isArray(records) ? records : [];
+
+  if (typeof globalThis.runDedupForScreening === 'function') {
+    const result = globalThis.runDedupForScreening(inputRecords);
+    const duplicates = Array.isArray(result?.duplicates) ? result.duplicates : [];
+    const reasonCounts = summarizeLegacyHardDuplicateReasons(duplicates);
+
+    return {
+      deduped: Array.isArray(result?.deduped) ? result.deduped : [],
+      duplicates,
+      candidateDuplicates: Array.isArray(result?.candidateDuplicates) ? result.candidateDuplicates : [],
+      doiDupes: reasonCounts.doiDupes,
+      titleDupes: reasonCounts.titleDupes
+    };
+  }
+
+  const engine = resolveLegacyDedupEngine();
+  if (!engine) {
+    return runLegacyFallbackDedupSummary(inputRecords);
+  }
+
+  const preparedRecords = inputRecords.map((row, index) => {
+    const title = readLegacyField(row, 'title', ['title', 'TI', 'T1']);
+    const abstract = readLegacyField(row, 'abstract', ['abstract', 'AB']);
+    const keywords = readLegacyField(row, 'keywords', ['keywords', 'KW']);
+    const authors = readLegacyField(row, 'authors', ['authors', 'AU']);
+    const year = readLegacyField(row, 'year', ['year', 'PY', 'DP', 'publication_year']);
+    const journal = readLegacyField(row, 'journal', ['journal', 'JO', 'JF']);
+    const pages = readLegacyField(row, 'pages', ['pages', 'SP']);
+    const doi = readLegacyField(row, 'doi', ['doi', 'DOI']);
+    const publicationType = readLegacyField(row, 'publication_type', ['publication_type']);
+    const identifierRaw = String(row?.identifier_raw || doi).trim();
+
+    return {
+      ...row,
+      record_id: String(row?.record_id || row?.id || `record-${index + 1}`),
+      title,
+      abstract,
+      keywords,
+      authors,
+      year,
+      journal,
+      pages,
+      doi,
+      identifier_raw: identifierRaw,
+      publication_type: publicationType,
+      _normalized_title: normalizeTitle(title || '')
+    };
+  });
+
+  const result = engine.run(preparedRecords, { mode: 'legacy_patch' });
+  const duplicates = result.hardDuplicates.map((entry) => ({
+    ...entry.duplicateRecord,
+    _dedup_reason: entry.reason.message,
+    _dedup_reason_code: entry.reason.code
+  }));
+  const reasonCounts = summarizeLegacyHardDuplicateReasons(duplicates);
+
+  return {
+    deduped: result.retainedRecords.map((row) => ({
+      ...row,
+      _normalized_title: row._normalized_title || normalizeTitle(String(row.title || ''))
+    })),
+    duplicates,
+    candidateDuplicates: result.candidateDuplicates.map((entry) => ({
+      leftRecord: entry.leftRecord,
+      rightRecord: entry.rightRecord,
+      reason: entry.reason
+    })),
+    doiDupes: reasonCounts.doiDupes,
+    titleDupes: reasonCounts.titleDupes
+  };
+}
+
+function resolveLegacyDedupEngine() {
+  if (typeof globalThis !== 'undefined' && globalThis.DedupEngine && typeof globalThis.DedupEngine.run === 'function') {
+    return globalThis.DedupEngine;
+  }
+
+  if (typeof DedupEngine !== 'undefined' && DedupEngine && typeof DedupEngine.run === 'function') {
+    return DedupEngine;
+  }
+
+  return null;
+}
+
+function readLegacyField(row, field, fallbacks) {
+  const mappedValue = typeof getValue === 'function' ? getValue(row, field) : '';
+  if (mappedValue && mappedValue.trim()) {
+    return mappedValue.trim();
+  }
+
+  for (const fallback of fallbacks || []) {
+    const value = String(row?.[fallback] || '').trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function summarizeLegacyHardDuplicateReasons(duplicates) {
+  return (Array.isArray(duplicates) ? duplicates : []).reduce((summary, record) => {
+    if (record?._dedup_reason_code === 'canonical_identifier_exact') {
+      summary.doiDupes += 1;
+    } else {
+      summary.titleDupes += 1;
+    }
+    return summary;
+  }, { doiDupes: 0, titleDupes: 0 });
+}
+
+function runLegacyFallbackDedupSummary(records) {
+  const deduped = [];
+  const duplicates = [];
+  const seen = new Set();
   let doiDupes = 0;
   let titleDupes = 0;
-  const doiSet = new Set();
-  const titleSet = new Set();
 
-  uploadedData.forEach(row => {
-    const doi = getValue(row, 'doi');
-    const title = normalizeTitle(row.title || '');
-    
-    let isDupe = false;
+  records.forEach((row) => {
+    const doi = readLegacyField(row, 'doi', ['doi', 'DOI']);
+    const title = normalizeTitle(readLegacyField(row, 'title', ['title', 'TI', 'T1']));
+    let isUnique = true;
+    let duplicateCode = '';
 
     if (doi && doi.trim()) {
       const doiKey = `doi:${doi.toLowerCase().trim()}`;
-      if (doiSet.has(doiKey)) {
-        doiDupes++;
-        isDupe = true;
+      if (seen.has(doiKey)) {
+        isUnique = false;
+        duplicateCode = 'canonical_identifier_exact';
+        doiDupes += 1;
       } else {
-        doiSet.add(doiKey);
+        seen.add(doiKey);
       }
     }
 
-    if (!isDupe) {
+    if (isUnique) {
       const titleKey = `title:${title}`;
-      if (titleSet.has(titleKey)) {
-        titleDupes++;
-        isDupe = true;
+      if (seen.has(titleKey)) {
+        isUnique = false;
+        duplicateCode = 'title_year_author_overlap';
+        titleDupes += 1;
       } else {
-        titleSet.add(titleKey);
+        seen.add(titleKey);
       }
     }
-    
-    if (!isDupe) uniqueCount++;
+
+    if (isUnique) {
+      deduped.push(row);
+    } else {
+      duplicates.push({
+        ...row,
+        _dedup_reason_code: duplicateCode
+      });
+    }
   });
 
   return {
-    unique: uniqueCount,
-    duplicates: uploadedData.length - uniqueCount,
+    deduped,
+    duplicates,
+    candidateDuplicates: [],
     doiDupes,
     titleDupes
   };
 }
 
+// Helper: Quick Dedup Stats
+function runQuickDedupStats() {
+  const summary = getLegacyDedupSummary(uploadedData);
+
+  return {
+    unique: summary.deduped.length,
+    duplicates: summary.duplicates.length,
+    candidateDuplicates: summary.candidateDuplicates.length,
+    doiDupes: summary.doiDupes,
+    titleDupes: summary.titleDupes
+  };
+}
+
 /**
- * 核心功能 2.2: 仅去重导出
+ * æ ¸å¿ƒåŠŸèƒ½ 2.2: ä»…åŽ»é‡å¯¼å‡º
  */
 function exportDedupedData() {
-  showLoading('正在生成去重数据...');
+  showLoading('æ­£åœ¨ç”ŸæˆåŽ»é‡æ•°æ®...');
   
   setTimeout(() => {
-    // Perform actual deduplication
-    const deduped = [];
-    const seen = new Set();
-    
-    uploadedData.forEach(row => {
-      const doi = getValue(row, 'doi');
-      const title = normalizeTitle(row.title || '');
-      let isUnique = true;
-      
-      if (doi && doi.trim()) {
-        const doiKey = `doi:${doi.toLowerCase().trim()}`;
-        if (seen.has(doiKey)) isUnique = false;
-        else seen.add(doiKey);
-      }
-      
-      if (isUnique) {
-        const titleKey = `title:${title}`;
-        if (seen.has(titleKey)) isUnique = false;
-        else seen.add(titleKey);
-      }
-      
-      if (isUnique) deduped.push(row);
-    });
+    const summary = getLegacyDedupSummary(uploadedData);
+    const deduped = summary.deduped;
     
     // Export to CSV
     const csvContent = buildCSVFromRecords(deduped);
     downloadFile(csvContent, 'deduped_records.csv', 'text/csv');
     
     hideLoading();
-    showToast(`已导出去重数据 (${deduped.length}条)`, 'success');
+    showToast(`å·²å¯¼å‡ºåŽ»é‡æ•°æ® (${deduped.length}æ¡)`, 'success');
   }, 100);
 }
 
@@ -481,20 +555,21 @@ function buildCSVFromRecords(records) {
 function showDedupDetails() {
   const stats = runQuickDedupStats();
   const details = [
-    `原始记录: ${uploadedData.length}`,
-    `去重后记录: ${stats.unique}`,
-    `重复记录: ${stats.duplicates}`,
-    `DOI重复: ${stats.doiDupes}`,
-    `标题重复: ${stats.titleDupes}`
+    `åŽŸå§‹è®°å½•: ${uploadedData.length}`,
+    `åŽ»é‡åŽè®°å½•: ${stats.unique}`,
+    `ç¡¬é‡å¤è®°å½•: ${stats.duplicates}`,
+    `ç–‘ä¼¼é‡å¤: ${stats.candidateDuplicates}`,
+    `DOIé‡å¤: ${stats.doiDupes}`,
+    `æ ‡é¢˜/å…ƒæ•°æ®é‡å¤: ${stats.titleDupes}`
   ].join('\n');
 
   if (typeof showModal === 'function') {
     showModal(`
       <div style="padding: var(--space-20); background: white; border-radius: 8px; max-width: 520px; margin: 20px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">🔍 去重详情</h3>
+        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);">ðŸ” åŽ»é‡è¯¦æƒ…</h3>
         <pre style="margin:0; white-space:pre-wrap; line-height:1.8; font-family:monospace;">${details}</pre>
         <div style="text-align:right; margin-top: var(--space-16);">
-          <button class="btn btn-primary" onclick="closeModal()">关闭</button>
+          <button class="btn btn-primary" onclick="closeModal()">å…³é—­</button>
         </div>
       </div>
     `);
@@ -502,9 +577,7 @@ function showDedupDetails() {
   }
 
   alert(details);
-}
-
-// v1.7 Step 2 UI Injection
+}// v1.7 Step 2 UI Injection
 function injectStep2PriorityToggle() {
   const kwSection = document.getElementById('includeKeywords')?.parentElement;
   if (kwSection && !document.getElementById('includePriorityToggle')) {
@@ -530,19 +603,17 @@ window.displayUploadInfo = displayUploadInfoV17;
 window.showDedupDetails = showDedupDetails;
 
 const originalGoToStep2 = window.goToStep2;
-window.goToStep2 = function(...args) {
-  if (typeof originalGoToStep2 === 'function') {
-    originalGoToStep2.apply(this, args);
-  } else if (typeof setStep === 'function') {
+window.goToStep2 = function() {
+  if (typeof setStep === 'function') {
     setStep(2);
   } else {
+    // Fallback if setStep not available
     document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById('step2')?.classList.remove('hidden');
-    if (typeof updateStepIndicator === 'function') {
-      updateStepIndicator(2);
-    }
+    document.getElementById('step2').classList.remove('hidden');
+    updateStepIndicator(2);
   }
   injectStep2PriorityToggle();
 };
 
 console.log('✅ v1.7 Patch Loaded: 关键词优先级 + 去重增强UI 已就绪');
+

@@ -1,4 +1,4 @@
-// Global state
+﻿// Global state
 let uploadedData = [];
 let uploadedFiles = []; // v3.0: Track multiple file sources
 let currentStep = 1;
@@ -7,24 +7,6 @@ let screeningResults = null;
 let fileFormat = 'unknown';
 let formatSource = 'Unknown';
 let currentTheme = 'subtle';
-
-// Runtime mode state (Task 8)
-const RUNTIME_MODE = {
-  SINGLE: 'single',
-  DUAL_MAIN: 'dual-main',
-  DUAL_SECONDARY: 'dual-secondary'
-};
-
-let runtimeMode = RUNTIME_MODE.SINGLE;
-let runtimeSession = null;
-
-// v1.1 collaboration globals (explicit declarations to avoid runtime ReferenceError)
-let currentUserSession = null;
-let isDualReviewMode = false;
-let currentReviewer = 'A';
-let reviewerNames = { A: '审查员A', B: '审查员B' };
-let dualReviewResults = { A: {}, B: {}, final: {} };
-let projectData = null;
 
 // v1.5: Smart batch import system (4 mechanisms)
 const SMART_IMPORT_CONFIG = {
@@ -66,6 +48,17 @@ let projectCollaboration = {
   createdAt: null,
   lastSync: null
 };
+
+// v1.1: Dual-review session state
+let currentUserSession = null;
+let projectData = null;
+let isDualReviewMode = false;
+let currentReviewer = 'A';
+let reviewerNames = { A: '审查员A', B: '审查员B' };
+let dualReviewResults = { A: {}, B: {}, final: {} };
+let collaborationSyncInterval = null;
+const COLLAB_PROJECTS_KEY = 'prisma_projects';
+const USER_SESSION_KEY = 'prisma_user_session';
 
 // Color themes
 const colorThemes = {
@@ -298,109 +291,10 @@ function autoIdentifyStudyDesigns() {
   showToast(`✅ 已自动识别 ${identifiedCount}/${screeningResults.included.length} 篇文献的研究方法（建议人工核对）`, 'success');
 }
 
-function readRuntimeSessionFromStorage() {
-  const raw = sessionStorage.getItem('prisma_user_session');
-  if (!raw) return null;
-
-  let session;
-  try {
-    session = JSON.parse(raw);
-  } catch (error) {
-    console.warn('[mode] prisma_user_session is not valid JSON — falling back to single', error);
-    return null;
-  }
-
-  if (typeof session.role !== 'string' || typeof session.isMainReviewer !== 'boolean') {
-    console.warn('[mode] prisma_user_session missing required fields — falling back to single', session);
-    return null;
-  }
-
-  if (session.role !== 'reviewer-a' && session.role !== 'reviewer-b') {
-    console.warn('[mode] prisma_user_session role is invalid — falling back to single', session);
-    return null;
-  }
-
-  return session;
-}
-
-function detectRuntimeMode() {
-  const session = readRuntimeSessionFromStorage();
-  if (!session) {
-    runtimeSession = null;
-    return RUNTIME_MODE.SINGLE;
-  }
-
-  runtimeSession = session;
-  return session.isMainReviewer ? RUNTIME_MODE.DUAL_MAIN : RUNTIME_MODE.DUAL_SECONDARY;
-}
-
-function toggleDisplay(element, isVisible) {
-  if (!element) return;
-  element.style.display = isVisible ? '' : 'none';
-}
-
-function applyModeGating(mode) {
-  const collaborationStatus = document.getElementById('collaboration-status');
-  const collaborationPanel = collaborationStatus ? collaborationStatus.closest('.info-box') : null;
-  const reviewerAStatus = document.getElementById('reviewer-a-status');
-  const reviewerBStatus = document.getElementById('reviewer-b-status');
-  const kappaPanel = document.getElementById('kappa-analysis');
-  const exportButtons = document.querySelectorAll('button[onclick="saveProjectFile()"]');
-  const statusButtons = document.querySelectorAll('button[onclick="showProjectStatus()"]');
-  const disagreementButtons = document.querySelectorAll('button[onclick="showDisagreements()"]');
-
-  const isSingleMode = mode === RUNTIME_MODE.SINGLE;
-  const isDualMainMode = mode === RUNTIME_MODE.DUAL_MAIN;
-  const isDualSecondaryMode = mode === RUNTIME_MODE.DUAL_SECONDARY;
-
-  toggleDisplay(collaborationPanel, !isSingleMode);
-  toggleDisplay(collaborationStatus, !isSingleMode);
-  toggleDisplay(reviewerAStatus ? reviewerAStatus.parentElement : null, !isSingleMode);
-  toggleDisplay(reviewerBStatus ? reviewerBStatus.parentElement : null, !isSingleMode);
-
-  if (kappaPanel && isSingleMode) {
-    kappaPanel.style.display = 'none';
-  } else if (kappaPanel && !isSingleMode) {
-    kappaPanel.style.display = '';
-  }
-
-  exportButtons.forEach(btn => {
-    toggleDisplay(btn, isDualMainMode);
-  });
-
-  statusButtons.forEach(btn => {
-    toggleDisplay(btn, !isSingleMode);
-  });
-
-  disagreementButtons.forEach(btn => {
-    toggleDisplay(btn, isDualMainMode);
-  });
-
-  if (runtimeSession) {
-    if (isDualMainMode && reviewerAStatus) {
-      reviewerAStatus.textContent = `${runtimeSession.username || '主审查员'}（当前登录）`;
-    }
-    if (isDualSecondaryMode && reviewerBStatus) {
-      reviewerBStatus.textContent = `${runtimeSession.username || '副审查员'}（当前登录）`;
-    }
-  }
-}
-
-function initializeRuntimeContext(mode) {
-  currentUserSession = mode === RUNTIME_MODE.SINGLE ? null : runtimeSession;
-  isDualReviewMode = mode !== RUNTIME_MODE.SINGLE;
-  currentReviewer = currentUserSession?.role === 'reviewer-b' ? 'B' : 'A';
-}
-
 // Initialize
 function init() {
-  runtimeMode = detectRuntimeMode();
-  initializeRuntimeContext(runtimeMode);
-
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
-
-  applyModeGating(runtimeMode);
 
   if (!uploadArea || !fileInput) {
     console.error('Upload elements not found');
@@ -446,47 +340,165 @@ function init() {
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
 
-  // v1.4: Restore last opened project (per-project persistence)
-  const restored = shouldAutoRestoreProjectState() ? loadCurrentProjectStateFromLocalStorage() : false;
-  if (restored) {
-    // If we have data, ensure UI gets refreshed
-    if (uploadedData && uploadedData.length > 0) {
-      if (!columnMapping || Object.keys(columnMapping).length === 0) {
-        try { detectColumns(); } catch (_) {}
+  currentUserSession = loadUserSession();
+  if (currentUserSession) {
+    initializeCollaborativeSession();
+  } else {
+    // v1.4: Restore last opened project (per-project persistence)
+    const restored = loadCurrentProjectStateFromLocalStorage();
+    if (restored) {
+      // If we have data, ensure UI gets refreshed
+      if (uploadedData && uploadedData.length > 0) {
+        if (!columnMapping || Object.keys(columnMapping).length === 0) {
+          try { detectColumns(); } catch (_) {}
+        }
+        try { displayUploadInfo(); } catch (_) {}
       }
-      try { displayUploadInfo(); } catch (_) {}
-    }
 
-    if (filterRules) {
-      try { setFormRules(filterRules); } catch (_) {}
-    }
+      if (filterRules) {
+        try { setFormRules(filterRules); } catch (_) {}
+      }
 
-    if (screeningResults) {
-      try { displayResults(screeningResults); } catch (_) {}
-      setStep(3);
-    } else if (uploadedData && uploadedData.length > 0) {
-      setStep(2);
-      try { syncFormToYAML(); } catch (_) {}
-      try { displayRulesPreview(); } catch (_) {}
-    } else {
-      setStep(1);
+      if (screeningResults) {
+        try { displayResults(screeningResults); } catch (_) {}
+        setStep(3);
+      } else if (uploadedData && uploadedData.length > 0) {
+        setStep(2);
+        try { syncFormToYAML(); } catch (_) {}
+        try { displayRulesPreview(); } catch (_) {}
+      } else {
+        setStep(1);
+      }
     }
   }
 
   // v1.4: Ensure Step4 entry button reflects readiness
   updateStep4EntryLock();
+}
 
-  if (currentUserSession) {
-    loadProjectData();
-    updateCollaborationStatus();
+function loadUserSession() {
+  try {
+    const raw = sessionStorage.getItem(USER_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (!session || !session.projectId || !session.role || !session.username) return null;
+    return session;
+  } catch (error) {
+    console.warn('Failed to parse collaborative session:', error);
+    return null;
+  }
+}
+
+function initializeCollaborativeSession() {
+  isDualReviewMode = true;
+  currentProjectId = currentUserSession.projectId;
+  localStorage.setItem('prisma_current_project_id', currentProjectId);
+
+  setReviewMode('dual');
+  loadProjectData();
+  if (!projectData) return;
+
+  applyCollaborativeProjectState();
+  startCollaborationSync();
+}
+
+function applyCollaborativeProjectState() {
+  if (!projectData) return;
+
+  const waitingDiv = document.getElementById('project-waiting');
+  if (waitingDiv) waitingDiv.remove();
+
+  currentProjectId = projectData.id || currentUserSession?.projectId || currentProjectId;
+  localStorage.setItem('prisma_current_project_id', currentProjectId);
+
+  restoreProjectState({
+    uploadedData: projectData.uploadedData || [],
+    uploadedFiles: projectData.uploadedFiles || [],
+    screeningResults: projectData.screeningResults || null,
+    columnMapping: projectData.columnMapping || {},
+    fileFormat: projectData.fileFormat || 'unknown',
+    formatSource: projectData.formatSource || 'Unknown',
+    currentStep: projectData.currentStep || inferCollaborativeStep(),
+    filterRules: projectData.filterRules || null,
+    exclusionReasons: projectData.exclusionReasons || [...DEFAULT_EXCLUSION_REASONS]
+  });
+
+  if (uploadedData && uploadedData.length > 0) {
+    if (!columnMapping || Object.keys(columnMapping).length === 0) {
+      try { detectColumns(); } catch (_) {}
+    }
+    try { displayUploadInfo(); } catch (_) {}
+  }
+
+  if (filterRules) {
+    try { setFormRules(filterRules); } catch (_) {}
+  }
+
+  if (screeningResults) {
+    try { displayResults(screeningResults); } catch (_) {}
+    const targetStep = Math.max(3, projectData.currentStep || inferCollaborativeStep());
+    setStep(targetStep);
+    if (targetStep >= 4) {
+      try { displayFulltextReviewUI(); } catch (_) {}
+      updateCollaborationStatus();
+      checkAndCalculateKappa();
+    }
+  } else if (uploadedData && uploadedData.length > 0) {
+    setStep(Math.max(2, projectData.currentStep || 2));
+    try { syncFormToYAML(); } catch (_) {}
+    try { displayRulesPreview(); } catch (_) {}
   } else {
     setStep(1);
+  }
+
+  updateCollaborationStatus();
+}
+
+function inferCollaborativeStep() {
+  if (screeningResults) {
+    return screeningResults.counts?.included !== undefined ? 4 : 3;
+  }
+  if (uploadedData && uploadedData.length > 0) return 2;
+  return 1;
+}
+
+function startCollaborationSync() {
+  if (collaborationSyncInterval) return;
+
+  window.addEventListener('storage', handleCollaborationStorageEvent);
+  collaborationSyncInterval = setInterval(() => {
+    syncCollaborativeProjectFromStorage(true);
+  }, 1500);
+}
+
+function handleCollaborationStorageEvent(event) {
+  if (event.key === COLLAB_PROJECTS_KEY) {
+    syncCollaborativeProjectFromStorage(true);
+  }
+}
+
+function syncCollaborativeProjectFromStorage(silent = false) {
+  if (!currentUserSession) return;
+
+  const projects = JSON.parse(localStorage.getItem(COLLAB_PROJECTS_KEY) || '{}');
+  const latestProject = projects[currentUserSession.projectId];
+  if (!latestProject) return;
+
+  const latestSync = latestProject.lastSync || latestProject.createdAt || '';
+  const currentSync = projectData?.lastSync || projectData?.createdAt || '';
+  if (projectData && latestSync === currentSync) return;
+
+  projectData = latestProject;
+  applyCollaborativeProjectState();
+
+  if (!silent) {
+    showToast('已同步最新协作项目状态', 'info');
   }
 }
 
 // v3.0: Handle multiple file uploads
 function handleMultipleFiles(files) {
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
   const validFiles = files.filter(file => {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     return validExts.includes(ext);
@@ -834,7 +846,7 @@ function clearImportProgress() {
  * 集成4大机制的智能上传函数
  */
 async function handleMultipleFilesV15(files) {
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
   const validFiles = files.filter(file => {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     return validExts.includes(ext);
@@ -966,7 +978,6 @@ async function handleMultipleFilesV15(files) {
 function detectSource(ext) {
   switch (ext) {
     case '.ris': return 'PubMed/Scopus/Endnote';
-    case '.nbib': return 'PubMed';
     case '.enw': return 'CNKI';
     case '.rdf': return 'Zotero';
     case '.csv':
@@ -980,10 +991,10 @@ function detectSource(ext) {
 // File handling
 function handleFile(file) {
   const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf', '.nbib'];
+  const validExts = ['.csv', '.tsv', '.ris', '.bib', '.bibtex', '.txt', '.enw', '.rdf'];
   
   if (!validExts.includes(ext)) {
-    showToast('不支持的文件格式，请上传 CSV, TSV, RIS, BibTeX, TXT, ENW, NBIB 或 RDF 文件', 'error');
+    showToast('不支持的文件格式，请上传 CSV, TSV, RIS, BibTeX, TXT, ENW 或 RDF 文件', 'error');
     return;
   }
 
@@ -1005,7 +1016,7 @@ function handleFile(file) {
     setTimeout(() => {
       hideProgress();
       const text = e.target.result;
-      parseFile(text, ext);
+      parseFile(text, ext, file.name);
       hideLoading();
     }, 500);
   };
@@ -1030,7 +1041,6 @@ function parseFileContent(text, ext) {
       records = parseTSVContent(text);
       break;
     case '.ris':
-    case '.nbib':
       records = parseRISContent(text);
       break;
     case '.bib':
@@ -1113,20 +1123,14 @@ function parseRISContent(text) {
   
   const fieldMap = {
     'TY': 'type', 'T1': 'title', 'TI': 'title', 'AU': 'authors', 'T2': 'journal',
-    'JO': 'journal', 'TA': 'journal', 'PY': 'year', 'DP': 'year', 'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords',
-    'VL': 'volume', 'VI': 'volume', 'IS': 'issue', 'IP': 'issue'
+    'JO': 'journal', 'PY': 'year', 'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords',
+    'VL': 'volume', 'IS': 'issue'
   };
 
   for (let line of lines) {
     line = line.trim();
-    
-    // Handle record delimiters: ER marker or blank line (for NBIB compatibility)
-    if (line.startsWith('ER') || line === '') {
+    if (line.startsWith('ER')) {
       if (Object.keys(currentRecord).length > 0) {
-        // NBIB files may not have explicit TY field; default to JOUR for journal articles
-        if (!currentRecord.type) {
-          currentRecord.type = 'JOUR';
-        }
         records.push(currentRecord);
         currentRecord = {};
       }
@@ -1141,12 +1145,6 @@ function parseRISContent(text) {
             currentRecord[mappedField] = value;
           } else {
             currentRecord[mappedField] += '; ' + value;
-          }
-        } else if (mappedField === 'year') {
-          // Extract 4-digit year from NBIB DP format (e.g., "2024" from "20240221")
-          if (!currentRecord[mappedField]) {
-            const yearMatch = value.match(/\d{4}/);
-            currentRecord[mappedField] = yearMatch ? yearMatch[0] : value;
           }
         } else {
           currentRecord[mappedField] = value;
@@ -1186,43 +1184,159 @@ function parseBibTeXContent(text) {
 }
 
 function parseENWContent(text) {
-  const records = [];
-  const lines = text.split('\n');
-  let currentRecord = {};
-  
-  const fieldMap = {
-    'TY': 'type', 'AU': 'authors', 'T1': 'title', 'T2': 'journal', 'PY': 'year',
-    'DO': 'doi', 'AB': 'abstract', 'KW': 'keywords', 'VL': 'volume', 'IS': 'issue',
-    'SP': 'start_page', 'EP': 'end_page', 'PB': 'publisher', 'SN': 'issn'
-  };
+  const records = parseENWRecords(text);
+  return records.length > 0 ? records : [];
+}
 
-  for (let line of lines) {
-    line = line.trim();
-    if (line.startsWith('ER')) {
-      if (Object.keys(currentRecord).length > 0) {
-        records.push(currentRecord);
-        currentRecord = {};
-      }
-    } else if (line.includes('  - ')) {
-      const [tag, ...valueParts] = line.split('  - ');
-      const value = valueParts.join('  - ').trim();
-      const mappedField = fieldMap[tag.trim()];
-      
-      if (mappedField) {
-        if (mappedField === 'authors' || mappedField === 'keywords') {
-          if (!currentRecord[mappedField]) {
-            currentRecord[mappedField] = value;
-          } else {
-            currentRecord[mappedField] += '; ' + value;
-          }
-        } else {
-          currentRecord[mappedField] = value;
-        }
-      }
+function parseENWRecords(text) {
+  const records = [];
+  const lines = String(text || '').split(/\r?\n/);
+  const fieldMap = {
+    '%0': 'type',
+    '%A': 'authors',
+    '%T': 'title',
+    '%J': 'journal',
+    '%B': 'journal',
+    '%S': 'journal',
+    '%D': 'year',
+    '%8': 'year',
+    '%X': 'abstract',
+    '%K': 'keywords',
+    '%V': 'volume',
+    '%N': 'issue',
+    '%P': 'pages',
+    '%I': 'publisher',
+    '%@': 'issn',
+    '%U': 'url',
+    '%G': 'language'
+  };
+  const continuationFields = new Set(['title', 'journal', 'abstract', 'publisher', 'pages', 'url']);
+  let currentRecord = {};
+  let currentField = '';
+
+  function appendField(field, value, continuation = false) {
+    if (!field || !value) {
+      return;
+    }
+
+    if (field === 'authors' || field === 'keywords') {
+      currentRecord[field] = currentRecord[field]
+        ? `${currentRecord[field]}; ${value}`
+        : value;
+      return;
+    }
+
+    if (continuation) {
+      currentRecord[field] = currentRecord[field]
+        ? `${currentRecord[field]} ${value}`.trim()
+        : value;
+      return;
+    }
+
+    if (!currentRecord[field]) {
+      currentRecord[field] = value;
     }
   }
 
-  return records.length > 0 ? records : [];
+  function pushCurrentRecord() {
+    if (Object.keys(currentRecord).length === 0) {
+      currentField = '';
+      return;
+    }
+
+    if (!currentRecord.identifier_raw && currentRecord.doi) {
+      currentRecord.identifier_raw = currentRecord.doi;
+    }
+
+    records.push(currentRecord);
+    currentRecord = {};
+    currentField = '';
+  }
+
+  function extractYearValue(value) {
+    const match = String(value || '').match(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b/);
+    return match ? match[1] : String(value || '').trim();
+  }
+
+  function captureIdentifier(value) {
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedValue) {
+      currentField = '';
+      return;
+    }
+
+    if (!currentRecord.identifier_raw) {
+      currentRecord.identifier_raw = normalizedValue;
+    }
+
+    if (!currentRecord.doi && /(?:10\.\d{4,9}\/|doi\.org\/|link\.cnki\.net\/doi\/)/i.test(normalizedValue)) {
+      currentRecord.doi = normalizedValue;
+    }
+
+    currentField = '';
+  }
+
+  function applyTaggedValue(tag, value) {
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedValue) {
+      currentField = '';
+      return;
+    }
+
+    if (tag === '%0' && Object.keys(currentRecord).length > 0) {
+      pushCurrentRecord();
+    }
+
+    if (tag === '%R' || tag === '%M') {
+      captureIdentifier(normalizedValue);
+      return;
+    }
+
+    const mappedField = fieldMap[tag];
+    if (!mappedField) {
+      currentField = '';
+      return;
+    }
+
+    if (mappedField === 'year') {
+      appendField('year', extractYearValue(normalizedValue));
+      currentField = '';
+      return;
+    }
+
+    appendField(mappedField, normalizedValue);
+
+    if (mappedField === 'url' && !currentRecord.identifier_raw && /(?:doi\.org\/|link\.cnki\.net\/doi\/|pubmed\.ncbi\.nlm\.nih\.gov\/)/i.test(normalizedValue)) {
+      currentRecord.identifier_raw = normalizedValue;
+    }
+
+    if (mappedField === 'url' && !currentRecord.doi && /(?:doi\.org\/|link\.cnki\.net\/doi\/)/i.test(normalizedValue)) {
+      currentRecord.doi = normalizedValue;
+    }
+
+    currentField = continuationFields.has(mappedField) ? mappedField : '';
+  }
+
+  lines.forEach((rawLine) => {
+    const line = String(rawLine || '').trim();
+    if (!line) {
+      pushCurrentRecord();
+      return;
+    }
+
+    const match = line.match(/^%([0-9A-Z@])\s*(.*)$/);
+    if (match) {
+      applyTaggedValue(`%${match[1]}`, match[2]);
+      return;
+    }
+
+    if (currentField) {
+      appendField(currentField, line, true);
+    }
+  });
+
+  pushCurrentRecord();
+  return records;
 }
 
 function parseRDFContent(text) {
@@ -1299,48 +1413,77 @@ function parseTXTContent(text) {
 }
 
 // File parser dispatcher
-function parseFile(text, ext) {
+function parseFile(text, ext, fileName = 'single-upload') {
+  const records = parseFileContent(text, ext);
+
   switch (ext) {
     case '.csv':
       fileFormat = 'CSV';
       formatSource = 'Excel, Google Sheets';
-      parseCSV(text);
       break;
     case '.tsv':
       fileFormat = 'TSV';
       formatSource = 'Excel (Tab-delimited)';
-      parseTSV(text);
       break;
     case '.ris':
     case '.nbib':
       fileFormat = 'RIS';
       formatSource = ext === '.nbib' ? 'PubMed (.nbib)' : 'Endnote, Zotero, Mendeley';
-      parseRIS(text);
       break;
     case '.bib':
     case '.bibtex':
       fileFormat = 'BibTeX';
       formatSource = 'Google Scholar, arXiv';
-      parseBibTeX(text);
       break;
     case '.txt':
       fileFormat = 'TXT';
       formatSource = '简单文本';
-      parseTXT(text);
       break;
     case '.enw':
       fileFormat = 'ENW';
       formatSource = '知网导出';
-      parseENW(text);
       break;
     case '.rdf':
       fileFormat = 'RDF';
       formatSource = 'Zotero导出';
-      parseRDF(text);
       break;
     default:
       showToast('不支持的文件格式', 'error');
+      return;
   }
+
+  const source = detectSource(ext);
+  if (!Array.isArray(records) || records.length === 0) {
+    showToast('未能解析到有效数据，使用示例数据', 'warning');
+    uploadedData = sampleData.map((item) => ({
+      ...item,
+      _source: source,
+      _sourceFile: 'sample.data'
+    }));
+    uploadedFiles = [{
+      name: 'sample.data',
+      format: ext,
+      recordCount: uploadedData.length,
+      source
+    }];
+  } else {
+    uploadedData = records.map((record) => ({
+      ...record,
+      _source: record._source || source,
+      _sourceFile: record._sourceFile || fileName
+    }));
+    uploadedFiles = [{
+      name: fileName,
+      format: ext,
+      recordCount: uploadedData.length,
+      source
+    }];
+  }
+
+  detectColumns();
+  displayUploadInfo();
+  showToast(`文件上传成功 (${fileFormat} 格式，共${uploadedData.length}条记录)`, 'success');
+  addSuccessAnimation();
 }
 
 // CSV parser
@@ -1514,52 +1657,7 @@ function parseBibTeX(text) {
 // TXT parser (simple line-by-line)
 // ENW parser (CNKI format)
 function parseENW(text) {
-  const records = [];
-  const lines = text.split('\n');
-  let currentRecord = {};
-  
-  const fieldMap = {
-    'TY': 'type',
-    'AU': 'authors',
-    'T1': 'title',
-    'T2': 'journal',
-    'PY': 'year',
-    'DO': 'doi',
-    'AB': 'abstract',
-    'KW': 'keywords',
-    'VL': 'volume',
-    'IS': 'issue',
-    'SP': 'start_page',
-    'EP': 'end_page',
-    'PB': 'publisher',
-    'SN': 'issn'
-  };
-
-  for (let line of lines) {
-    line = line.trim();
-    if (line.startsWith('ER')) {
-      if (Object.keys(currentRecord).length > 0) {
-        records.push(currentRecord);
-        currentRecord = {};
-      }
-    } else if (line.includes('  - ')) {
-      const [tag, ...valueParts] = line.split('  - ');
-      const value = valueParts.join('  - ').trim();
-      const mappedField = fieldMap[tag.trim()];
-      
-      if (mappedField) {
-        if (mappedField === 'authors' || mappedField === 'keywords') {
-          if (!currentRecord[mappedField]) {
-            currentRecord[mappedField] = value;
-          } else {
-            currentRecord[mappedField] += '; ' + value;
-          }
-        } else {
-          currentRecord[mappedField] = value;
-        }
-      }
-    }
-  }
+  const records = parseENWRecords(text);
 
   if (records.length === 0) {
     showToast('未能解析到有效ENW记录，使用示例数据', 'warning');
@@ -1627,10 +1725,55 @@ function parseRDF(text) {
   addSuccessAnimation();
 }
 
+function getRDFNestedText(child, selectors) {
+  if (!child || typeof child.querySelector !== 'function') {
+    return '';
+  }
+
+  for (const selector of selectors) {
+    const node = child.querySelector(selector);
+    if (node && node.textContent) {
+      const value = node.textContent.trim();
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return '';
+}
+
+function getRDFChildValue(child) {
+  if (!child) {
+    return '';
+  }
+
+  return getRDFNestedText(child, ['rdf\\:value']) || String(child.textContent || '').trim();
+}
+
+function getRDFJournalValue(child) {
+  if (!child) {
+    return '';
+  }
+
+  return getRDFNestedText(child, ['dc\\:title', 'dcterms\\:title']) || String(child.textContent || '').trim();
+}
+
+function enrichParsedRDFRecord(record) {
+  const identifierRaw = String(record.identifier_raw || record.doi || '').trim();
+  const title = String(record.title || '').trim();
+
+  return {
+    ...record,
+    identifier_raw: identifierRaw,
+    _normalized_identifier: normalizeIdentifierForDedup(identifierRaw),
+    _normalized_title: normalizeTitle(title)
+  };
+}
+
 function parseRDFItem(item) {
   const record = {};
-  
-  // Field mapping for RDF
+
   const fieldMap = {
     'dc:title': 'title',
     'dcterms:title': 'title',
@@ -1638,52 +1781,57 @@ function parseRDFItem(item) {
     'dcterms:creator': 'authors',
     'dcterms:issued': 'year',
     'dc:date': 'year',
+    'prism:publicationDate': 'year',
+    'prism:coverDate': 'year',
     'dcterms:abstract': 'abstract',
     'dc:description': 'abstract',
     'bib:publicationTitle': 'journal',
     'dc:source': 'journal',
+    'dcterms:isPartOf': 'journal',
     'bib:volume': 'volume',
     'bib:issue': 'issue',
     'dc:identifier': 'doi',
-    'bib:pages': 'pages'
+    'bib:pages': 'pages',
+    'z:itemType': 'publication_type',
+    'z:language': 'language'
   };
-  
-  // Try to get values from child elements
+
   for (let child of item.children) {
     const tagName = child.tagName;
     const mappedField = fieldMap[tagName];
-    
+
     if (mappedField) {
-      let value = child.textContent.trim();
-      
-      // Handle special cases
+      let value = tagName === 'dcterms:isPartOf' ? getRDFJournalValue(child) : getRDFChildValue(child);
+
       if (mappedField === 'year') {
-        // Extract year from date string
         const yearMatch = value.match(/\d{4}/);
         if (yearMatch) value = yearMatch[0];
       }
-      
+
       if (mappedField === 'authors') {
         if (!record[mappedField]) {
           record[mappedField] = value;
         } else {
           record[mappedField] += '; ' + value;
         }
-      } else {
+      } else if (value) {
         record[mappedField] = value;
+      }
+
+      if (tagName === 'dc:identifier' && value && !record.identifier_raw) {
+        record.identifier_raw = value;
       }
     }
   }
-  
-  // Also check attributes
+
   for (let i = 0; i < item.attributes.length; i++) {
     const attr = item.attributes[i];
     if (attr.name === 'rdf:about') {
       record.id = attr.value;
     }
   }
-  
-  return record;
+
+  return enrichParsedRDFRecord(record);
 }
 
 function parseTXT(text) {
@@ -1866,16 +2014,11 @@ function getProjectStorageKey(projectId) {
 
 function ensureProjectId() {
   if (currentProjectId) return currentProjectId;
-
-  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
-    ? runtimeSession.projectId.trim()
-    : '';
-  if (sessionProjectId) {
-    currentProjectId = sessionProjectId;
+  if (currentUserSession?.projectId) {
+    currentProjectId = currentUserSession.projectId;
     localStorage.setItem('prisma_current_project_id', currentProjectId);
     return currentProjectId;
   }
-
   const savedId = localStorage.getItem('prisma_current_project_id');
   if (savedId) {
     currentProjectId = savedId;
@@ -1887,10 +2030,7 @@ function ensureProjectId() {
 }
 
 function startNewProjectSession() {
-  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
-    ? runtimeSession.projectId.trim()
-    : '';
-  currentProjectId = sessionProjectId || generateProjectId();
+  currentProjectId = currentUserSession?.projectId || generateProjectId();
   localStorage.setItem('prisma_current_project_id', currentProjectId);
 
   // Reset project-scoped pieces
@@ -1925,6 +2065,10 @@ function persistCurrentProjectState() {
   } catch (e) {
     console.warn('Failed to persist project state:', e);
   }
+
+  if (currentUserSession && projectData) {
+    saveProjectData();
+  }
 }
 
 function restoreProjectState(snapshot) {
@@ -1945,42 +2089,16 @@ function restoreProjectState(snapshot) {
   }
 }
 
-function shouldAutoRestoreProjectState() {
-  return !!currentUserSession;
-}
-
 function loadCurrentProjectStateFromLocalStorage() {
-  const candidateIds = [];
-  const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
-    ? runtimeSession.projectId.trim()
-    : '';
-  if (sessionProjectId) candidateIds.push(sessionProjectId);
-
   const savedId = localStorage.getItem('prisma_current_project_id');
-  if (savedId && !candidateIds.includes(savedId)) candidateIds.push(savedId);
-
-  if (candidateIds.length === 0) return false;
-
-  let raw = null;
-  let matchedProjectId = null;
-  for (const projectId of candidateIds) {
-    const snapshotRaw = localStorage.getItem(getProjectStorageKey(projectId));
-    if (snapshotRaw) {
-      raw = snapshotRaw;
-      matchedProjectId = projectId;
-      break;
-    }
-  }
-
+  if (!savedId) return false;
+  const raw = localStorage.getItem(getProjectStorageKey(savedId));
   if (!raw) return false;
 
   try {
     const snapshot = JSON.parse(raw);
     if (!snapshot || !snapshot.projectId) return false;
     currentProjectId = snapshot.projectId;
-    if (matchedProjectId !== snapshot.projectId) {
-      localStorage.setItem('prisma_current_project_id', snapshot.projectId);
-    }
     restoreProjectState(snapshot);
     return true;
   } catch (e) {
@@ -2193,19 +2311,6 @@ function editRulesAndRerun() {
 
   goToStep2();
   setFormRules(filterRules);
-  scrollToStep(2);
-}
-
-function returnToRulesConfig() {
-  if (!uploadedData || uploadedData.length === 0) {
-    showToast('请先上传文献数据', 'warning');
-    return;
-  }
-
-  goToStep2();
-  if (filterRules) {
-    setFormRules(filterRules);
-  }
   scrollToStep(2);
 }
 
@@ -2521,6 +2626,87 @@ function startScreening() {
   }, 1500);
 }
 
+function runDedupForScreening(data) {
+  if (!globalThis.DedupEngine || typeof globalThis.DedupEngine.run !== 'function') {
+    throw new Error('DedupEngine is not available in the current runtime');
+  }
+
+  function readField(row, field, fallbacks) {
+    const mappedValue = getValue(row, field);
+    if (mappedValue && mappedValue.trim()) {
+      return mappedValue.trim();
+    }
+
+    for (const fallback of fallbacks || []) {
+      const value = String(row[fallback] || '').trim();
+      if (value) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  const prepared = data.map((row, index) => {
+    const title = readField(row, 'title', ['title', 'TI']);
+    const abstract = readField(row, 'abstract', ['abstract', 'AB']);
+    const keywords = readField(row, 'keywords', ['keywords', 'KW']);
+    const authors = readField(row, 'authors', ['authors', 'AU']);
+    const year = readField(row, 'year', ['year', 'PY']);
+    const journal = readField(row, 'journal', ['journal', 'JO']);
+    const pages = readField(row, 'pages', ['pages']);
+    const doi = readField(row, 'doi', ['doi', 'DOI']);
+    const publicationType = readField(row, 'publication_type', ['publication_type']);
+    const identifierRaw = String(row.identifier_raw || doi).trim();
+
+    return {
+      ...row,
+      record_id: String(row.record_id || row.id || ('record-' + (index + 1))),
+      title,
+      abstract,
+      keywords,
+      authors,
+      year,
+      journal,
+      pages,
+      doi,
+      identifier_raw: identifierRaw,
+      publication_type: publicationType,
+      _normalized_title: normalizeTitle(title),
+      _lang: detectLanguage(title + ' ' + abstract),
+    };
+  });
+
+  const result = globalThis.DedupEngine.run(prepared, { mode: 'default' });
+  const deduped = result.retainedRecords.map((row) => ({
+    ...row,
+    _normalized_title: row._normalized_title || normalizeTitle(String(row.title || '')),
+    _lang: row._lang || detectLanguage(String(row.title || '') + ' ' + String(row.abstract || '')),
+  }));
+  const duplicates = result.hardDuplicates.map((entry) => ({
+    ...entry.duplicateRecord,
+    _dedup_reason: entry.reason.message,
+    _dedup_reason_code: entry.reason.code,
+  }));
+  const candidateDuplicates = result.candidateDuplicates.map((entry) => ({
+    leftRecord: entry.leftRecord,
+    rightRecord: entry.rightRecord,
+    reason: entry.reason,
+  }));
+
+  return {
+    deduped,
+    duplicates,
+    candidateDuplicates,
+    counts: {
+      duplicates: duplicates.length,
+      after_dupes: deduped.length,
+      candidate_duplicates: candidateDuplicates.length,
+    },
+    engineResult: result,
+  };
+}
+
 function performScreening(data, rules) {
   // v3.0: PRISMA identification stage - count BEFORE deduplication
   // Track source distribution for identification (from original data)
@@ -2543,47 +2729,11 @@ function performScreening(data, rules) {
     }
   });
 
-  // v3.0: Improved deduplication with source tracking
-  // Normalize titles for deduplication
-  const normalized = data.map(row => ({
-    ...row,
-    _normalized_title: normalizeTitle(getValue(row, 'title')),
-    _lang: detectLanguage(getValue(row, 'title') + ' ' + getValue(row, 'abstract'))
-  }));
-
-  // v3.0: Enhanced deduplication - cross-source intelligent deduplication
-  const seen = new Set();
-  const deduped = [];
-  const duplicates = [];
-  const doiMap = {}; // Track DOI duplicates
-
-  normalized.forEach(row => {
-    const doi = getValue(row, 'doi');
-    const title = row._normalized_title;
-    
-    // Strategy 1: Exact DOI match (highest priority)
-    if (doi && doi.trim()) {
-      const doiKey = `doi:${doi.toLowerCase().trim()}`;
-      if (doiMap[doiKey]) {
-        duplicates.push(row);
-        return;
-      } else {
-        doiMap[doiKey] = true;
-        deduped.push(row);
-        seen.add(doiKey);
-        return;
-      }
-    }
-    
-    // Strategy 2: Normalized title match (Jaccard similarity for fuzzy matching)
-    const titleKey = `title:${title}`;
-    if (seen.has(titleKey)) {
-      duplicates.push(row);
-    } else {
-      seen.add(titleKey);
-      deduped.push(row);
-    }
-  });
+  // vNext: route app-facing hard dedup through the shared engine
+  const dedupSummary = runDedupForScreening(data);
+  const deduped = dedupSummary.deduped;
+  const duplicates = dedupSummary.duplicates;
+  const candidateDuplicates = dedupSummary.candidateDuplicates;
 
   // Apply time window - v3.0: improved year parsing
   const inTimeWindow = deduped.filter(row => {
@@ -2737,8 +2887,9 @@ function performScreening(data, rules) {
     counts: {
       identified_db,
       identified_other,
-      duplicates: duplicates.length,
-      after_dupes: deduped.length,
+      duplicates: dedupSummary.counts.duplicates,
+      after_dupes: dedupSummary.counts.after_dupes,
+      candidate_duplicates: dedupSummary.counts.candidate_duplicates,
       screened: withLanguage.length,
       excluded_ta: excluded_ta.length,
       fulltext: afterTA.length,
@@ -2749,13 +2900,45 @@ function performScreening(data, rules) {
     included,
     excluded: [...excluded_ta, ...excluded_ft],
     duplicates,
+    candidateDuplicates,
     rules
   };
 }
 
 function getValue(row, field) {
+  if (!row) return '';
+
+  const directValue = row[field];
+  if (directValue !== undefined && directValue !== null && String(directValue).trim()) {
+    return String(directValue);
+  }
+
   const col = columnMapping[field];
-  return col ? String(row[col] || '') : '';
+  if (col) {
+    const mappedValue = row[col];
+    if (mappedValue !== undefined && mappedValue !== null && String(mappedValue).trim()) {
+      return String(mappedValue);
+    }
+  }
+
+  const fallbackMap = {
+    title: ['TI', 'T1', 'dc:title', 'dcterms:title'],
+    abstract: ['AB', 'dcterms:abstract', 'dc:description', 'Abstract Note', 'Notes'],
+    year: ['PY', 'dc:date', 'dcterms:issued', 'Publication Year'],
+    journal: ['JO', 'T2', 'bib:publicationTitle', 'dc:source', 'Publication Title'],
+    authors: ['AU', 'dc:creator', 'dcterms:creator', 'Author'],
+    doi: ['DO', 'DOI', 'dc:identifier'],
+    keywords: ['KW', 'keyword', 'Manual Tags', 'Automatic Tags']
+  };
+
+  for (const fallback of fallbackMap[field] || []) {
+    const value = row[fallback];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value);
+    }
+  }
+
+  return '';
 }
 
 function normalizeTitle(title) {
@@ -2763,6 +2946,19 @@ function normalizeTitle(title) {
     .replace(/[^\w\s\u4e00-\u9fa5]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeIdentifierForDedup(identifier) {
+  let normalized = String(identifier || '').trim();
+  if (!normalized) return '';
+
+  normalized = normalized
+    .replace(/^doi\s*:?\s*/i, '')
+    .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '')
+    .replace(/^https?:\/\/link\.cnki\.net\/doi\//i, '')
+    .trim();
+
+  return normalized.toLowerCase();
 }
 
 function detectLanguage(text) {
@@ -2807,7 +3003,6 @@ function renderFilterRulesOverview(rules) {
   const ftRatio = typeof rules.fulltext_exclude_ratio === 'number' && !Number.isNaN(rules.fulltext_exclude_ratio)
     ? Math.round(rules.fulltext_exclude_ratio * 100) + '%'
     : '未设置';
-  const ftRatioNote = '仅用于规划与说明，不会自动排除全文文献';
 
   const includeHtml = includeAny.length
     ? includeAny.map(kw => `<li>${escapeHTML(String(kw))}</li>`).join('')
@@ -2836,7 +3031,6 @@ function renderFilterRulesOverview(rules) {
         <div>
           <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">全文排除比例参数</div>
           <div style="color: var(--color-text-secondary);">${escapeHTML(String(ftRatio))}</div>
-          <div style="margin-top: var(--space-6); font-size: var(--font-size-sm); color: var(--color-text-secondary);">${escapeHTML(ftRatioNote)}</div>
         </div>
       </div>
       <div class="grid grid-2" style="gap: var(--space-16); margin-top: var(--space-16);">
@@ -2863,33 +3057,103 @@ function renderFilterRulesOverview(rules) {
   `;
 }
 
-function renderScreeningDiagnostics(results) {
-  const container = document.getElementById('screeningDiagnostics');
-  if (!container) return;
+function getCandidateReasonLabel(reason) {
+  const code = typeof reason === 'string'
+    ? String(reason || '').trim()
+    : String(reason?.code || '').trim();
 
-  const stats = results?.diagnostics;
-  if (!stats) {
-    container.innerHTML = '';
-    container.style.display = 'none';
+  switch (code) {
+    case 'canonical_identifier_exact':
+      return 'canonical_doi_match';
+    case 'title_year_pages_overlap':
+      return 'needs_review_identifier_mismatch';
+    case 'title_year_author_overlap':
+      return 'title_year_author_match';
+    default:
+      return code || 'needs_manual_review';
+  }
+}
+
+function flattenCandidateDuplicatesForExport(candidateDuplicates) {
+  return (Array.isArray(candidateDuplicates) ? candidateDuplicates : []).map((entry, index) => {
+    const left = entry?.leftRecord || {};
+    const right = entry?.rightRecord || {};
+    const reasonCode = String(entry?.reason?.code || entry?.reason_code || '').trim();
+    const reviewDecision = String(entry?.review_decision || entry?.reviewDecision || entry?.decision || 'needs_review').trim() || 'needs_review';
+
+    return {
+      candidate_pair_id: `candidate-${index + 1}`,
+      reason_code: reasonCode || 'needs_manual_review',
+      reason_label: getCandidateReasonLabel(reasonCode),
+      review_decision: reviewDecision,
+      reason_message: String(entry?.reason?.message || entry?.reason_message || '').trim(),
+      left_record_id: String(left.record_id || left.id || ''),
+      left_title: String(left.title || ''),
+      left_authors: String(left.authors || ''),
+      left_year: String(left.year || ''),
+      left_journal: String(left.journal || ''),
+      left_pages: String(left.pages || ''),
+      left_identifier: String(left.identifier_raw || left.doi || ''),
+      right_record_id: String(right.record_id || right.id || ''),
+      right_title: String(right.title || ''),
+      right_authors: String(right.authors || ''),
+      right_year: String(right.year || ''),
+      right_journal: String(right.journal || ''),
+      right_pages: String(right.pages || ''),
+      right_identifier: String(right.identifier_raw || right.doi || ''),
+    };
+  });
+}
+
+function renderDedupReviewSummary(results) {
+  const containers = [
+    document.getElementById('dedupReviewSummary'),
+    document.getElementById('dedupReviewSummaryFinal'),
+  ].filter(Boolean);
+
+  if (containers.length === 0) return;
+  if (!results || !results.counts) {
+    containers.forEach((container) => {
+      container.innerHTML = '';
+    });
     return;
   }
 
-  const items = [
-    ['时间窗口过滤', stats.excluded_time_window || 0],
-    ['包含关键词未命中', stats.excluded_include_keywords || 0],
-    ['必填字段缺失', stats.excluded_required_fields || 0],
-    ['语言不匹配', stats.excluded_language || 0],
-    ['命中排除关键词', stats.excluded_by_keyword || 0]
-  ];
+  const hardCount = Number(results.counts.duplicates || 0);
+  const candidateCount = Number(results.counts.candidate_duplicates || 0);
+  const hasCandidates = candidateCount > 0;
+  const panelBorder = hasCandidates ? 'var(--color-warning)' : 'var(--color-info)';
+  const buttonDisabled = hasCandidates ? '' : 'disabled';
+  const helperText = hasCandidates
+    ? '疑似重复仅做提示与导出，不会自动从保留结果中删除。'
+    : '当前没有需要人工复核的疑似重复。';
 
-  container.style.display = '';
-  container.innerHTML = `
-    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">标题/摘要阶段排除明细</div>
-    <p style="margin-bottom: var(--space-12); color: var(--color-text-secondary);">这里展示的是第 3 步各类规则分别排除了多少文献。这样可以区分“命中排除关键词”和“年份/语言/字段要求未通过”。</p>
-    <ul style="margin: 0; padding-left: var(--space-20); line-height: 1.8;">
-      ${items.map(([label, value]) => `<li><strong>${escapeHTML(label)}</strong>：${escapeHTML(String(value))}</li>`).join('')}
-    </ul>
+  const html = `
+    <div class="info-box" style="margin-top: var(--space-20); background: var(--color-bg-1); border-left: 4px solid ${panelBorder};">
+      <h3 style="margin-bottom: var(--space-12); font-size: var(--font-size-lg);">疑似重复复核</h3>
+      <div class="grid grid-2" style="gap: var(--space-16);">
+        <div class="stat-card bg-2">
+          <div class="stat-label">硬重复移除</div>
+          <div class="stat-value">${hardCount}</div>
+          <div class="stat-sublabel"><small>已自动移除</small></div>
+        </div>
+        <div class="stat-card bg-5">
+          <div class="stat-label">疑似重复</div>
+          <div class="stat-value">${candidateCount}</div>
+          <div class="stat-sublabel"><small>不会自动删除</small></div>
+        </div>
+      </div>
+      <p style="margin-top: var(--space-12); color: var(--color-text-secondary);">${helperText}</p>
+      <div class="button-group" style="margin-top: var(--space-12);">
+        <button class="btn btn-secondary" onclick="downloadFile('candidate-duplicates')" ${buttonDisabled}>📥 下载 - 疑似重复 (CSV)</button>
+      </div>
+    </div>
   `;
+
+  containers.forEach((container) => {
+    container.innerHTML = html;
+    container.style.display = 'block';
+  });
 }
 
 // Display results
@@ -2924,8 +3188,8 @@ function displayResults(results) {
     document.getElementById('stat-included-final').textContent = counts.included || 0;
   }
 
+  renderDedupReviewSummary(results);
   renderFilterRulesOverview(results.rules || filterRules);
-  renderScreeningDiagnostics(results);
   
   // Render rules overview in Step5 if exists
   const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
@@ -3157,9 +3421,9 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
   }
 
   // PRISMA 2020-like layout
-  const width = 1120;
+  const width = 900;
   const height = 1500;
-  const boxW = 320;
+  const boxW = 360;
   const boxH = 72;
 
   const xCenter = (width - boxW) / 2;
@@ -3271,6 +3535,14 @@ function generatePRISMASVG(counts, theme = 'subtle', mode = 'prisma2020') {
 }
 
 // Download functions
+function getCandidateDuplicateExportData() {
+  if (!screeningResults || !Array.isArray(screeningResults.candidateDuplicates)) {
+    return [];
+  }
+
+  return flattenCandidateDuplicatesForExport(screeningResults.candidateDuplicates);
+}
+
 function downloadFile(type) {
   if (!screeningResults) {
     showToast('没有可下载的结果', 'error');
@@ -3302,6 +3574,16 @@ function downloadFile(type) {
       
       content = generateExcelUTF8BOM(excludedData, 'excluded');
       filename = 'excluded_studies.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'candidate-duplicates':
+      const candidateData = getCandidateDuplicateExportData();
+      if (candidateData.length === 0) {
+        showToast('当前没有待复核的疑似重复。', 'info');
+        return;
+      }
+      content = generateExcelUTF8BOM(candidateData, 'candidate_duplicates');
+      filename = 'candidate_duplicates.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
     case 'svg-colorful':
@@ -3404,7 +3686,26 @@ function generateExcelUTF8BOM(data, type) {
     'keywords': '关键词',
     'type': '文献类型',
     'database': '数据库来源',
-    'studyDesign': '研究方法'
+        'studyDesign': '研究方法',
+    'candidate_pair_id': 'Candidate Pair ID',
+    'reason_code': 'Reason Code',
+    'reason_label': 'Reason Label',
+    'review_decision': 'Review Decision',
+    'reason_message': 'Reason Message',
+    'left_record_id': 'Left Record ID',
+    'left_title': 'Left Title',
+    'left_authors': 'Left Authors',
+    'left_year': 'Left Year',
+    'left_journal': 'Left Journal',
+    'left_pages': 'Left Pages',
+    'left_identifier': 'Left Identifier',
+    'right_record_id': 'Right Record ID',
+    'right_title': 'Right Title',
+    'right_authors': 'Right Authors',
+    'right_year': 'Right Year',
+    'right_journal': 'Right Journal',
+    'right_pages': 'Right Pages',
+    'right_identifier': 'Right Identifier'
   };
   
   // 确定要导出的列（优先使用预定义顺序，然后包含其他字段）
@@ -4154,6 +4455,10 @@ function updateFulltextStats() {
   document.getElementById('fulltext-excluded').textContent = excludedCount;
   document.getElementById('fulltext-included').textContent = includedCount;
   document.getElementById('fulltext-rate').textContent = rate + '%';
+
+  if (isDualReviewMode) {
+    updateDualReviewStats();
+  }
 }
 
 // Update collaboration status in UI
@@ -4222,7 +4527,6 @@ function checkAndCalculateKappa() {
       const stats = calculateReliabilityStats(reviewerADecisions, reviewerBDecisions);
       displayKappaResults(stats);
       document.getElementById('kappa-analysis').classList.remove('hidden');
-      applyModeGating(runtimeMode);
       
       // Show notification
       showToast('🎉 双人审查已完成！一致性分析已生成。', 'success');
@@ -4663,11 +4967,12 @@ function setDefaultExclusion(reason) {
 // v1.1: Dual-reviewer mode functions
 function setReviewMode(mode) {
   isDualReviewMode = (mode === 'dual');
-  
+    
   // Update button styles
   const singleBtn = document.getElementById('single-mode-btn');
   const dualBtn = document.getElementById('dual-mode-btn');
-  
+  if (!singleBtn || !dualBtn) return;
+    
   if (isDualReviewMode) {
     singleBtn.style.background = 'rgba(255,255,255,0.2)';
     singleBtn.style.color = 'white';
@@ -4805,11 +5110,6 @@ function displayKappaResults(stats) {
 }
 
 function showDisagreements() {
-  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
-    showToast('仅主审查员可查看并处理意见分歧', 'warning');
-    return;
-  }
-
   if (!isDualReviewMode || !screeningResults) return;
   
   const fulltext = screeningResults.included;
@@ -4833,11 +5133,6 @@ function showDisagreements() {
 }
 
 function displayDisagreementResolution(disagreements) {
-  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
-    showToast('仅主审查员可处理分歧协商', 'warning');
-    return;
-  }
-
   if (disagreements.length === 0) {
     showToast('🎉 恭喜！所有文献审查结果一致，无需协商！', 'success');
     return;
@@ -4977,40 +5272,11 @@ function calculatePostResolutionStats() {
   };
 }
 
-// Enhanced exclusion stats update to handle dual-reviewer mode
-function updateExclusionStatsWithDualReview() {
-  if (isDualReviewMode) {
-    // Store current reviewer's decision
-    const fulltext = screeningResults.included;
-    fulltext.forEach((record, idx) => {
-      const select = document.getElementById(`exclude-${idx}`);
-      if (select) {
-        if (!dualReviewResults[currentReviewer][idx]) {
-          dualReviewResults[currentReviewer][idx] = {};
-        }
-        dualReviewResults[currentReviewer][idx].decision = select.value;
-      }
-    });
-    
-    // Update dual review statistics
-    updateDualReviewStats();
-  }
-}
-
-// Override the original updateExclusionStats in dual-review mode
-const originalUpdateExclusionStats = updateFulltextStats;
-function updateFulltextStats() {
-  originalUpdateExclusionStats();
-  if (isDualReviewMode) {
-    updateExclusionStatsWithDualReview();
-  }
-}
-
 // Load project data from shared storage
 function loadProjectData() {
   if (!currentUserSession) return;
   
-  const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+  const projects = JSON.parse(localStorage.getItem(COLLAB_PROJECTS_KEY) || '{}');
   projectData = projects[currentUserSession.projectId];
   
   if (!projectData) {
@@ -5028,9 +5294,16 @@ function loadProjectData() {
       creator: currentUserSession.username,
       createdAt: new Date().toISOString(),
       reviewers: {},
-      uploadedData: null,
+      uploadedData: [],
+      uploadedFiles: [],
       screeningResults: null,
-      reviewDecisions: {}
+      reviewDecisions: {},
+      columnMapping: {},
+      fileFormat: 'unknown',
+      formatSource: 'Unknown',
+      currentStep: 1,
+      filterRules: null,
+      exclusionReasons: [...DEFAULT_EXCLUSION_REASONS]
     };
     
     // Register current user
@@ -5042,6 +5315,24 @@ function loadProjectData() {
     
     saveProjectData();
   } else {
+    // Load existing data into global variables before any save,
+    // so a newly joined reviewer does not overwrite project state with empty locals.
+    if (projectData.uploadedData) {
+      uploadedData = projectData.uploadedData;
+    }
+    if (projectData.uploadedFiles) {
+      uploadedFiles = projectData.uploadedFiles;
+    }
+    if (projectData.screeningResults) {
+      screeningResults = projectData.screeningResults;
+    }
+    columnMapping = projectData.columnMapping || {};
+    fileFormat = projectData.fileFormat || 'unknown';
+    formatSource = projectData.formatSource || 'Unknown';
+    currentStep = projectData.currentStep || inferCollaborativeStep();
+    filterRules = projectData.filterRules || null;
+    exclusionReasons = sanitizeExclusionTemplate(projectData.exclusionReasons);
+
     // Existing project - register current user
     if (!projectData.reviewers[currentUserSession.role]) {
       projectData.reviewers[currentUserSession.role] = {
@@ -5051,19 +5342,14 @@ function loadProjectData() {
       };
       saveProjectData();
     }
-    
-    // Load existing data into global variables
-    if (projectData.uploadedData) {
-      uploadedData = projectData.uploadedData;
-    }
-    if (projectData.screeningResults) {
-      screeningResults = projectData.screeningResults;
-    }
   }
 }
 
 // Show waiting message for deputy reviewer when project doesn't exist
 function showProjectWaitingMessage() {
+  const existing = document.getElementById('project-waiting');
+  if (existing) existing.remove();
+
   const waitingHTML = `
     <div id="project-waiting" style="
       position: fixed;
@@ -5132,6 +5418,8 @@ function refreshProjectCheck() {
     showProjectWaitingMessage();
   } else {
     // Project found, initialize normally
+    applyCollaborativeProjectState();
+    startCollaborationSync();
     showToast('✅ 项目已找到！欢迎加入协作审查。', 'success');
   }
 }
@@ -5141,14 +5429,35 @@ function saveProjectData() {
   if (!currentUserSession || !projectData) return;
   
   // Update project data with current global state
-  projectData.uploadedData = uploadedData;
-  projectData.screeningResults = screeningResults;
+  projectData.uploadedData = uploadedData && uploadedData.length > 0
+    ? uploadedData
+    : (projectData.uploadedData || []);
+  projectData.uploadedFiles = uploadedFiles && uploadedFiles.length > 0
+    ? uploadedFiles
+    : (projectData.uploadedFiles || []);
+  projectData.screeningResults = screeningResults || projectData.screeningResults || null;
+  projectData.columnMapping = Object.keys(columnMapping || {}).length > 0
+    ? columnMapping
+    : (projectData.columnMapping || {});
+  projectData.fileFormat = fileFormat !== 'unknown'
+    ? fileFormat
+    : (projectData.fileFormat || 'unknown');
+  projectData.formatSource = formatSource !== 'Unknown'
+    ? formatSource
+    : (projectData.formatSource || 'Unknown');
+  projectData.currentStep = Math.max(
+    currentStep || 1,
+    projectData.currentStep || 1,
+    inferCollaborativeStep()
+  );
+  projectData.filterRules = filterRules || projectData.filterRules || null;
+  projectData.exclusionReasons = sanitizeExclusionTemplate(exclusionReasons);
   projectData.lastSync = new Date().toISOString();
   
   // Save to shared storage
-  const projects = JSON.parse(localStorage.getItem('prisma_projects') || '{}');
+  const projects = JSON.parse(localStorage.getItem(COLLAB_PROJECTS_KEY) || '{}');
   projects[currentUserSession.projectId] = projectData;
-  localStorage.setItem('prisma_projects', JSON.stringify(projects));
+  localStorage.setItem(COLLAB_PROJECTS_KEY, JSON.stringify(projects));
 }
 
 // Logout function
@@ -5156,9 +5465,15 @@ function logout() {
   if (confirm('确定要退出登录吗？未保存的更改可能会丢失。')) {
     // Save current work
     saveProjectData();
+
+    if (collaborationSyncInterval) {
+      clearInterval(collaborationSyncInterval);
+      collaborationSyncInterval = null;
+    }
+    window.removeEventListener('storage', handleCollaborationStorageEvent);
     
     // Clear session
-    sessionStorage.removeItem('prisma_user_session');
+    sessionStorage.removeItem(USER_SESSION_KEY);
     
     // Redirect to login
     window.location.href = 'login.html';
@@ -5275,11 +5590,6 @@ function showDeduplicationSettings() {
 
 // Enhanced save/load functions for multi-user projects
 function saveProjectFile() {
-  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
-    showToast('仅主审查员可导出协作项目', 'warning');
-    return;
-  }
-
   saveProjectData();
   
   const projectExport = {
@@ -5310,4 +5620,5 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
 

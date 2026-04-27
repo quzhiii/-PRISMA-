@@ -186,7 +186,7 @@
         <div class="login-card">
             <div class="login-header">
                 <h1 class="login-title">🔬 双人审查登录</h1>
-                <p class="login-subtitle">请选择您的身份并输入项目信息</p>
+                <p class="login-subtitle">过渡版双人协作：适用于同一设备、同一浏览器下的双会话审查</p>
             </div>
             
             <!-- 项目信息显示（如果已有项目） -->
@@ -233,8 +233,8 @@
                     <input type="text" id="project-id" name="project-id" class="form-input" 
                            placeholder="输入或生成项目ID" required>
                     <small id="project-id-help" style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">
-                        主审查员：系统会自动生成项目ID<br>
-                        副审查员：请输入主审查员提供的项目ID（如果项目不存在，可继续登录等待项目创建）
+                        主审查员：系统会自动生成项目ID，并在进入工作台后注册协作项目<br>
+                        副审查员：请输入主审查员提供的项目ID（过渡版需在同一设备、同一浏览器内协作）
                     </small>
                 </div>
                 
@@ -248,7 +248,7 @@
             </div>
             
             <div class="quick-actions">
-                <a href="index.html" class="link-btn">
+                <a href="index.html?v=20260329-collabfix3" class="link-btn">
                     📝 单人审查模式
                 </a>
             </div>
@@ -332,7 +332,7 @@
             }
             
             // 跳转到主应用
-            window.location.href = 'index.html';
+            window.location.href = 'index.html?v=20260329-collabfix3';
         });
         
         // 检查项目是否存在（简化版，实际项目中需要服务器端验证）
