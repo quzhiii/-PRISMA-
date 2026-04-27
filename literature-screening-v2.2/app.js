@@ -15,6 +15,14 @@ const WORKFLOW_STEP_COUNT = FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5;
 const QUALITY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.QualityEngine || null : null;
 const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.ImportJobRuntime || null : null;
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
+const AUDIT_EXPORT_TYPES = Object.freeze([
+  'audit_manifest',
+  'audit_events',
+  'audit_screening_decisions',
+  'audit_exclusion_reasons',
+  'audit_prisma_counts',
+  'audit_summary',
+]);
 let qualityAssessments = [];
 let importJobs = [];
 let projectManifest = null;
@@ -5162,9 +5170,45 @@ function getCandidateDuplicateExportData() {
   return flattenCandidateDuplicatesForExport(screeningResults.candidateDuplicates);
 }
 
+function isAuditExportType(type) {
+  return AUDIT_EXPORT_TYPES.includes(type);
+}
+
+function buildAuditExportContent(type) {
+  if (!AUDIT_ENGINE) {
+    return '';
+  }
+
+  const manifest = ensureProjectManifest();
+
+  switch (type) {
+    case 'audit_manifest':
+      return JSON.stringify(AUDIT_ENGINE.buildProjectManifestExport(manifest), null, 2);
+    case 'audit_events':
+      return AUDIT_ENGINE.serializeEventsJsonl(auditEvents);
+    case 'audit_screening_decisions':
+      return AUDIT_ENGINE.serializeScreeningDecisionsCsv(screeningDecisions);
+    case 'audit_exclusion_reasons':
+      return AUDIT_ENGINE.serializeExclusionReasonsCsv(screeningDecisions, AUDIT_ENGINE.EXCLUSION_REASONS);
+    case 'audit_prisma_counts':
+      return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
+    case 'audit_summary':
+      return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions);
+    default:
+      return '';
+  }
+}
+
 function downloadFile(type) {
-  if (!screeningResults) {
+  const isAuditExport = isAuditExportType(type);
+
+  if (!screeningResults && !isAuditExport) {
     showToast('没有可下载的结果', 'error');
+    return;
+  }
+
+  if (isAuditExport && !AUDIT_ENGINE) {
+    showToast('审计导出模块尚未加载', 'error');
     return;
   }
 
@@ -5225,6 +5269,30 @@ function downloadFile(type) {
       filename = 'screening_report.md';
       mimeType = 'text/markdown';
       break;
+    case 'audit_manifest':
+      filename = 'project_manifest.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
+    case 'audit_events':
+      filename = 'events.jsonl';
+      mimeType = 'application/x-ndjson;charset=utf-8';
+      break;
+    case 'audit_screening_decisions':
+      filename = 'screening_decisions.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'audit_exclusion_reasons':
+      filename = 'exclusion_reasons.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'audit_prisma_counts':
+      filename = 'prisma_counts.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
+    case 'audit_summary':
+      filename = 'audit_summary.md';
+      mimeType = 'text/markdown;charset=utf-8';
+      break;
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
@@ -5239,10 +5307,19 @@ function downloadFile(type) {
       metadata: {
         prismaMode: getSelectedPrismaMode(),
         countSource: screeningDecisions.length > 0 ? 'screening_decisions' : 'legacy_screening_results',
-        includedCount: screeningResults.counts?.included ?? 0,
-        excludedCount: screeningResults.excluded?.length ?? 0,
+        includedCount: screeningResults?.counts?.included ?? 0,
+        excludedCount: screeningResults?.excluded?.length ?? 0,
       },
     }, { persist: true });
+  }
+
+  if (isAuditExport) {
+    content = buildAuditExportContent(type);
+  }
+
+  if (!filename) {
+    showToast('未知的导出类型', 'error');
+    return;
   }
 
   const blob = new Blob([content], { type: mimeType });
@@ -5270,7 +5347,13 @@ function downloadAllFiles() {
     'svg-colorful',
     'svg-blackwhite',
     'svg-subtle',
-    'report'
+    'report',
+    'audit_manifest',
+    'audit_screening_decisions',
+    'audit_exclusion_reasons',
+    'audit_prisma_counts',
+    'audit_summary',
+    'audit_events'
   ];
   
   files.forEach((fileType, index) => {

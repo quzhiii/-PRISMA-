@@ -214,6 +214,7 @@ test('builds an audit summary markdown report', () => {
   assert.match(summary, /Audit test/);
   assert.match(summary, /record_imported/);
   assert.match(summary, /studiesIncluded/);
+  assert.match(summary, /Unresolved Risks And Notes/);
 });
 
 test('v2.2 workspace loads audit engine before app.js', async () => {

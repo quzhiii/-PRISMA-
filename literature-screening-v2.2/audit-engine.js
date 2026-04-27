@@ -386,6 +386,19 @@
     return ['exclusionReason,count', ...rows].join('\n');
   }
 
+  function buildProjectManifestExport(manifestInput) {
+    return createProjectManifest(manifestInput);
+  }
+
+  function buildPrismaCountsJson(decisions, events) {
+    return {
+      schemaVersion: AUDIT_SCHEMA_VERSION,
+      generatedAt: nowIso(),
+      source: 'screening_decisions_and_audit_events',
+      counts: calculatePrismaCountsFromDecisions(decisions, events),
+    };
+  }
+
   function buildAuditSummaryMarkdown(manifestInput, events, decisions) {
     const manifest = createProjectManifest(manifestInput);
     const eventSummary = summarizeAuditEvents(events);
@@ -421,6 +434,12 @@
       '|---|---:|',
       countRows,
       '',
+      '## Unresolved Risks And Notes',
+      '',
+      '- Counts are derived from durable ScreeningDecision records and AuditEvent entries.',
+      `- AI mode is ${manifest.aiMode}; AI suggestions are not treated as final decisions unless a human decision is recorded.`,
+      '- Records without a final full-text decision remain outside the final included-study count.',
+      '',
     ].join('\n');
   }
 
@@ -448,9 +467,11 @@
     updateScreeningDecision,
     calculatePrismaCountsFromDecisions,
     summarizeAuditEvents,
+    buildProjectManifestExport,
     serializeEventsJsonl,
     serializeScreeningDecisionsCsv,
     serializeExclusionReasonsCsv,
+    buildPrismaCountsJson,
     buildAuditSummaryMarkdown,
   };
 });

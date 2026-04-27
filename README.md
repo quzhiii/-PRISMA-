@@ -31,6 +31,8 @@
 
 当前 GitHub Pages 默认入口已正式对外发布为 `V2.1`，`v1.7` 作为历史稳定版本保留。
 
+`V2.2` 当前在独立 `literature-screening-v2.2/` 工作区推进 audit-ready 基础层，不替换已发布的 `V2.1` 路径。该迭代新增本地审计日志、项目清单、持久化筛选决策和审计包导出；PRISMA 计数可以从 `ScreeningDecision` 与 `AuditEvent` 重新计算。AI 模式默认仍为 `off`，审计导出均在浏览器本地生成。
+
 ---
 
 ## 这个工具解决什么问题

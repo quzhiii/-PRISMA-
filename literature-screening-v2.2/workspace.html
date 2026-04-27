@@ -752,6 +752,15 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">下载报告</span><span class="en">Download Report</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">下载全部</span><span class="en">Download All</span></button>
             </div>
+            <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
+            <div class="button-group">
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_manifest')"><span class="zh">项目清单 JSON</span><span class="en">Project Manifest</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_events')"><span class="zh">事件日志 JSONL</span><span class="en">Event Log JSONL</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_screening_decisions')"><span class="zh">筛选决策 CSV</span><span class="en">Decisions CSV</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_exclusion_reasons')"><span class="zh">排除理由 CSV</span><span class="en">Exclusion Reasons</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_prisma_counts')"><span class="zh">PRISMA 计数 JSON</span><span class="en">PRISMA Counts</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_summary')"><span class="zh">审计摘要 MD</span><span class="en">Audit Summary</span></button>
+            </div>
             <p class="muted-text" style="margin-top: 12px;"><span class="zh">当前主题：</span><span class="en">Current theme:</span> <span id="currentThemeLabelFinal">柔和版</span></p>
           </div>
         </div>

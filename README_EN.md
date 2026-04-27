@@ -31,6 +31,8 @@ English | [简体中文](./README.md)
 
 GitHub Pages now publishes `V2.1` by default. The old `v1.7` page remains available only as a historical version.
 
+`V2.2` is now progressing in the isolated `literature-screening-v2.2/` workspace, without replacing the published `V2.1` path. This iteration adds a local audit log, project manifest, durable screening decisions, and audit-package exports. PRISMA counts can be recalculated from `ScreeningDecision` and `AuditEvent` data. AI mode remains `off` by default, and all audit exports are generated locally in the browser.
+
 ---
 
 ## What This Tool Solves
