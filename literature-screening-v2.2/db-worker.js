@@ -1,0 +1,574 @@
+/**
+ * P0 改造：数据层改用 IndexedDB
+ * Web Worker 中处理所有数据库操作，主线程只发送消息
+ */
+
+const DB_NAME = 'PRISMA_LiteratureDB_v2.2';
+const STORE_NAME = 'records';
+const INDEX_STORE = 'dedup_index';
+const QUALITY_STORE = 'quality_assessments';
+const IMPORT_JOB_STORE = 'import_jobs';
+const PROJECT_MANIFEST_STORE = 'project_manifest';
+const AUDIT_EVENT_STORE = 'audit_events';
+const SCREENING_DECISION_STORE = 'screening_decisions';
+const VERSION = 3;
+
+let db = null;
+
+// 初始化 IndexedDB
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const database = event.target.result;
+      
+      // 创建records存储
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        const objectStore = database.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        objectStore.createIndex('doi_index', 'doi_norm', { unique: false });
+        objectStore.createIndex('title_index', 'title_norm', { unique: false });
+        objectStore.createIndex('year_index', 'year', { unique: false });
+      }
+      
+      // 创建去重索引存储
+      if (!database.objectStoreNames.contains(INDEX_STORE)) {
+        database.createObjectStore(INDEX_STORE, { keyPath: 'hash_key' });
+      }
+
+      if (!database.objectStoreNames.contains(QUALITY_STORE)) {
+        const qualityStore = database.createObjectStore(QUALITY_STORE, { keyPath: 'id' });
+        qualityStore.createIndex('project_id', 'project_id', { unique: false });
+        qualityStore.createIndex('record_id', 'record_id', { unique: false });
+        qualityStore.createIndex('status', 'status', { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(IMPORT_JOB_STORE)) {
+        const importJobStore = database.createObjectStore(IMPORT_JOB_STORE, { keyPath: 'id' });
+        importJobStore.createIndex('project_id', 'project_id', { unique: false });
+        importJobStore.createIndex('stage', 'stage', { unique: false });
+        importJobStore.createIndex('updated_at', 'updated_at', { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(PROJECT_MANIFEST_STORE)) {
+        const manifestStore = database.createObjectStore(PROJECT_MANIFEST_STORE, { keyPath: 'projectId' });
+        manifestStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+        manifestStore.createIndex('schemaVersion', 'schemaVersion', { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(AUDIT_EVENT_STORE)) {
+        const auditEventStore = database.createObjectStore(AUDIT_EVENT_STORE, { keyPath: 'eventId' });
+        auditEventStore.createIndex('projectId', 'projectId', { unique: false });
+        auditEventStore.createIndex('recordId', 'recordId', { unique: false });
+        auditEventStore.createIndex('eventType', 'eventType', { unique: false });
+        auditEventStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains(SCREENING_DECISION_STORE)) {
+        const decisionStore = database.createObjectStore(SCREENING_DECISION_STORE, { keyPath: 'decisionId' });
+        decisionStore.createIndex('projectId', 'projectId', { unique: false });
+        decisionStore.createIndex('recordId', 'recordId', { unique: false });
+        decisionStore.createIndex('stage', 'stage', { unique: false });
+        decisionStore.createIndex('reviewerId', 'reviewerId', { unique: false });
+      }
+    };
+  });
+}
+
+// 清空所有数据
+function clearAllData() {
+  return new Promise((resolve, reject) => {
+    const storeNames = [
+      STORE_NAME,
+      INDEX_STORE,
+      QUALITY_STORE,
+      IMPORT_JOB_STORE,
+      PROJECT_MANIFEST_STORE,
+      AUDIT_EVENT_STORE,
+      SCREENING_DECISION_STORE,
+    ]
+      .filter((storeName) => db.objectStoreNames.contains(storeName));
+    const transaction = db.transaction(storeNames, 'readwrite');
+    storeNames.forEach((storeName) => {
+      transaction.objectStore(storeName).clear();
+    });
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+// 批量插入记录（流式处理，每次500条）
+function batchInsertRecords(records, batchSize = 500) {
+  return new Promise(async (resolve, reject) => {
+    const total = records.length;
+    let inserted = 0;
+    
+    try {
+      for (let i = 0; i < total; i += batchSize) {
+        const batch = records.slice(i, i + batchSize);
+        
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const objectStore = transaction.objectStore(STORE_NAME);
+        
+        batch.forEach(record => {
+          objectStore.add(record);
+        });
+        
+        await new Promise((res, rej) => {
+          transaction.onerror = () => rej(transaction.error);
+          transaction.oncomplete = () => {
+            inserted += batch.length;
+            // 每批都发送进度报告
+            self.postMessage({
+              type: 'IMPORT_PROGRESS',
+              inserted,
+              total
+            });
+            res();
+          };
+        });
+      }
+      
+      resolve({ imported: inserted });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// 获取总记录数
+function getRecordCount() {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const request = objectStore.count();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// 虚拟滚动：获取分页数据 (pageNum 从 0 开始, pageSize 默认 100)
+function getPagedRecords(pageNum = 0, pageSize = 100) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const allRecords = [];
+    
+    const request = objectStore.openCursor();
+    let count = 0;
+    const startIdx = pageNum * pageSize;
+    const endIdx = startIdx + pageSize;
+    
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        if (count >= startIdx && count < endIdx) {
+          allRecords.push(cursor.value);
+        }
+        count++;
+        cursor.continue();
+      } else {
+        // 游标遍历完毕
+        resolve({
+          records: allRecords,
+          pageNum,
+          pageSize,
+          totalCount: count
+        });
+      }
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// 根据条件查询记录
+function queryRecords(filter = {}) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const results = [];
+    
+    const request = objectStore.openCursor();
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        const record = cursor.value;
+        let match = true;
+        
+        // 简单过滤逻辑
+        if (filter.minYear && record.year && record.year < filter.minYear) match = false;
+        if (filter.maxYear && record.year && record.year > filter.maxYear) match = false;
+        if (filter.excludeKeywords && filter.excludeKeywords.some(kw => 
+          record.title_norm?.includes(kw.toLowerCase()) || 
+          record.abstract?.toLowerCase().includes(kw.toLowerCase())
+        )) match = false;
+        
+        if (match) results.push(record);
+        cursor.continue();
+      } else {
+        resolve(results);
+      }
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// 更新记录（用于标记排除等）
+function updateRecord(id, updates) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    
+    const getRequest = objectStore.get(id);
+    getRequest.onsuccess = () => {
+      const record = getRequest.result;
+      Object.assign(record, updates);
+      const putRequest = objectStore.put(record);
+      putRequest.onsuccess = () => resolve(record);
+      putRequest.onerror = () => reject(putRequest.error);
+    };
+    
+    getRequest.onerror = () => reject(getRequest.error);
+  });
+}
+
+function putQualityAssessment(assessment) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([QUALITY_STORE], 'readwrite');
+    const objectStore = transaction.objectStore(QUALITY_STORE);
+    const payload = {
+      ...assessment,
+      updated_at: assessment.updated_at || new Date().toISOString(),
+    };
+    const request = objectStore.put(payload);
+    request.onsuccess = () => resolve(payload);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getQualityAssessments(projectId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([QUALITY_STORE], 'readonly');
+    const objectStore = transaction.objectStore(QUALITY_STORE);
+    const source = projectId
+      ? objectStore.index('project_id')
+      : objectStore;
+    const request = projectId
+      ? source.getAll(projectId)
+      : source.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function putImportJob(importJob) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([IMPORT_JOB_STORE], 'readwrite');
+    const objectStore = transaction.objectStore(IMPORT_JOB_STORE);
+    const payload = {
+      ...importJob,
+      updated_at: importJob.updated_at || new Date().toISOString(),
+    };
+    const request = objectStore.put(payload);
+    request.onsuccess = () => resolve(payload);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getImportJobs(projectId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([IMPORT_JOB_STORE], 'readonly');
+    const objectStore = transaction.objectStore(IMPORT_JOB_STORE);
+    const source = projectId
+      ? objectStore.index('project_id')
+      : objectStore;
+    const request = projectId
+      ? source.getAll(projectId)
+      : source.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function putProjectManifest(manifest) {
+  return new Promise((resolve, reject) => {
+    if (!manifest || !manifest.projectId) {
+      reject(new Error('Project manifest requires projectId'));
+      return;
+    }
+
+    const transaction = db.transaction([PROJECT_MANIFEST_STORE], 'readwrite');
+    const objectStore = transaction.objectStore(PROJECT_MANIFEST_STORE);
+    const payload = {
+      ...manifest,
+      updatedAt: manifest.updatedAt || new Date().toISOString(),
+    };
+    const request = objectStore.put(payload);
+    request.onsuccess = () => resolve(payload);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getProjectManifest(projectId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([PROJECT_MANIFEST_STORE], 'readonly');
+    const objectStore = transaction.objectStore(PROJECT_MANIFEST_STORE);
+    const request = projectId ? objectStore.get(projectId) : objectStore.getAll();
+    request.onsuccess = () => {
+      if (projectId) {
+        resolve(request.result || null);
+      } else {
+        resolve(request.result || []);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function appendAuditEvents(events) {
+  return new Promise((resolve, reject) => {
+    const list = Array.isArray(events) ? events : [events];
+    const transaction = db.transaction([AUDIT_EVENT_STORE], 'readwrite');
+    const objectStore = transaction.objectStore(AUDIT_EVENT_STORE);
+    const timestamp = new Date().toISOString();
+    const payloads = list
+      .filter(Boolean)
+      .map((event, index) => ({
+        ...event,
+        eventId: event.eventId || `event-${Date.now()}-${index}`,
+        timestamp: event.timestamp || timestamp,
+      }));
+
+    payloads.forEach((event) => {
+      objectStore.put(event);
+    });
+
+    transaction.oncomplete = () => resolve(payloads);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function getAuditTrail(projectId, recordId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([AUDIT_EVENT_STORE], 'readonly');
+    const objectStore = transaction.objectStore(AUDIT_EVENT_STORE);
+    const source = recordId ? objectStore.index('recordId') : objectStore;
+    const request = recordId ? source.getAll(recordId) : source.getAll();
+    request.onsuccess = () => {
+      const events = (request.result || [])
+        .filter((event) => !projectId || event.projectId === projectId)
+        .sort((left, right) => String(left.timestamp || '').localeCompare(String(right.timestamp || '')));
+      resolve(events);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function getAllAuditEvents(projectId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([AUDIT_EVENT_STORE], 'readonly');
+    const objectStore = transaction.objectStore(AUDIT_EVENT_STORE);
+    const source = projectId ? objectStore.index('projectId') : objectStore;
+    const request = projectId ? source.getAll(projectId) : source.getAll();
+    request.onsuccess = () => {
+      const events = (request.result || [])
+        .sort((left, right) => String(left.timestamp || '').localeCompare(String(right.timestamp || '')));
+      resolve(events);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function putScreeningDecisions(decisions) {
+  return new Promise((resolve, reject) => {
+    const list = Array.isArray(decisions) ? decisions : [decisions];
+    const transaction = db.transaction([SCREENING_DECISION_STORE], 'readwrite');
+    const objectStore = transaction.objectStore(SCREENING_DECISION_STORE);
+    const timestamp = new Date().toISOString();
+    const payloads = list
+      .filter(Boolean)
+      .map((decision, index) => ({
+        ...decision,
+        decisionId: decision.decisionId || `decision-${Date.now()}-${index}`,
+        updatedAt: decision.updatedAt || timestamp,
+      }));
+
+    payloads.forEach((decision) => {
+      objectStore.put(decision);
+    });
+
+    transaction.oncomplete = () => resolve(payloads);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function getScreeningDecisions(projectId) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([SCREENING_DECISION_STORE], 'readonly');
+    const objectStore = transaction.objectStore(SCREENING_DECISION_STORE);
+    const source = projectId ? objectStore.index('projectId') : objectStore;
+    const request = projectId ? source.getAll(projectId) : source.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function clearAuditData() {
+  return new Promise((resolve, reject) => {
+    const storeNames = [PROJECT_MANIFEST_STORE, AUDIT_EVENT_STORE, SCREENING_DECISION_STORE]
+      .filter((storeName) => db.objectStoreNames.contains(storeName));
+    const transaction = db.transaction(storeNames, 'readwrite');
+    storeNames.forEach((storeName) => {
+      transaction.objectStore(storeName).clear();
+    });
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+// 导出所有记录为 CSV
+async function exportToCSV(filter = {}) {
+  const records = await queryRecords(filter);
+  if (records.length === 0) return '';
+  
+  const keys = Object.keys(records[0]);
+  const header = keys.map(k => `"${k}"`).join(',');
+  const rows = records.map(r => 
+    keys.map(k => {
+      const v = r[k];
+      if (v === null || v === undefined) return '""';
+      if (typeof v === 'string') return `"${v.replace(/"/g, '""')}"`;
+      return `"${v}"`;
+    }).join(',')
+  );
+  
+  return [header, ...rows].join('\n');
+}
+
+// 处理 Worker 消息
+self.onmessage = async (event) => {
+  const { type, data } = event.data;
+  
+  try {
+    switch (type) {
+      case 'INIT_DB':
+        await initDB();
+        self.postMessage({ type: 'DB_READY' });
+        break;
+        
+      case 'CLEAR_DATA':
+        await clearAllData();
+        self.postMessage({ type: 'DATA_CLEARED' });
+        break;
+        
+      case 'IMPORT_RECORDS':
+        const result = await batchInsertRecords(data.records, data.batchSize || 500);
+        self.postMessage({ type: 'IMPORT_COMPLETE', result });
+        break;
+        
+      case 'GET_COUNT':
+        const count = await getRecordCount();
+        self.postMessage({ type: 'COUNT_RESULT', count });
+        break;
+        
+      case 'GET_PAGED':
+        const paged = await getPagedRecords(data.pageNum, data.pageSize);
+        self.postMessage({ type: 'PAGED_RESULT', paged });
+        break;
+        
+      case 'QUERY_RECORDS':
+        const records = await queryRecords(data.filter);
+        self.postMessage({ type: 'QUERY_RESULT', records });
+        break;
+        
+      case 'UPDATE_RECORD':
+        const updated = await updateRecord(data.id, data.updates);
+        self.postMessage({ type: 'UPDATE_RESULT', updated });
+        break;
+        
+      case 'EXPORT_CSV':
+        const csv = await exportToCSV(data.filter);
+        self.postMessage({ type: 'EXPORT_RESULT', csv });
+        break;
+
+      case 'UPSERT_QUALITY_ASSESSMENT':
+        const qualityAssessment = await putQualityAssessment(data.assessment);
+        self.postMessage({ type: 'QUALITY_ASSESSMENT_RESULT', assessment: qualityAssessment });
+        break;
+
+      case 'GET_QUALITY_ASSESSMENTS':
+        const qualityAssessments = await getQualityAssessments(data.projectId);
+        self.postMessage({ type: 'QUALITY_ASSESSMENTS_RESULT', assessments: qualityAssessments });
+        break;
+
+      case 'UPSERT_IMPORT_JOB':
+        const importJob = await putImportJob(data.importJob);
+        self.postMessage({ type: 'IMPORT_JOB_RESULT', importJob });
+        break;
+
+      case 'GET_IMPORT_JOBS':
+        const importJobs = await getImportJobs(data.projectId);
+        self.postMessage({ type: 'IMPORT_JOBS_RESULT', importJobs });
+        break;
+
+      case 'UPSERT_PROJECT_MANIFEST':
+        const projectManifest = await putProjectManifest(data.manifest);
+        self.postMessage({ type: 'PROJECT_MANIFEST_RESULT', manifest: projectManifest });
+        break;
+
+      case 'GET_PROJECT_MANIFEST':
+        const fetchedManifest = await getProjectManifest(data.projectId);
+        self.postMessage({ type: 'PROJECT_MANIFEST_RESULT', manifest: fetchedManifest });
+        break;
+
+      case 'APPEND_AUDIT_EVENTS':
+        const auditEvents = await appendAuditEvents(data.events || data.event);
+        self.postMessage({ type: 'AUDIT_EVENTS_RESULT', events: auditEvents });
+        break;
+
+      case 'GET_AUDIT_TRAIL':
+        const auditTrail = await getAuditTrail(data.projectId, data.recordId);
+        self.postMessage({ type: 'AUDIT_TRAIL_RESULT', events: auditTrail });
+        break;
+
+      case 'GET_ALL_AUDIT_EVENTS':
+        const allAuditEvents = await getAllAuditEvents(data.projectId);
+        self.postMessage({ type: 'AUDIT_EVENTS_RESULT', events: allAuditEvents });
+        break;
+
+      case 'UPSERT_SCREENING_DECISIONS':
+        const screeningDecisions = await putScreeningDecisions(data.decisions || data.decision);
+        self.postMessage({ type: 'SCREENING_DECISIONS_RESULT', decisions: screeningDecisions });
+        break;
+
+      case 'GET_SCREENING_DECISIONS':
+        const fetchedScreeningDecisions = await getScreeningDecisions(data.projectId);
+        self.postMessage({ type: 'SCREENING_DECISIONS_RESULT', decisions: fetchedScreeningDecisions });
+        break;
+
+      case 'CLEAR_AUDIT_DATA':
+        await clearAuditData();
+        self.postMessage({ type: 'AUDIT_DATA_CLEARED' });
+        break;
+         
+      default:
+        self.postMessage({ type: 'ERROR', error: 'Unknown message type' });
+    }
+  } catch (error) {
+    self.postMessage({ type: 'ERROR', error: error.message });
+  }
+};
+
+// 启动 Worker 时初始化数据库
+(async () => {
+  await initDB();
+  self.postMessage({ type: 'WORKER_READY' });
+})();
