@@ -29,12 +29,12 @@ test('v2.2 app records audit events across the review workflow', async () => {
   const source = await readV22App();
   const requiredEventTypes = [
     'record_imported',
-    'dedup_auto_removed',
-    'dedup_candidate_flagged',
-    'rule_screen_decision',
-    'full_text_decision_finalized',
-    'quality_queue_prepared',
-    'study_design_suggested',
+    'hard_duplicate_removed',
+    'candidate_duplicate_flagged',
+    'rule_screening_decision',
+    'manual_screening_decision',
+    'quality_appraisal_started',
+    'quality_appraisal_updated',
     'export_generated',
   ];
 

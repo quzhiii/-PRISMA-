@@ -515,6 +515,10 @@ select {
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.six-step-grid {
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .grid-2,
 .two-column,
 .landing-grid {
@@ -1136,6 +1140,41 @@ select {
 	top: 14px;
 	z-index: 20;
 	backdrop-filter: blur(14px);
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 12px;
+	padding: 18px;
+}
+
+.workspace-steps .step {
+	min-height: 74px;
+	justify-content: center;
+	padding: 12px 10px;
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.5);
+	border: 1px solid rgba(36, 52, 71, 0.08);
+}
+
+.workspace-steps .step-divider {
+	display: none;
+}
+
+.workspace-steps .step-label {
+	font-size: 15px;
+	font-weight: 650;
+	white-space: nowrap;
+}
+
+.workspace-steps .step-circle {
+	width: 42px;
+	height: 42px;
+	flex-basis: 42px;
+}
+
+.workspace-steps .step.active,
+.workspace-steps .step.completed {
+	background: rgba(255, 255, 255, 0.78);
+	border-color: rgba(36, 52, 71, 0.16);
+	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .workspace-toolbar {
@@ -1225,6 +1264,70 @@ select {
 
 .workspace-stat-grid .stat-card .stat-value {
 	font-size: clamp(26px, 3.6vw, 40px);
+}
+
+.quality-assessment-card {
+	margin-bottom: 10px;
+	padding: var(--space-16);
+}
+
+.quality-assessment-card-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: var(--space-12);
+}
+
+.quality-assessment-card-head strong {
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+}
+
+.quality-assessment-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: var(--space-12);
+}
+
+.quality-meta-pill,
+.quality-summary-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	border: 1px solid rgba(36, 52, 71, 0.1);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.68);
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	line-height: 1.2;
+	padding: 7px 10px;
+}
+
+.quality-meta-label {
+	color: var(--color-text-muted);
+	font-weight: 700;
+}
+
+.quality-meta-value {
+	color: var(--color-text);
+	font-weight: 650;
+}
+
+.quality-summary-block {
+	margin-top: var(--space-12);
+}
+
+.quality-summary-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.quality-summary-chip strong {
+	color: var(--color-text);
+	font-weight: 800;
 }
 
 .card-title {

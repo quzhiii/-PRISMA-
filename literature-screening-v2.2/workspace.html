@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="Professional PRISMA literature screening workspace with screening, full-text review, quality assessment, evidence grading, and PRISMA 2020 export.">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.2 audit-ready local-first evidence screening workspace with import, conservative deduplication, full-text review, quality appraisal, and audit package export.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
   <title>PRISMA Literature Screening v2.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=20260428-v22-quality-ui">
 </head>
 <body>
   <div class="site-shell">
@@ -25,8 +25,8 @@
             </svg>
           </span>
           <span class="brand-copy">
-            <span class="brand-title"><span class="zh">PRISMA 文献筛选</span><span class="en">PRISMA Literature Screening</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.1</span><span class="en">Research-grade workspace v2.1</span></span>
+            <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.2 audit-ready</span><span class="en">Research-grade workspace v2.2 audit-ready</span></span>
           </span>
         </a>
         <div class="nav-actions">
@@ -88,7 +88,7 @@
             </ul>
           </div>
           <div class="task-start-actions">
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()"><span class="zh">上传真实项目文件</span><span class="en">Upload real project files</span></button>
+            <button type="button" class="btn btn-primary" id="uploadFilesButton"><span class="zh">上传真实项目文件</span><span class="en">Upload real project files</span></button>
             <button type="button" class="btn btn-secondary" onclick="loadSampleData()"><span class="zh">加载示例数据</span><span class="en">Load Sample Data</span></button>
             <button type="button" class="btn btn-secondary" onclick="toggleDatabaseGuide()"><span class="zh">查看数据库导出教程</span><span class="en">View Export Guide</span></button>
             <button type="button" class="btn btn-secondary" onclick="showVideoTutorial()"><span class="zh">打开视频教程</span><span class="en">Open Video Guide</span></button>
@@ -162,7 +162,7 @@
 
         <div id="importJobShellPanel" class="info-box workspace-info-panel" style="margin-top: var(--space-20); border-left-color: var(--color-info);">
           <h3><span class="zh">导入任务</span><span class="en">Import Jobs</span></h3>
-          <p><span class="zh">V2.1 已接入后台导入任务状态，并为常用格式启用真正的增量解析。当前版本先覆盖任务阶段、文件进度与解析计数，可恢复导入留待后续补齐。</span><span class="en">V2.1 now exposes import-job state and enables real incremental parsing for common formats. This release covers job stage, file progress, and parsed counts; resumable import is the next layer.</span></p>
+          <p><span class="zh">V2.2 保留后台导入任务状态，并为常用格式启用真正的增量解析；审计事件会记录导入、解析和后续导出节点。</span><span class="en">V2.2 keeps import-job state and real incremental parsing for common formats; audit events record import, parsing, and later export milestones.</span></p>
           <div id="importJobSummary" class="muted-text"></div>
           <div id="importJobList" style="margin-top: 12px;"></div>
         </div>
@@ -617,7 +617,7 @@
           <div>
             <div class="card-kicker step-badge">STEP 05</div>
             <h2 class="card-title"><span class="zh">质量评价</span><span class="en">Quality Assessment</span></h2>
-            <p class="section-subtitle"><span class="zh">V2.1 首发提供研究设计、质量工具和证据等级的正式工作流入口，域级详细表单将在后续版本继续补强。</span><span class="en">V2.1 formally introduces study-design, quality-tool, and evidence-grading entry points, with deeper domain forms to be strengthened in later releases.</span></p>
+            <p class="section-subtitle"><span class="zh">质量评价是在确定纳入研究后，对每篇研究的方法学质量、偏倚风险和证据可信度做一致记录。它帮助判断结论有多可靠，也让后续 PRISMA 报告和审计追溯更清楚。</span><span class="en">Quality assessment records each included study's methodological quality, risk of bias, and evidence certainty in a consistent way. It helps reviewers judge how reliable the findings are and keeps later PRISMA reporting auditable.</span></p>
           </div>
         </div>
 
@@ -638,8 +638,8 @@
         </div>
 
         <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
-          <h3><span class="zh">V2.1 质量评价工作流</span><span class="en">V2.1 quality workflow</span></h3>
-          <p><span class="zh">当前发布版已经提供项目级持久化、研究设计识别、工具族建议和证据等级基线。完整的域级问卷仍会在后续版本继续补充。</span><span class="en">This release already ships project-level persistence, study-design suggestions, tool-family mapping, and evidence baselines. Full domain forms remain a follow-on enhancement.</span></p>
+          <h3><span class="zh">当前版本如何处理质量评价</span><span class="en">How this version handles quality assessment</span></h3>
+          <p><span class="zh">V2.2 会先为最终纳入研究生成可审计的质量评价队列，自动给出研究设计、建议工具和证据等级基线。研究者可以先核对这些基础判断，后续版本再继续补充更细的领域问卷。</span><span class="en">V2.2 starts by creating an audit-ready quality queue for included studies, with suggested study design, appraisal tool, and baseline evidence level. Reviewers can verify these baseline judgments now while deeper domain forms remain planned.</span></p>
         </div>
 
         <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
@@ -808,12 +808,12 @@
       document.querySelectorAll('.en').forEach((el) => {
         el.hidden = isZh;
       });
-      document.title = isZh ? 'PRISMA 文献筛选工作台 v2.2' : 'PRISMA Literature Screening Workspace v2.2';
+      document.title = isZh ? 'PRISMA Workbench v2.2 工作台' : 'PRISMA Workbench v2.2 Workspace';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? '专业级 PRISMA 文献筛选工作台，支持初筛结果、全文复核、质量评价与 PRISMA 2020 导出。'
-          : 'Professional PRISMA literature screening workspace with screening summaries, full-text review, quality assessment, and PRISMA 2020 export.';
+          ? 'PRISMA Workbench v2.2 audit-ready 本地优先工作台，支持导入、保守去重、全文复核、质量评价和审计包导出。'
+          : 'PRISMA Workbench v2.2 audit-ready local-first workspace for import, conservative deduplication, full-text review, quality appraisal, and audit package export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
@@ -862,7 +862,7 @@
   <script src="quality-engine.js?v=20260422-v21-shell"></script>
   <script src="import-job-runtime.js?v=20260422-v21-shell"></script>
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
-  <script src="app.js?v=20260422-v21-streaming-v2"></script>
+  <script src="app.js?v=20260428-v22-quality-ui"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>
 </html>

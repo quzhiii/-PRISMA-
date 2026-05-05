@@ -147,6 +147,37 @@ test('calculates PRISMA counts from durable decisions and dedup events', () => {
   assert.equal(counts.studiesIncluded, 1);
 });
 
+test('normalizes legacy audit event names to the design contract while preserving count compatibility', () => {
+  const events = [
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: 'record-1' }),
+    AuditEngine.createAuditEvent({ eventType: 'dedup_auto_removed', recordId: 'record-2' }),
+    AuditEngine.createAuditEvent({ eventType: 'dedup_candidate_flagged', recordId: 'record-3' }),
+    AuditEngine.createAuditEvent({ eventType: 'rule_screen_decision', recordId: 'record-1' }),
+    AuditEngine.createAuditEvent({ eventType: 'full_text_decision_finalized', recordId: 'record-1' }),
+    AuditEngine.createAuditEvent({ eventType: 'quality_queue_prepared', recordId: 'record-1' }),
+    AuditEngine.createAuditEvent({ eventType: 'study_design_suggested', recordId: 'record-1' }),
+  ];
+  const jsonl = AuditEngine.serializeEventsJsonl(events);
+  const exportedTypes = jsonl.trim().split('\n').map((line) => JSON.parse(line).event_type);
+
+  assert.deepEqual(exportedTypes, [
+    'record_imported',
+    'hard_duplicate_removed',
+    'candidate_duplicate_flagged',
+    'rule_screening_decision',
+    'manual_screening_decision',
+    'quality_appraisal_started',
+    'quality_appraisal_updated',
+  ]);
+  assert.equal(AuditEngine.calculatePrismaCountsFromDecisions([], events).duplicatesRemoved, 1);
+  assert.equal(
+    AuditEngine.calculatePrismaCountsFromDecisions([], [
+      AuditEngine.createAuditEvent({ eventType: 'hard_duplicate_removed', recordId: 'record-2' }),
+    ]).duplicatesRemoved,
+    1
+  );
+});
+
 test('serializes audit events as JSONL', () => {
   const events = [
     AuditEngine.createAuditEvent({
@@ -167,8 +198,8 @@ test('serializes audit events as JSONL', () => {
   const lines = jsonl.trim().split('\n');
 
   assert.equal(lines.length, 2);
-  assert.equal(JSON.parse(lines[0]).eventId, 'event-1');
-  assert.equal(JSON.parse(lines[1]).eventType, 'rule_screen_decision');
+  assert.equal(JSON.parse(lines[0]).event_id, 'event-1');
+  assert.equal(JSON.parse(lines[1]).event_type, 'rule_screening_decision');
 });
 
 test('serializes screening decisions and exclusion reasons as CSV', () => {
@@ -185,8 +216,8 @@ test('serializes screening decisions and exclusion reasons as CSV', () => {
   const decisionCsv = AuditEngine.serializeScreeningDecisionsCsv(decisions);
   const reasonCsv = AuditEngine.serializeExclusionReasonsCsv(decisions);
 
-  assert.match(decisionCsv, /recordId,stage,decision,exclusionReason/);
-  assert.match(decisionCsv, /"中文备注, with comma"/);
+  assert.match(decisionCsv, /record_id,source_file,source_database,screening_stage,human_decision,exclusion_reason/);
+  assert.match(decisionCsv, /record-1,,,full_text,exclude,wrong_population/);
   assert.match(reasonCsv, /wrong_population/);
   assert.match(reasonCsv, /1/);
 });

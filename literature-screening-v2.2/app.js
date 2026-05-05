@@ -23,6 +23,38 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_prisma_counts',
   'audit_summary',
 ]);
+const QUALITY_DISPLAY_LABELS = Object.freeze({
+  status: {
+    not_started: { zh: '未开始', en: 'Not started' },
+    in_progress: { zh: '进行中', en: 'In progress' },
+    completed: { zh: '已完成', en: 'Completed' },
+  },
+  studyDesign: {
+    rct: { zh: '随机对照试验', en: 'Randomized trial' },
+    systematic_review: { zh: '系统综述 / Meta 分析', en: 'Systematic review / meta-analysis' },
+    cohort: { zh: '队列研究', en: 'Cohort study' },
+    case_control: { zh: '病例对照研究', en: 'Case-control study' },
+    cross_sectional: { zh: '横断面研究', en: 'Cross-sectional study' },
+    non_randomized_intervention: { zh: '非随机干预研究', en: 'Non-randomized intervention' },
+    case_report: { zh: '病例报告', en: 'Case report' },
+    case_series: { zh: '病例系列', en: 'Case series' },
+    other: { zh: '其他 / 待确认', en: 'Other / needs review' },
+  },
+  toolFamily: {
+    rob2_lite: { zh: 'RoB 2 简版', en: 'RoB 2 Lite' },
+    amstar2_lite: { zh: 'AMSTAR 2 简版', en: 'AMSTAR 2 Lite' },
+    jbi_nos_lite: { zh: 'JBI / NOS 简版', en: 'JBI / NOS Lite' },
+    robins_i_lite: { zh: 'ROBINS-I 简版', en: 'ROBINS-I Lite' },
+    case_report_lite: { zh: '病例报告简版', en: 'Case report lite' },
+    generic_quality_shell: { zh: '通用质量评价框架', en: 'Generic quality shell' },
+  },
+  evidence: {
+    high: { zh: '高', en: 'High' },
+    moderate: { zh: '中等', en: 'Moderate' },
+    low: { zh: '低', en: 'Low' },
+    very_low: { zh: '很低', en: 'Very low' },
+  },
+});
 let qualityAssessments = [];
 let importJobs = [];
 let projectManifest = null;
@@ -469,7 +501,7 @@ function prepareQualityAssessmentShell(options = {}) {
 
   if (persist && typeof appendAuditEventsSafe === 'function') {
     const qualityEvents = [{
-      eventType: 'quality_queue_prepared',
+      eventType: 'quality_appraisal_started',
       recordId: '',
       after: {
         assessmentCount: qualityAssessments.length,
@@ -479,7 +511,7 @@ function prepareQualityAssessmentShell(options = {}) {
         includedCount: includedRecords.length,
       },
     }].concat(qualityAssessments.map((assessment) => ({
-      eventType: 'study_design_suggested',
+      eventType: 'quality_appraisal_updated',
       recordId: String(assessment.record_id || ''),
       after: {
         studyDesign: assessment.study_design || '',
@@ -502,6 +534,53 @@ function prepareQualityAssessmentShell(options = {}) {
   }
 
   return qualityAssessments;
+}
+
+function getQualityDisplayLabel(labelGroup, value, lang) {
+  const key = String(value || '').trim();
+  const group = QUALITY_DISPLAY_LABELS[labelGroup] || {};
+  const label = group[key];
+
+  if (label && label[lang]) {
+    return label[lang];
+  }
+
+  if (!key) {
+    return lang === 'zh' ? '待确认' : 'Pending';
+  }
+
+  return key.replace(/_/g, ' ');
+}
+
+function renderQualityDisplayLabel(labelGroup, value) {
+  return `
+    <span class="zh">${escapeShellText(getQualityDisplayLabel(labelGroup, value, 'zh'))}</span>
+    <span class="en">${escapeShellText(getQualityDisplayLabel(labelGroup, value, 'en'))}</span>
+  `;
+}
+
+function renderQualityMetaPill(labelZh, labelEn, labelGroup, value) {
+  return `
+    <span class="quality-meta-pill">
+      <span class="quality-meta-label"><span class="zh">${labelZh}</span><span class="en">${labelEn}</span></span>
+      <span class="quality-meta-value">${renderQualityDisplayLabel(labelGroup, value)}</span>
+    </span>
+  `;
+}
+
+function renderQualityDistribution(entries, labelGroup) {
+  if (!entries || entries.length === 0) {
+    return '<span class="zh">待生成</span><span class="en">Pending</span>';
+  }
+
+  return entries
+    .map(([key, value]) => `
+      <span class="quality-summary-chip">
+        <span>${renderQualityDisplayLabel(labelGroup, key)}</span>
+        <strong>${Number(value) || 0}</strong>
+      </span>
+    `)
+    .join('');
 }
 
 function upsertImportJobState(importJob, options = {}) {
@@ -631,14 +710,15 @@ function renderQualityAssessmentShell() {
   queueEl.innerHTML = qualityAssessments
     .slice(0, 8)
     .map((assessment) => `
-      <div class="surface-panel" style="margin-bottom: 10px; padding: var(--space-12);">
-        <div style="display: flex; justify-content: space-between; gap: var(--space-12); align-items: center;">
+      <div class="surface-panel quality-assessment-card">
+        <div class="quality-assessment-card-head">
           <strong>${escapeShellText(assessment.title || assessment.record_id)}</strong>
-          <span class="format-tag">${escapeShellText(assessment.status)}</span>
+          <span class="format-tag">${renderQualityDisplayLabel('status', assessment.status)}</span>
         </div>
-        <div class="muted-text" style="margin-top: 6px;">
-          <span class="zh">研究设计 ${escapeShellText(assessment.study_design)}，工具 ${escapeShellText(assessment.tool_family)}，证据基线 ${escapeShellText(assessment.evidence_initial)}</span>
-          <span class="en">Design ${escapeShellText(assessment.study_design)}, tool ${escapeShellText(assessment.tool_family)}, baseline evidence ${escapeShellText(assessment.evidence_initial)}</span>
+        <div class="quality-assessment-meta">
+          ${renderQualityMetaPill('研究设计', 'Design', 'studyDesign', assessment.study_design)}
+          ${renderQualityMetaPill('评价工具', 'Tool', 'toolFamily', assessment.tool_family)}
+          ${renderQualityMetaPill('证据基线', 'Evidence baseline', 'evidence', assessment.evidence_initial)}
         </div>
       </div>
     `)
@@ -652,13 +732,13 @@ function renderQualityAssessmentShell() {
       <span class="zh">总纳入 ${summary.totalIncluded} 篇，已完成 ${summary.completedAssessments} 篇，缺少 ${summary.missingAssessments} 篇。</span>
       <span class="en">${summary.totalIncluded} included, ${summary.completedAssessments} completed, ${summary.missingAssessments} missing.</span>
     </div>
-    <div style="margin-top: 10px;">
+    <div class="quality-summary-block">
       <strong><span class="zh">工具分布</span><span class="en">Tool families</span></strong>
-      <div class="muted-text" style="margin-top: 6px;">${toolFamilyEntries.length > 0 ? toolFamilyEntries.map(([key, value]) => `${escapeShellText(key)}: ${value}`).join(' / ') : 'pending'}</div>
+      <div class="quality-summary-list">${renderQualityDistribution(toolFamilyEntries, 'toolFamily')}</div>
     </div>
-    <div style="margin-top: 10px;">
+    <div class="quality-summary-block">
       <strong><span class="zh">证据等级分布</span><span class="en">Evidence levels</span></strong>
-      <div class="muted-text" style="margin-top: 6px;">${evidenceEntries.length > 0 ? evidenceEntries.map(([key, value]) => `${escapeShellText(key)}: ${value}`).join(' / ') : 'pending'}</div>
+      <div class="quality-summary-list">${renderQualityDistribution(evidenceEntries, 'evidence')}</div>
     </div>
   `;
 
@@ -859,6 +939,16 @@ function initializeRuntimeContext(mode) {
   currentReviewer = currentUserSession?.role === 'reviewer-b' ? 'B' : 'A';
 }
 
+function openFilePicker() {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput) {
+    console.error('File input not found');
+    showToast('未找到上传控件，请刷新页面后重试', 'error');
+    return;
+  }
+  fileInput.click();
+}
+
 // Initialize
 function init() {
   runtimeMode = detectRuntimeMode();
@@ -866,6 +956,7 @@ function init() {
 
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
+  const uploadFilesButton = document.getElementById('uploadFilesButton');
 
   applyModeGating(runtimeMode);
 
@@ -874,7 +965,10 @@ function init() {
     return;
   }
 
-  uploadArea.addEventListener('click', () => fileInput.click());
+  if (uploadFilesButton) {
+    uploadFilesButton.addEventListener('click', openFilePicker);
+  }
+  uploadArea.addEventListener('click', openFilePicker);
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -3804,7 +3898,7 @@ function goToStep4() {
   displayFulltextReviewUI();
 }
 
-// v2.1: Step 5 for quality assessment shell
+// v2.2: Step 5 for quality assessment shell
 function goToStep5() {
   if (!screeningResults) {
     showToast('请先完成文献筛选', 'warning');
@@ -4152,7 +4246,7 @@ function runDedupForScreening(data) {
 
   if (typeof appendAuditEventsSafe === 'function') {
     const hardEvents = result.hardDuplicates.map((entry, index) => ({
-      eventType: 'dedup_auto_removed',
+        eventType: 'hard_duplicate_removed',
       recordId: getRecordAuditId(entry.duplicateRecord, index),
       before: {
         duplicateRecordId: getRecordAuditId(entry.duplicateRecord, index),
@@ -4171,7 +4265,7 @@ function runDedupForScreening(data) {
       },
     }));
     const candidateEvents = result.candidateDuplicates.map((entry, index) => ({
-      eventType: 'dedup_candidate_flagged',
+        eventType: 'candidate_duplicate_flagged',
       recordId: getRecordAuditId(entry.leftRecord, index),
       after: {
         decision: 'candidate_duplicate',
@@ -4397,7 +4491,7 @@ function performScreening(data, rules) {
         },
       }, { persist: false });
       decisionEvents.push({
-        eventType: 'rule_screen_decision',
+        eventType: 'rule_screening_decision',
         recordId,
         after: {
           stage: 'title_abstract',
@@ -4421,7 +4515,7 @@ function performScreening(data, rules) {
         source: 'rule',
       }, { persist: false });
       decisionEvents.push({
-        eventType: 'rule_screen_decision',
+          eventType: 'rule_screening_decision',
         recordId,
         after: {
           stage: 'title_abstract',
@@ -6355,7 +6449,7 @@ function finalizeFulltextReview() {
         },
       }, { persist: false });
       reviewEvents.push({
-        eventType: 'full_text_decision_finalized',
+      eventType: 'manual_screening_decision',
         recordId,
         after: {
           stage: 'full_text',
@@ -6387,7 +6481,7 @@ function finalizeFulltextReview() {
 
   console.log('- 更新后总排除文献数:', screeningResults.excluded.length);
 
-  // v2.1: Go to Step 5 (Quality Assessment)
+  // v2.2: Go to Step 5 (Quality Assessment)
   persistCurrentProjectState();
   if (FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
     prepareQualityAssessmentShell({ silent: true });

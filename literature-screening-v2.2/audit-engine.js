@@ -30,6 +30,17 @@
 
   const VALID_AI_MODES = new Set(['off', 'assistive', 'experimental']);
   const VALID_DECISIONS = new Set(['include', 'exclude', 'uncertain', 'pending']);
+  const VALID_CONFLICT_STATUSES = new Set(['none', 'pending', 'resolved']);
+  const VALID_QUALITY_APPRAISAL_STATUSES = new Set(['not_started', 'queued', 'in_progress', 'complete']);
+  const VALID_FINAL_EXPORT_STATUSES = new Set(['not_exported', 'included', 'excluded', 'warning']);
+  const EVENT_TYPE_ALIASES = Object.freeze({
+    dedup_auto_removed: 'hard_duplicate_removed',
+    dedup_candidate_flagged: 'candidate_duplicate_flagged',
+    rule_screen_decision: 'rule_screening_decision',
+    full_text_decision_finalized: 'manual_screening_decision',
+    quality_queue_prepared: 'quality_appraisal_started',
+    study_design_suggested: 'quality_appraisal_updated',
+  });
 
   function nowIso() {
     return new Date().toISOString();
@@ -99,6 +110,37 @@
     return VALID_DECISIONS.has(normalized) ? normalized : 'pending';
   }
 
+  function normalizeEventType(value) {
+    const normalized = normalizeString(value, 'unknown_event');
+    return EVENT_TYPE_ALIASES[normalized] || normalized;
+  }
+
+  function normalizeEnum(value, allowedValues, fallback) {
+    const normalized = normalizeString(value, fallback).toLowerCase();
+    return allowedValues.has(normalized) ? normalized : fallback;
+  }
+
+  function normalizeBoolean(value, fallback) {
+    if (value === undefined || value === null || value === '') {
+      return Boolean(fallback);
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+    if (['true', '1', 'yes'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no'].includes(normalized)) {
+      return false;
+    }
+
+    return Boolean(fallback);
+  }
+
   function normalizeExclusionReason(value) {
     const normalized = normalizeString(value, '');
     if (!normalized) {
@@ -122,6 +164,9 @@
       reviewType: normalizeString(payload.reviewType || payload.review_type, 'systematic_review'),
       prismaVersion: normalizeString(payload.prismaVersion || payload.prisma_version, 'PRISMA_2020'),
       aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
+      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.2'),
+      dataResidency: normalizeString(payload.dataResidency || payload.data_residency, 'local_browser'),
+      exportGeneratedAt: normalizeString(payload.exportGeneratedAt || payload.export_generated_at, timestamp),
       dataSources: normalizeArray(payload.dataSources || payload.data_sources),
       reviewers: normalizeArray(payload.reviewers),
       settings: normalizeObject(payload.settings),
@@ -138,8 +183,12 @@
       timestamp: normalizeString(payload.timestamp, '') || nowIso(),
       actorId: normalizeString(payload.actorId || payload.actor_id, 'system'),
       actorRole: normalizeString(payload.actorRole || payload.actor_role, 'system'),
-      eventType: normalizeString(payload.eventType || payload.event_type, 'unknown_event'),
+      eventType: normalizeEventType(payload.eventType || payload.event_type),
       recordId: normalizeString(payload.recordId || payload.record_id, ''),
+      stage: normalizeString(payload.stage, ''),
+      sourceFile: normalizeString(payload.sourceFile || payload.source_file, ''),
+      sourceDatabase: normalizeString(payload.sourceDatabase || payload.source_database, ''),
+      payload: normalizeObject(payload.payload),
       before: clonePlain(payload.before, null),
       after: clonePlain(payload.after, null),
       reason: normalizeString(payload.reason, ''),
@@ -195,10 +244,19 @@
       decisionId: normalizeString(payload.decisionId || payload.decision_id, makeId('decision')),
       projectId: normalizeString(payload.projectId || payload.project_id, ''),
       recordId: normalizeString(payload.recordId || payload.record_id, ''),
-      stage: normalizeString(payload.stage, 'title_abstract'),
-      decision: normalizeDecision(payload.decision),
+      sourceFile: normalizeString(payload.sourceFile || payload.source_file, ''),
+      sourceDatabase: normalizeString(payload.sourceDatabase || payload.source_database, ''),
+      stage: normalizeString(payload.stage || payload.screening_stage, 'title_abstract'),
+      decision: normalizeDecision(payload.decision || payload.human_decision),
       exclusionReason: normalizeExclusionReason(payload.exclusionReason || payload.exclusion_reason),
       reviewerId: normalizeString(payload.reviewerId || payload.reviewer_id, 'system'),
+      conflictStatus: normalizeEnum(payload.conflictStatus || payload.conflict_status, VALID_CONFLICT_STATUSES, 'none'),
+      qualityAppraisalStatus: normalizeEnum(payload.qualityAppraisalStatus || payload.quality_appraisal_status, VALID_QUALITY_APPRAISAL_STATUSES, 'not_started'),
+      aiAssistanceUsed: normalizeBoolean(payload.aiAssistanceUsed === undefined ? payload.ai_assistance_used : payload.aiAssistanceUsed, false),
+      aiModel: normalizeString(payload.aiModel || payload.ai_model, ''),
+      aiPromptHash: normalizeString(payload.aiPromptHash || payload.ai_prompt_hash, ''),
+      aiOutputSummary: normalizeString(payload.aiOutputSummary || payload.ai_output_summary, ''),
+      finalExportStatus: normalizeEnum(payload.finalExportStatus || payload.final_export_status, VALID_FINAL_EXPORT_STATUSES, 'not_exported'),
       decidedAt: timestamp,
       updatedAt: normalizeString(payload.updatedAt || payload.updated_at, timestamp),
       source: normalizeString(payload.source, 'human'),
@@ -217,12 +275,23 @@
       ...base,
       projectId: normalizeString(next.projectId || next.project_id, base.projectId),
       recordId: normalizeString(next.recordId || next.record_id, base.recordId),
-      stage: normalizeString(next.stage, base.stage),
-      decision: next.decision === undefined ? base.decision : normalizeDecision(next.decision),
+      sourceFile: normalizeString(next.sourceFile || next.source_file, base.sourceFile),
+      sourceDatabase: normalizeString(next.sourceDatabase || next.source_database, base.sourceDatabase),
+      stage: normalizeString(next.stage || next.screening_stage, base.stage),
+      decision: next.decision === undefined && next.human_decision === undefined ? base.decision : normalizeDecision(next.decision || next.human_decision),
       exclusionReason: next.exclusionReason === undefined && next.exclusion_reason === undefined
         ? base.exclusionReason
         : normalizeExclusionReason(next.exclusionReason || next.exclusion_reason),
       reviewerId: normalizeString(next.reviewerId || next.reviewer_id, base.reviewerId),
+      conflictStatus: normalizeEnum(next.conflictStatus || next.conflict_status, VALID_CONFLICT_STATUSES, base.conflictStatus),
+      qualityAppraisalStatus: normalizeEnum(next.qualityAppraisalStatus || next.quality_appraisal_status, VALID_QUALITY_APPRAISAL_STATUSES, base.qualityAppraisalStatus),
+      aiAssistanceUsed: next.aiAssistanceUsed === undefined && next.ai_assistance_used === undefined
+        ? base.aiAssistanceUsed
+        : normalizeBoolean(next.aiAssistanceUsed === undefined ? next.ai_assistance_used : next.aiAssistanceUsed, base.aiAssistanceUsed),
+      aiModel: normalizeString(next.aiModel || next.ai_model, base.aiModel),
+      aiPromptHash: normalizeString(next.aiPromptHash || next.ai_prompt_hash, base.aiPromptHash),
+      aiOutputSummary: normalizeString(next.aiOutputSummary || next.ai_output_summary, base.aiOutputSummary),
+      finalExportStatus: normalizeEnum(next.finalExportStatus || next.final_export_status, VALID_FINAL_EXPORT_STATUSES, base.finalExportStatus),
       updatedAt,
       source: normalizeString(next.source, base.source),
       notes: next.notes === undefined ? base.notes : normalizeString(next.notes, ''),
@@ -239,7 +308,7 @@
 
     return {
       recordsImported: countUniqueEvents(eventList, 'record_imported'),
-      duplicatesRemoved: countUniqueEvents(eventList, 'dedup_auto_removed'),
+      duplicatesRemoved: countUniqueEvents(eventList, 'hard_duplicate_removed'),
       titleAbstractIncluded: countDecisions(titleAbstract, 'include'),
       titleAbstractExcluded: countDecisions(titleAbstract, 'exclude'),
       titleAbstractUncertain: countDecisions(titleAbstract, 'uncertain'),
@@ -289,7 +358,7 @@
     events.forEach((entry) => {
       const event = createAuditEvent(entry);
 
-      if (event.eventType !== eventType) {
+      if (normalizeEventType(event.eventType) !== eventType) {
         return;
       }
 
@@ -334,26 +403,32 @@
       return '';
     }
 
-    return `${list.map((event) => JSON.stringify(createAuditEvent(event))).join('\n')}\n`;
+    return `${list.map((event) => JSON.stringify(toExportAuditEvent(event))).join('\n')}\n`;
   }
 
   function serializeScreeningDecisionsCsv(decisions) {
     const fields = [
-      'decisionId',
-      'projectId',
-      'recordId',
-      'stage',
-      'decision',
-      'exclusionReason',
-      'reviewerId',
-      'decidedAt',
-      'updatedAt',
-      'source',
-      'notes',
+      'decision_id',
+      'project_id',
+      'record_id',
+      'source_file',
+      'source_database',
+      'screening_stage',
+      'human_decision',
+      'exclusion_reason',
+      'reviewer_id',
+      'conflict_status',
+      'quality_appraisal_status',
+      'ai_assistance_used',
+      'ai_model',
+      'ai_prompt_hash',
+      'ai_output_summary',
+      'final_export_status',
+      'updated_at',
     ];
 
     const rows = (Array.isArray(decisions) ? decisions : []).map((decision) => {
-      const normalized = createScreeningDecision(decision);
+      const normalized = toExportScreeningDecision(decision);
       return fields.map((field) => csvCell(normalized[field])).join(',');
     });
 
@@ -387,7 +462,65 @@
   }
 
   function buildProjectManifestExport(manifestInput) {
-    return createProjectManifest(manifestInput);
+    return toExportProjectManifest(manifestInput);
+  }
+
+  function toExportProjectManifest(manifestInput) {
+    const manifest = createProjectManifest(manifestInput);
+    return {
+      project_id: manifest.projectId,
+      project_name: manifest.projectName,
+      created_at: manifest.createdAt,
+      updated_at: manifest.updatedAt,
+      app_version: manifest.appVersion,
+      audit_schema_version: manifest.schemaVersion,
+      prisma_version: manifest.prismaVersion,
+      ai_mode: manifest.aiMode,
+      data_residency: manifest.dataResidency,
+      export_generated_at: manifest.exportGeneratedAt,
+    };
+  }
+
+  function toExportAuditEvent(eventInput) {
+    const event = createAuditEvent(eventInput);
+    return {
+      event_id: event.eventId,
+      project_id: event.projectId,
+      record_id: event.recordId || null,
+      event_type: event.eventType,
+      stage: event.stage,
+      timestamp: event.timestamp,
+      actor_id: event.actorId,
+      source_file: event.sourceFile || null,
+      source_database: event.sourceDatabase || null,
+      payload: event.payload,
+      previous_value: event.before,
+      new_value: event.after,
+      audit_schema_version: event.schemaVersion,
+    };
+  }
+
+  function toExportScreeningDecision(decisionInput) {
+    const decision = createScreeningDecision(decisionInput);
+    return {
+      decision_id: decision.decisionId,
+      project_id: decision.projectId,
+      record_id: decision.recordId,
+      source_file: decision.sourceFile,
+      source_database: decision.sourceDatabase,
+      screening_stage: decision.stage,
+      human_decision: decision.decision,
+      exclusion_reason: decision.exclusionReason,
+      reviewer_id: decision.reviewerId,
+      conflict_status: decision.conflictStatus,
+      quality_appraisal_status: decision.qualityAppraisalStatus,
+      ai_assistance_used: decision.aiAssistanceUsed,
+      ai_model: decision.aiModel,
+      ai_prompt_hash: decision.aiPromptHash,
+      ai_output_summary: decision.aiOutputSummary,
+      final_export_status: decision.finalExportStatus,
+      updated_at: decision.updatedAt,
+    };
   }
 
   function buildPrismaCountsJson(decisions, events) {
