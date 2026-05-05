@@ -274,3 +274,147 @@ test('v2.2 db worker declares audit stores and message handlers', async () => {
   assert.match(workerSource, /case 'APPEND_AUDIT_EVENTS'/);
   assert.match(workerSource, /case 'GET_SCREENING_DECISIONS'/);
 });
+
+test('PRISMA count replay handles empty data gracefully', () => {
+  const emptyCounts = AuditEngine.calculatePrismaCountsFromDecisions([], []);
+  assert.equal(emptyCounts.recordsImported, 0);
+  assert.equal(emptyCounts.duplicatesRemoved, 0);
+  assert.equal(emptyCounts.titleAbstractIncluded, 0);
+  assert.equal(emptyCounts.titleAbstractExcluded, 0);
+  assert.equal(emptyCounts.titleAbstractUncertain, 0);
+  assert.equal(emptyCounts.fullTextAssessed, 0);
+  assert.equal(emptyCounts.fullTextIncluded, 0);
+  assert.equal(emptyCounts.fullTextExcluded, 0);
+  assert.equal(emptyCounts.studiesIncluded, 0);
+
+  const nullCounts = AuditEngine.calculatePrismaCountsFromDecisions(null, null);
+  assert.equal(nullCounts.recordsImported, 0);
+
+  const undefinedCounts = AuditEngine.calculatePrismaCountsFromDecisions(undefined, undefined);
+  assert.equal(undefinedCounts.studiesIncluded, 0);
+});
+
+test('PRISMA count replay deduplicates import events by recordId', () => {
+  const events = [
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: 'record-A' }),
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: 'record-A' }),
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: 'record-A' }),
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: 'record-B' }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions([], events);
+  assert.equal(counts.recordsImported, 2);
+});
+
+test('PRISMA count replay keeps latest decision per record-stage-reviewer triple', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-X',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-1',
+      decision: 'include',
+      decidedAt: '2026-01-01T10:00:00.000Z',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-X',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-1',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      decidedAt: '2026-01-02T10:00:00.000Z',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.titleAbstractExcluded, 1);
+  assert.equal(counts.titleAbstractIncluded, 0);
+});
+
+test('PRISMA count replay separates reviewers for the same record', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Y',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-1',
+      decision: 'include',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Y',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-2',
+      decision: 'exclude',
+      exclusionReason: 'wrong_outcome',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.titleAbstractIncluded, 1);
+  assert.equal(counts.titleAbstractExcluded, 1);
+});
+
+test('PRISMA count replay handles decisions across multiple stages for the same record', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Z',
+      stage: 'title_abstract',
+      decision: 'include',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Z',
+      stage: 'full_text',
+      decision: 'exclude',
+      exclusionReason: 'wrong_study_design',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.titleAbstractIncluded, 1);
+  assert.equal(counts.fullTextAssessed, 1);
+  assert.equal(counts.fullTextExcluded, 1);
+  assert.equal(counts.studiesIncluded, 0);
+});
+
+test('PRISMA count replay counts pending decisions as not assessed at full text', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-P1',
+      stage: 'full_text',
+      decision: 'pending',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-P2',
+      stage: 'full_text',
+      decision: 'include',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-P3',
+      stage: 'full_text',
+      decision: 'uncertain',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.fullTextAssessed, 2);
+  assert.equal(counts.fullTextIncluded, 1);
+  assert.equal(counts.fullTextExcluded, 0);
+});
+
+test('PRISMA count replay counts anonymous events without recordId', () => {
+  const events = [
+    AuditEngine.createAuditEvent({ eventType: 'record_imported', recordId: '' }),
+    AuditEngine.createAuditEvent({ eventType: 'record_imported' }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions([], events);
+  assert.equal(counts.recordsImported, 2);
+});
+
+test('PRISMA count replay mixes legacy and normalized dedup event names', () => {
+  const events = [
+    AuditEngine.createAuditEvent({ eventType: 'dedup_auto_removed', recordId: 'r-old' }),
+    AuditEngine.createAuditEvent({ eventType: 'hard_duplicate_removed', recordId: 'r-new' }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions([], events);
+  assert.equal(counts.duplicatesRemoved, 2);
+});
