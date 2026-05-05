@@ -65,7 +65,7 @@ flowchart LR
 | V2.1 stable | `literature-screening-v2.0/` | GitHub Pages 当前稳定路径，保留 6 步工作流和质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
 
-V2.2 的重点是让筛选过程形成可复核的数据链，界面负责把这条链路呈现出来。新增导出包括：
+V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型与内部设计文档 `AUDIT_LEDGER_DESIGN.md` 对齐，导出采用稳定的 `snake_case` 字段命名，同时兼容旧版本存储的数据格式。新增导出包括：
 
 | 文件 | 用途 |
 |---|---|
@@ -152,6 +152,8 @@ node tests\run-all-regressions.js
 - 新增 `audit-engine.js`
 - 新增 `ProjectManifest`、`AuditEvent`、`ScreeningDecision`
 - 导入、去重、规则筛选、全文复核、质量评价和导出节点写入审计事件
+- 审计事件类型规范化：自动映射旧名称到 `AUDIT_LEDGER_DESIGN.md` 设计文档标准名称，保证旧数据兼容
+- 审计导出采用稳定的 `snake_case` 字段命名（`project_id`、`screening_stage`、`human_decision` 等）
 - 新增审计包导出：manifest、events、decisions、exclusion reasons、counts、summary
 - AI 模式默认保持 `off`
 

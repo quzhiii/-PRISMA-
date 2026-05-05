@@ -65,7 +65,7 @@ flowchart LR
 | V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.2 focuses on making the screening workflow auditable as data. It adds these exports:
+V2.2 focuses on making the screening workflow auditable as data. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. It adds these exports:
 
 | File | Purpose |
 |---|---|
@@ -152,6 +152,8 @@ Current coverage includes:
 - adds `audit-engine.js`
 - adds `ProjectManifest`, `AuditEvent`, and `ScreeningDecision`
 - records workflow events for import, deduplication, rule screening, full-text review, quality setup, and exports
+- normalizes audit event types: automatically maps legacy names to the `AUDIT_LEDGER_DESIGN.md` contract names, keeping legacy data compatible
+- exports use a stable `snake_case` field schema (`project_id`, `screening_stage`, `human_decision`, etc.)
 - exports the audit package: manifest, events, decisions, exclusion reasons, counts, and summary
 - keeps AI mode `off` by default
 
