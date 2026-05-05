@@ -753,6 +753,7 @@
               <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">下载全部</span><span class="en">Download All</span></button>
             </div>
             <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
+            <p class="section-subtitle" style="margin-bottom: 10px;"><span class="zh">审计包记录完整的筛选过程证据，全部在浏览器本地生成，不会自动上传。可用于方法学附录、审稿回复或研究团队内部分享。</span><span class="en">The audit package captures the full screening evidence chain. Everything is generated locally in your browser and never uploaded automatically. Use it for methodology appendices, reviewer responses, or team sharing.</span></p>
             <div class="button-group">
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_manifest')"><span class="zh">项目清单 JSON</span><span class="en">Project Manifest</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_events')"><span class="zh">事件日志 JSONL</span><span class="en">Event Log JSONL</span></button>
@@ -761,6 +762,43 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_prisma_counts')"><span class="zh">PRISMA 计数 JSON</span><span class="en">PRISMA Counts</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_summary')"><span class="zh">审计摘要 MD</span><span class="en">Audit Summary</span></button>
             </div>
+            <details style="margin-top: 10px; font-size: 13px; color: var(--text-muted, #666);">
+              <summary style="cursor: pointer;"><span class="zh">每个文件是什么？</span><span class="en">What is each file?</span></summary>
+              <table style="width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border, #ddd);">
+                    <th style="text-align: left; padding: 4px 8px;"><span class="zh">文件</span><span class="en">File</span></th>
+                    <th style="text-align: left; padding: 4px 8px;"><span class="zh">用途</span><span class="en">Purpose</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>project_manifest.json</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">项目名称、PRISMA 版本、AI 模式、应用版本等基本信息</span><span class="en">Project name, PRISMA version, AI mode, app version and other metadata</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>events.jsonl</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">按时间顺序记录导入、去重、筛选、复核、质量评价和导出的所有事件</span><span class="en">Chronological log of all import, dedup, screening, review, quality, and export events</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>screening_decisions.csv</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">每条文献的筛选阶段、纳入/排除决定、排除理由、审稿人、冲突状态和 AI 使用情况</span><span class="en">Per-record screening stage, include/exclude decision, exclusion reason, reviewer, conflict status, and AI usage</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>exclusion_reasons.csv</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">标准排除理由分类和每类计数，适合放在 PRISMA 图下方</span><span class="en">Standardized exclusion reason categories and counts, suitable for PRISMA diagram annotation</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>prisma_counts.json</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">从审计数据重新计算的 PRISMA 流程图数字，可直接用于 PRISMA 2020 checklist</span><span class="en">PRISMA flow diagram counts recalculated from audit data, ready for the PRISMA 2020 checklist</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 8px;"><code>audit_summary.md</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">可读的审计摘要：事件数量、决策数量、PRISMA 计数、AI 模式、数据边界和风险提示</span><span class="en">Human-readable audit summary: event counts, decision counts, PRISMA counts, AI mode, data boundary, and risk notes</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </details>
             <p class="muted-text" style="margin-top: 12px;"><span class="zh">当前主题：</span><span class="en">Current theme:</span> <span id="currentThemeLabelFinal">柔和版</span></p>
           </div>
         </div>
