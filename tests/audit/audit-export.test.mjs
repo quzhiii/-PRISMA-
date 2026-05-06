@@ -46,6 +46,66 @@ test('builds project manifest and PRISMA counts export objects', () => {
   assert.equal(countsExport.counts.studiesIncluded, 1);
 });
 
+test('builds AI usage registry and PRISMA-trAIce report exports', () => {
+  const manifest = AuditEngine.createProjectManifest({
+    projectId: 'project-1',
+    projectName: 'AI transparency review',
+    aiMode: 'assistive',
+    aiUsageRegistry: [{
+      usageId: 'default-ai-mode',
+      projectId: 'project-1',
+      aiMode: 'assistive',
+      providerType: 'local',
+      providerName: 'local_mock_provider',
+      modelName: 'mock-screening-assistant',
+      allowedStages: ['title_abstract'],
+      dataBoundary: 'local_only',
+      userAcknowledged: true,
+    }],
+  });
+  const registryExport = AuditEngine.buildAiUsageRegistryExport(manifest);
+  const suggestionsJsonl = AuditEngine.serializeAiSuggestionEventsJsonl([
+    AuditEngine.createAiSuggestionEvent({
+      projectId: 'project-1',
+      recordId: 'record-1',
+      stage: 'title_abstract',
+      mode: 'suggest_only',
+      modelName: 'mock-screening-assistant',
+      promptHash: 'prompt-hash',
+      inputHash: 'input-hash',
+      inputSummary: 'short summary',
+      suggestedDecision: 'include',
+      rationale: 'Mock suggestion',
+      confidence: 0.7,
+      humanAction: 'pending',
+    }),
+  ]);
+  const report = AuditEngine.buildPrismaTraiceReportMarkdown(manifest, [
+    AuditEngine.createAiSuggestionEvent({
+      projectId: 'project-1',
+      recordId: 'record-1',
+      stage: 'title_abstract',
+      mode: 'suggest_only',
+      modelName: 'mock-screening-assistant',
+      promptHash: 'prompt-hash',
+      inputHash: 'input-hash',
+      inputSummary: 'short summary',
+      suggestedDecision: 'include',
+      rationale: 'Mock suggestion',
+      confidence: 0.7,
+      humanAction: 'accepted',
+    }),
+  ]);
+
+  assert.equal(registryExport.aiMode, 'assistive');
+  assert.equal(registryExport.registry.length, 1);
+  assert.equal(registryExport.registry[0].provider_type, 'local');
+  assert.equal(JSON.parse(suggestionsJsonl.trim()).suggested_decision, 'include');
+  assert.match(report, /AI Usage Registry/);
+  assert.match(report, /AI Suggestion Summary/);
+  assert.match(report, /human confirmation/i);
+});
+
 test('serializes audit package artifacts with stable escaping', () => {
   const events = [
     AuditEngine.createAuditEvent({
@@ -94,6 +154,9 @@ test('v2.2 app exposes all audit export download types', async () => {
     'audit_exclusion_reasons',
     'audit_prisma_counts',
     'audit_summary',
+    'ai_usage_registry',
+    'ai_suggestions',
+    'prisma_traice_report',
   ];
   const expectedFiles = [
     'project_manifest.json',
@@ -102,6 +165,9 @@ test('v2.2 app exposes all audit export download types', async () => {
     'exclusion_reasons.csv',
     'prisma_counts.json',
     'audit_summary.md',
+    'ai_usage_registry.json',
+    'ai_suggestions.jsonl',
+    'PRISMA_TRAICE_REPORT.md',
   ];
 
   expectedTypes.forEach((type) => assert.match(source, new RegExp(`'${type}'`)));
@@ -123,6 +189,10 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('audit_exclusion_reasons'\)/);
   assert.match(workspaceHtml, /downloadFile\('audit_prisma_counts'\)/);
   assert.match(workspaceHtml, /downloadFile\('audit_summary'\)/);
+  assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
+  assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
+  assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
+  assert.match(workspaceHtml, /Generate Mock AI Suggestions/);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

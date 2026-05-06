@@ -18,11 +18,15 @@ test('v2.2 app persists audit state in project snapshots', async () => {
   assert.match(source, /let projectManifest = null;/);
   assert.match(source, /let auditEvents = \[\];/);
   assert.match(source, /let screeningDecisions = \[\];/);
+  assert.match(source, /let aiSuggestionEvents = \[\];/);
   assert.match(source, /function appendAuditEventsSafe/);
   assert.match(source, /function upsertScreeningDecisionSafe/);
+  assert.match(source, /function appendAiSuggestionEventsSafe/);
+  assert.match(source, /function upsertAiUsageRegistrySafe/);
   assert.match(source, /projectManifest: ensureProjectManifest\(\)/);
   assert.match(source, /auditEvents,/);
   assert.match(source, /screeningDecisions/);
+  assert.match(source, /aiSuggestionEvents/);
 });
 
 test('v2.2 app records audit events across the review workflow', async () => {
@@ -36,6 +40,8 @@ test('v2.2 app records audit events across the review workflow', async () => {
     'quality_appraisal_started',
     'quality_appraisal_updated',
     'export_generated',
+    'ai_mode_updated',
+    'ai_suggestion_generated',
   ];
 
   requiredEventTypes.forEach((eventType) => {
@@ -51,4 +57,29 @@ test('v2.2 app writes durable screening decisions for rule and full-text stages'
   assert.match(source, /source: 'rule'/);
   assert.match(source, /source: 'human'/);
   assert.match(source, /normalizeAuditExclusionReason/);
+});
+
+test('v2.2 app keeps mock AI suggestions separate from final screening decisions', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /generateMockAiSuggestions/);
+  assert.match(source, /buildMockAiSuggestionForRecord/);
+  assert.match(source, /appendAiSuggestionEventsSafe\(suggestions/);
+  assert.match(source, /showToast\(`已生成 \$\{suggestions\.length\} 条本地 mock AI 建议，仍需人工确认`/);
+});
+
+test('v2.2 app supports accept, reject, and edit actions for AI suggestions', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function acceptAiSuggestion/);
+  assert.match(source, /function rejectAiSuggestion/);
+  assert.match(source, /function editAiSuggestion\(suggestionId, editedDecision, exclusionReason = ''\)/);
+  assert.match(source, /human_ai_confirmation/);
+  assert.match(source, /eventType: 'ai_suggestion_reviewed'/);
+  assert.match(source, /renderAiSuggestionPanel/);
+  assert.match(source, /normalizeAiHumanDecision\(editedDecision\)/);
+  assert.match(source, /toggleAiSuggestionEditReason/);
+  assert.match(source, /选择排除理由 \/ Choose a reason/);
+  assert.match(source, /humanEditedDecision: normalizedDecision/);
+  assert.doesNotMatch(source, /suggestion\.suggestedDecision === 'include' \? 'uncertain' : 'include'/);
 });

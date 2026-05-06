@@ -22,6 +22,9 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_exclusion_reasons',
   'audit_prisma_counts',
   'audit_summary',
+  'ai_usage_registry',
+  'ai_suggestions',
+  'prisma_traice_report',
 ]);
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
@@ -60,6 +63,7 @@ let importJobs = [];
 let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
+let aiSuggestionEvents = [];
 
 // Runtime mode state (Task 8)
 const RUNTIME_MODE = {
@@ -3377,6 +3381,359 @@ function updateProjectManifestSafe(patch = {}, options = {}) {
   return projectManifest;
 }
 
+function upsertAiUsageRegistrySafe(entryInput, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.upsertAiUsageRegistry !== 'function') {
+    return [];
+  }
+
+  const { persist = true } = options;
+  const manifest = ensureProjectManifest() || {};
+  const registry = AUDIT_ENGINE.upsertAiUsageRegistry(manifest.aiUsageRegistry || [], {
+    projectId: ensureProjectId(),
+    aiMode: manifest.aiMode || 'off',
+    ...entryInput,
+  });
+  updateProjectManifestSafe({ aiUsageRegistry: registry }, { persist });
+  return registry;
+}
+
+function appendAiSuggestionEventsSafe(eventInputs, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.appendAiSuggestionEvent !== 'function') {
+    return [];
+  }
+
+  const { persist = true } = options;
+  ensureProjectManifest();
+  const inputs = Array.isArray(eventInputs) ? eventInputs : [eventInputs];
+  const normalizedInputs = inputs.filter(Boolean).map((eventInput) => ({
+    projectId: ensureProjectId(),
+    ...eventInput,
+  }));
+
+  if (normalizedInputs.length === 0) return aiSuggestionEvents;
+
+  aiSuggestionEvents = AUDIT_ENGINE.appendAiSuggestionEvent(aiSuggestionEvents, normalizedInputs);
+  if (persist) persistAuditState();
+  return aiSuggestionEvents;
+}
+
+function updateAiSuggestionEventSafe(suggestionId, patch = {}, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.createAiSuggestionEvent !== 'function') {
+    return null;
+  }
+
+  const { persist = true } = options;
+  const index = aiSuggestionEvents.findIndex((entry) => String(entry?.suggestionId || '') === String(suggestionId || ''));
+  if (index < 0) return null;
+
+  const current = AUDIT_ENGINE.createAiSuggestionEvent(aiSuggestionEvents[index]);
+  const next = AUDIT_ENGINE.createAiSuggestionEvent({
+    ...current,
+    ...patch,
+    suggestionId: current.suggestionId,
+    projectId: current.projectId || ensureProjectId(),
+    createdAt: current.createdAt,
+  });
+  aiSuggestionEvents[index] = next;
+  if (persist) persistAuditState();
+  return next;
+}
+
+function ensureDefaultAiUsageRegistry(options = {}) {
+  const manifest = ensureProjectManifest();
+  if (!manifest) return [];
+  if (Array.isArray(manifest.aiUsageRegistry) && manifest.aiUsageRegistry.length > 0) {
+    return manifest.aiUsageRegistry;
+  }
+
+  return upsertAiUsageRegistrySafe({
+    usageId: 'default-ai-mode',
+    providerType: manifest.aiMode === 'off' ? 'none' : 'local',
+    providerName: manifest.aiMode === 'off' ? '' : 'local_mock_provider',
+    modelName: manifest.aiMode === 'off' ? '' : 'mock-screening-assistant',
+    allowedStages: ['title_abstract'],
+    dataBoundary: 'local_only',
+    userAcknowledged: manifest.aiMode === 'off',
+  }, options);
+}
+
+function setAiModeSafe(nextMode, options = {}) {
+  const mode = String(nextMode || 'off').trim();
+  if (!AUDIT_ENGINE || !['off', 'assistive', 'experimental'].includes(mode)) {
+    return ensureProjectManifest();
+  }
+
+  const manifest = updateProjectManifestSafe({ aiMode: mode }, options);
+  const providerType = mode === 'off' ? 'none' : 'local';
+  const providerName = mode === 'off' ? '' : 'local_mock_provider';
+  const modelName = mode === 'off' ? '' : 'mock-screening-assistant';
+  const acknowledged = mode === 'off';
+  upsertAiUsageRegistrySafe({
+    usageId: 'default-ai-mode',
+    aiMode: mode,
+    providerType,
+    providerName,
+    modelName,
+    allowedStages: ['title_abstract'],
+    dataBoundary: 'local_only',
+    userAcknowledged: acknowledged,
+    enabledAt: manifest?.updatedAt || new Date().toISOString(),
+    disabledAt: mode === 'off' ? manifest?.updatedAt || new Date().toISOString() : '',
+  }, options);
+
+  if (typeof appendAuditEventsSafe === 'function') {
+    appendAuditEventsSafe({
+      eventType: 'ai_mode_updated',
+      recordId: '',
+      after: {
+        aiMode: mode,
+      },
+      source: 'human',
+    }, { persist: false });
+  }
+
+  if (options.persist !== false) {
+    persistCurrentProjectState();
+  }
+
+  return ensureProjectManifest();
+}
+
+function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
+  const recordId = getRecordAuditId(record, 0);
+  const title = String(record?.title || record?.TI || record?.T1 || '').trim();
+  const abstractText = String(record?.abstract || record?.AB || record?.N2 || '').trim();
+  const combined = `${title}\n${abstractText}`.toLowerCase();
+  const looksRelevant = /trial|cohort|random|systematic|meta|干预|研究|队列|随机/.test(combined);
+  const suggestedDecision = looksRelevant ? 'include' : 'uncertain';
+  const confidence = looksRelevant ? 0.74 : 0.41;
+  const inputSummary = title
+    ? title.slice(0, 140)
+    : `Record ${recordId}`;
+  const inputHash = `mock-input-${recordId}`;
+  const promptHash = 'mock-prompt-title-abstract-v1';
+
+  return {
+    projectId: ensureProjectId(),
+    recordId,
+    stage,
+    mode: 'suggest_only',
+    modelName: 'mock-screening-assistant',
+    promptHash,
+    inputHash,
+    inputSummary,
+    suggestedDecision,
+    rationale: looksRelevant
+      ? 'Mock pathway flagged study-like design terms and kept the record for human confirmation.'
+      : 'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.',
+    confidence,
+    humanAction: 'pending',
+    metadata: {
+      mock: true,
+      source: 'local_demo',
+    },
+  };
+}
+
+function generateMockAiSuggestions(limit = 3) {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传或加载示例数据，再生成 mock AI 建议', 'warning');
+    return [];
+  }
+
+  const manifest = setAiModeSafe('assistive', { persist: false });
+  const registry = ensureDefaultAiUsageRegistry({ persist: false });
+  const selected = uploadedData.slice(0, Math.max(1, limit));
+  const suggestions = selected.map((record) => buildMockAiSuggestionForRecord(record, 'title_abstract'));
+  appendAiSuggestionEventsSafe(suggestions, { persist: false });
+
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_generated',
+    recordId: '',
+    after: {
+      suggestionCount: suggestions.length,
+      aiMode: manifest?.aiMode || 'assistive',
+    },
+    source: 'system',
+    metadata: {
+      mock: true,
+      registryCount: registry.length,
+    },
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast(`已生成 ${suggestions.length} 条本地 mock AI 建议，仍需人工确认`, 'success');
+  return suggestions;
+}
+
+function getAiSuggestionById(suggestionId) {
+  return aiSuggestionEvents.find((entry) => String(entry?.suggestionId || '') === String(suggestionId || '')) || null;
+}
+
+function normalizeAiHumanDecision(decision) {
+  const normalized = String(decision || '').trim().toLowerCase();
+  return ['include', 'exclude', 'uncertain'].includes(normalized) ? normalized : '';
+}
+
+function getAiSuggestionControlId(suggestionId, controlName) {
+  const safeId = String(suggestionId || '').replace(/[^a-z0-9_-]/gi, '_') || 'unknown';
+  return `ai-suggestion-${controlName}-${safeId}`;
+}
+
+function toggleAiSuggestionEditReason(suggestionId) {
+  const decisionSelect = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-decision'));
+  const reasonWrapper = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-reason-wrapper'));
+  const reasonSelect = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-reason'));
+  const isExclude = decisionSelect?.value === 'exclude';
+
+  if (reasonWrapper) reasonWrapper.hidden = !isExclude;
+  if (reasonSelect) reasonSelect.disabled = !isExclude;
+}
+
+function buildHumanConfirmedDecisionFromSuggestion(suggestion, overrideDecision, options = {}) {
+  const normalizedDecision = normalizeAiHumanDecision(overrideDecision || suggestion?.suggestedDecision) || 'uncertain';
+  const originalExclusionReason = String(options.exclusionReason || options.exclusion_reason || '').trim();
+  const exclusionReason = normalizedDecision === 'exclude'
+    ? normalizeAuditExclusionReason(originalExclusionReason)
+    : '';
+  const record = uploadedData.find((entry, index) => getRecordAuditId(entry, index) === suggestion.recordId) || null;
+  const actor = getAuditActorContext();
+
+  return upsertScreeningDecisionSafe({
+    recordId: suggestion.recordId,
+    stage: suggestion.stage || 'title_abstract',
+    decision: normalizedDecision,
+    exclusionReason,
+    reviewerId: `${actor.actorId}_ai_confirmed`,
+    sourceFile: record?._sourceFile || '',
+    sourceDatabase: record?._source || '',
+    source: 'human_ai_confirmation',
+    aiAssistanceUsed: true,
+    aiModel: suggestion.modelName || 'mock-screening-assistant',
+    aiPromptHash: suggestion.promptHash || '',
+    aiOutputSummary: suggestion.rationale || '',
+    notes: options.notes || `Human confirmation from AI suggestion ${suggestion.suggestionId}`,
+    metadata: {
+      aiSuggestionId: suggestion.suggestionId,
+      mock: suggestion.metadata?.mock === true,
+      humanEditedDecision: options.humanEditedDecision || '',
+      originalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+    },
+  }, { persist: false });
+}
+
+function acceptAiSuggestion(suggestionId) {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  const decision = buildHumanConfirmedDecisionFromSuggestion(suggestion, suggestion.suggestedDecision);
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'accepted',
+    linkedDecisionId: decision?.decisionId || '',
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'accepted',
+      linkedDecisionId: decision?.decisionId || '',
+    },
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast('已接受 AI 建议，并生成对应的人类确认 decision', 'success');
+}
+
+function rejectAiSuggestion(suggestionId) {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'rejected',
+    linkedDecisionId: '',
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'rejected',
+      linkedDecisionId: '',
+    },
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast('已拒绝 AI 建议，未改动最终筛选 decision', 'info');
+}
+
+function editAiSuggestion(suggestionId, editedDecision, exclusionReason = '') {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  const normalizedDecision = normalizeAiHumanDecision(editedDecision);
+  if (!normalizedDecision) {
+    showToast('请选择 include、exclude 或 uncertain 后再改写', 'warning');
+    return;
+  }
+
+  const originalExclusionReason = String(exclusionReason || '').trim();
+  if (normalizedDecision === 'exclude' && !originalExclusionReason) {
+    showToast('请选择排除理由后再改写为 exclude', 'warning');
+    return;
+  }
+
+  const normalizedExclusionReason = normalizedDecision === 'exclude'
+    ? normalizeAuditExclusionReason(originalExclusionReason)
+    : '';
+  const decision = buildHumanConfirmedDecisionFromSuggestion(suggestion, normalizedDecision, {
+    exclusionReason: originalExclusionReason,
+    humanEditedDecision: normalizedDecision,
+    notes: normalizedDecision === 'exclude'
+      ? `Human-edited AI suggestion ${suggestion.suggestionId}; exclusion reason: ${normalizedExclusionReason}`
+      : `Human-edited AI suggestion ${suggestion.suggestionId}`,
+  });
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'edited',
+    linkedDecisionId: decision?.decisionId || '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      humanEditedDecision: normalizedDecision,
+      humanEditedExclusionReason: normalizedExclusionReason,
+      humanEditedOriginalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+    },
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'edited',
+      linkedDecisionId: decision?.decisionId || '',
+      editedDecision: normalizedDecision,
+      exclusionReason: normalizedExclusionReason,
+      originalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+    },
+    reason: normalizedExclusionReason,
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast(`已改写 AI 建议，并按人工决定记录为 ${normalizedDecision}`, 'success');
+}
+
 function persistAuditState() {
   if (typeof localStorage === 'undefined' || !currentProjectId) return;
 
@@ -3388,6 +3745,7 @@ function persistAuditState() {
       projectManifest,
       auditEvents,
       screeningDecisions,
+      aiSuggestionEvents,
     }));
   } catch (error) {
     console.warn('Failed to persist audit state:', error);
@@ -3507,14 +3865,17 @@ function startNewProjectSession() {
   importJobs = [];
   auditEvents = [];
   screeningDecisions = [];
+  aiSuggestionEvents = [];
   projectManifest = null;
   ensureProjectManifest();
+  ensureDefaultAiUsageRegistry({ persist: false });
 
   persistCurrentProjectState();
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiSuggestionPanel();
   updateStep4EntryLock();
 }
 
@@ -3537,7 +3898,8 @@ function persistCurrentProjectState() {
     importJobs,
     projectManifest: ensureProjectManifest(),
     auditEvents,
-    screeningDecisions
+    screeningDecisions,
+    aiSuggestionEvents,
   };
   try {
     localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
@@ -3564,7 +3926,9 @@ function restoreProjectState(snapshot) {
   projectManifest = snapshot.projectManifest || null;
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
+  aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
   ensureProjectManifest();
+  ensureDefaultAiUsageRegistry({ persist: false });
 
   // v1.4: template
   if (Array.isArray(snapshot.exclusionReasons) && snapshot.exclusionReasons.length > 0) {
@@ -3575,6 +3939,86 @@ function restoreProjectState(snapshot) {
 
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiSuggestionPanel();
+}
+
+function renderAiSuggestionPanel() {
+  const container = document.getElementById('aiSuggestionPanel');
+  if (!container) return;
+
+  if (!Array.isArray(aiSuggestionEvents) || aiSuggestionEvents.length === 0) {
+    container.innerHTML = `
+      <div class="muted-text">
+        <span class="zh">当前还没有 AI 建议。可以先生成本地 mock 建议，再人工接受、拒绝或改写。</span>
+        <span class="en">There are no AI suggestions yet. Generate local mock suggestions first, then accept, reject, or edit them manually.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  const reasonOptions = template
+    .map((reason) => `<option value="${escapeHTML(reason)}">${escapeHTML(reason)}</option>`)
+    .join('');
+
+  const rows = aiSuggestionEvents.slice().reverse().map((entry) => {
+    const isPending = entry.humanAction === 'pending';
+    const editDecisionId = getAiSuggestionControlId(entry.suggestionId, 'edit-decision');
+    const editReasonWrapperId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason-wrapper');
+    const editReasonId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason');
+    const suggestionId = escapeHTML(entry.suggestionId);
+    const linkedDecision = entry.linkedDecisionId
+      ? `<div class="muted-text" style="margin-top: 6px;"><span class="zh">关联 decision:</span><span class="en">Linked decision:</span> <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
+      : '';
+    const editControls = isPending
+      ? `
+        <div style="display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr); gap: 8px; margin-top: 10px;">
+          <label class="form-label" style="margin-bottom: 0;">
+            <span class="zh">人类改写决定</span><span class="en">Human rewrite decision</span>
+            <select id="${editDecisionId}" class="form-input" onchange="toggleAiSuggestionEditReason('${suggestionId}')" style="margin-top: 4px;">
+              <option value="">选择 / Choose</option>
+              <option value="include">include</option>
+              <option value="exclude">exclude</option>
+              <option value="uncertain">uncertain</option>
+            </select>
+          </label>
+          <label id="${editReasonWrapperId}" class="form-label" style="margin-bottom: 0;" hidden>
+            <span class="zh">排除理由</span><span class="en">Exclusion reason</span>
+            <select id="${editReasonId}" class="form-input" style="margin-top: 4px;" disabled>
+              <option value="">选择排除理由 / Choose a reason</option>
+              ${reasonOptions}
+            </select>
+          </label>
+        </div>
+      `
+      : '';
+
+    return `
+      <div class="surface-panel" style="margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;">
+          <div style="flex: 1;">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+              <span class="status-chip">${escapeHTML(entry.stage || 'title_abstract')}</span>
+              <span class="status-chip">${escapeHTML(entry.suggestedDecision || 'uncertain')}</span>
+              <span class="status-chip">${escapeHTML(entry.humanAction || 'pending')}</span>
+            </div>
+            <div style="font-weight: 700; margin-bottom: 6px;">${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId)}</div>
+            <div class="muted-text" style="margin-bottom: 6px;">${escapeHTML(entry.rationale || '')}</div>
+            <div class="muted-text">confidence: ${entry.confidence ?? '-'} | prompt: <code>${escapeHTML(entry.promptHash || '-')}</code></div>
+            ${linkedDecision}
+            ${editControls}
+          </div>
+          <div class="button-group" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="acceptAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}><span class="zh">接受</span><span class="en">Accept</span></button>
+            <button type="button" class="btn btn-secondary" onclick="editAiSuggestion('${suggestionId}', document.getElementById('${editDecisionId}')?.value, document.getElementById('${editReasonId}')?.value)" ${!isPending ? 'disabled' : ''}><span class="zh">改写</span><span class="en">Edit</span></button>
+            <button type="button" class="btn btn-secondary" onclick="rejectAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}><span class="zh">拒绝</span><span class="en">Reject</span></button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = rows;
 }
 
 function shouldAutoRestoreProjectState() {
@@ -3957,6 +4401,7 @@ function setStep(step) {
   }
   if (nextStep === 6 || (!FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT && nextStep === 5)) {
     renderImportJobShell();
+    renderAiSuggestionPanel();
   }
 }
 
@@ -5288,6 +5733,12 @@ function buildAuditExportContent(type) {
       return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
     case 'audit_summary':
       return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions);
+    case 'ai_usage_registry':
+      return JSON.stringify(AUDIT_ENGINE.buildAiUsageRegistryExport(manifest), null, 2);
+    case 'ai_suggestions':
+      return AUDIT_ENGINE.serializeAiSuggestionEventsJsonl(aiSuggestionEvents);
+    case 'prisma_traice_report':
+      return AUDIT_ENGINE.buildPrismaTraiceReportMarkdown(manifest, aiSuggestionEvents);
     default:
       return '';
   }
@@ -5387,6 +5838,18 @@ function downloadFile(type) {
       filename = 'audit_summary.md';
       mimeType = 'text/markdown;charset=utf-8';
       break;
+    case 'ai_usage_registry':
+      filename = 'ai_usage_registry.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
+    case 'ai_suggestions':
+      filename = 'ai_suggestions.jsonl';
+      mimeType = 'application/x-ndjson;charset=utf-8';
+      break;
+    case 'prisma_traice_report':
+      filename = 'PRISMA_TRAICE_REPORT.md';
+      mimeType = 'text/markdown;charset=utf-8';
+      break;
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
@@ -5447,7 +5910,10 @@ function downloadAllFiles() {
     'audit_exclusion_reasons',
     'audit_prisma_counts',
     'audit_summary',
-    'audit_events'
+    'audit_events',
+    'ai_usage_registry',
+    'ai_suggestions',
+    'prisma_traice_report',
   ];
   
   files.forEach((fileType, index) => {
@@ -7625,6 +8091,10 @@ function saveProjectData() {
   projectData.exclusionReasons = sanitizeExclusionTemplate(exclusionReasons);
   projectData.qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
   projectData.importJobs = normalizeImportJobsState(importJobs);
+  projectData.projectManifest = ensureProjectManifest();
+  projectData.auditEvents = auditEvents;
+  projectData.screeningDecisions = screeningDecisions;
+  projectData.aiSuggestionEvents = aiSuggestionEvents;
   projectData.lastSync = new Date().toISOString();
   
   // Save to shared storage

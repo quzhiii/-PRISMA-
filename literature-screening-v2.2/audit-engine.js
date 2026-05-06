@@ -29,6 +29,10 @@
   ]);
 
   const VALID_AI_MODES = new Set(['off', 'assistive', 'experimental']);
+  const VALID_AI_PROVIDER_TYPES = new Set(['none', 'local', 'user_provided_endpoint', 'hosted']);
+  const VALID_AI_DATA_BOUNDARIES = new Set(['local_only', 'hash_only', 'cloud_submitted']);
+  const VALID_AI_SUGGESTION_MODES = new Set(['suggest_only', 'prioritise', 'uncertainty_flagging', 'report_helper']);
+  const VALID_AI_HUMAN_ACTIONS = new Set(['accepted', 'rejected', 'edited', 'ignored', 'pending']);
   const VALID_DECISIONS = new Set(['include', 'exclude', 'uncertain', 'pending']);
   const VALID_CONFLICT_STATUSES = new Set(['none', 'pending', 'resolved']);
   const VALID_QUALITY_APPRAISAL_STATUSES = new Set(['not_started', 'queued', 'in_progress', 'complete']);
@@ -141,6 +145,26 @@
     return Boolean(fallback);
   }
 
+  function normalizeNumber(value, fallback) {
+    if (value === undefined || value === null || value === '') {
+      return fallback;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  function normalizeConfidence(value) {
+    const numeric = normalizeNumber(value, null);
+    if (numeric === null) {
+      return null;
+    }
+
+    if (numeric < 0) return 0;
+    if (numeric > 1) return 1;
+    return numeric;
+  }
+
   function normalizeExclusionReason(value) {
     const normalized = normalizeString(value, '');
     if (!normalized) {
@@ -169,6 +193,10 @@
       exportGeneratedAt: normalizeString(payload.exportGeneratedAt || payload.export_generated_at, timestamp),
       dataSources: normalizeArray(payload.dataSources || payload.data_sources),
       reviewers: normalizeArray(payload.reviewers),
+      aiUsageRegistry: normalizeArray(payload.aiUsageRegistry || payload.ai_usage_registry).map((entry) => createAiUsageRegistryEntry({
+        projectId: payload.projectId || payload.project_id,
+        ...entry,
+      })),
       settings: normalizeObject(payload.settings),
       schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
     };
@@ -264,6 +292,91 @@
       metadata: normalizeObject(payload.metadata),
       schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
     };
+  }
+
+  function createAiUsageRegistryEntry(input) {
+    const payload = input || {};
+    const enabledAt = normalizeString(payload.enabledAt || payload.enabled_at, '') || nowIso();
+    const disabledAt = normalizeString(payload.disabledAt || payload.disabled_at, '');
+
+    return {
+      usageId: normalizeString(payload.usageId || payload.usage_id, makeId('aiusage')),
+      projectId: normalizeString(payload.projectId || payload.project_id, ''),
+      aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
+      providerType: normalizeEnum(payload.providerType || payload.provider_type, VALID_AI_PROVIDER_TYPES, 'none'),
+      providerName: normalizeString(payload.providerName || payload.provider_name, ''),
+      modelName: normalizeString(payload.modelName || payload.model_name, ''),
+      enabledAt,
+      disabledAt,
+      allowedStages: normalizeArray(payload.allowedStages || payload.allowed_stages).map((stage) => normalizeString(stage, '')).filter(Boolean),
+      dataBoundary: normalizeEnum(payload.dataBoundary || payload.data_boundary, VALID_AI_DATA_BOUNDARIES, 'local_only'),
+      userAcknowledged: normalizeBoolean(payload.userAcknowledged === undefined ? payload.user_acknowledged : payload.userAcknowledged, false),
+      metadata: normalizeObject(payload.metadata),
+    };
+  }
+
+  function upsertAiUsageRegistry(registry, entryInput) {
+    const list = Array.isArray(registry) ? registry.slice() : [];
+    const entry = createAiUsageRegistryEntry(entryInput);
+    const existingIndex = list.findIndex((item) => normalizeString(item && (item.usageId || item.usage_id), '') === entry.usageId);
+
+    if (existingIndex >= 0) {
+      list[existingIndex] = entry;
+    } else {
+      list.push(entry);
+    }
+
+    return list.sort((left, right) => normalizeString(left.enabledAt, '').localeCompare(normalizeString(right.enabledAt, '')));
+  }
+
+  function createAiSuggestionEvent(input) {
+    const payload = input || {};
+    const createdAt = normalizeString(payload.createdAt || payload.created_at, '') || nowIso();
+
+    return {
+      suggestionId: normalizeString(payload.suggestionId || payload.suggestion_id, makeId('aisuggestion')),
+      projectId: normalizeString(payload.projectId || payload.project_id, ''),
+      recordId: normalizeString(payload.recordId || payload.record_id, ''),
+      stage: normalizeString(payload.stage, 'title_abstract'),
+      mode: normalizeEnum(payload.mode, VALID_AI_SUGGESTION_MODES, 'suggest_only'),
+      modelName: normalizeString(payload.modelName || payload.model_name, ''),
+      promptHash: normalizeString(payload.promptHash || payload.prompt_hash, ''),
+      inputHash: normalizeString(payload.inputHash || payload.input_hash, ''),
+      inputSummary: normalizeString(payload.inputSummary || payload.input_summary, ''),
+      suggestedDecision: normalizeDecision(payload.suggestedDecision || payload.suggested_decision),
+      rationale: normalizeString(payload.rationale, ''),
+      confidence: normalizeConfidence(payload.confidence),
+      humanAction: normalizeEnum(payload.humanAction || payload.human_action, VALID_AI_HUMAN_ACTIONS, 'pending'),
+      linkedDecisionId: normalizeString(payload.linkedDecisionId || payload.linked_decision_id, ''),
+      createdAt,
+      metadata: normalizeObject(payload.metadata),
+      schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
+    };
+  }
+
+  function appendAiSuggestionEvent(events, eventInput) {
+    const list = Array.isArray(events) ? events.slice() : [];
+
+    if (Array.isArray(eventInput)) {
+      eventInput.forEach((entry) => {
+        list.push(createAiSuggestionEvent(entry));
+      });
+      return list.sort(compareAiSuggestionEvents);
+    }
+
+    list.push(createAiSuggestionEvent(eventInput));
+    return list.sort(compareAiSuggestionEvents);
+  }
+
+  function compareAiSuggestionEvents(left, right) {
+    const leftTime = normalizeString(left && (left.createdAt || left.created_at), '');
+    const rightTime = normalizeString(right && (right.createdAt || right.created_at), '');
+
+    if (leftTime !== rightTime) {
+      return leftTime.localeCompare(rightTime);
+    }
+
+    return normalizeString(left && (left.suggestionId || left.suggestion_id), '').localeCompare(normalizeString(right && (right.suggestionId || right.suggestion_id), ''));
   }
 
   function updateScreeningDecision(existing, patch) {
@@ -392,6 +505,25 @@
     return summary;
   }
 
+  function summarizeAiSuggestions(events) {
+    const summary = {
+      totalSuggestions: 0,
+      byMode: {},
+      byHumanAction: {},
+      bySuggestedDecision: {},
+    };
+
+    (Array.isArray(events) ? events : []).forEach((entry) => {
+      const event = createAiSuggestionEvent(entry);
+      summary.totalSuggestions += 1;
+      increment(summary.byMode, event.mode);
+      increment(summary.byHumanAction, event.humanAction);
+      increment(summary.bySuggestedDecision, event.suggestedDecision);
+    });
+
+    return summary;
+  }
+
   function increment(target, key) {
     const normalized = normalizeString(key, 'unknown');
     target[normalized] = (target[normalized] || 0) + 1;
@@ -481,6 +613,17 @@
     };
   }
 
+  function buildAiUsageRegistryExport(manifestInput) {
+    const manifest = createProjectManifest(manifestInput);
+    return {
+      schemaVersion: manifest.schemaVersion,
+      projectId: manifest.projectId,
+      aiMode: manifest.aiMode,
+      generatedAt: manifest.exportGeneratedAt,
+      registry: manifest.aiUsageRegistry.map((entry) => toExportAiUsageRegistryEntry(entry)),
+    };
+  }
+
   function toExportAuditEvent(eventInput) {
     const event = createAuditEvent(eventInput);
     return {
@@ -523,6 +666,54 @@
     };
   }
 
+  function toExportAiUsageRegistryEntry(entryInput) {
+    const entry = createAiUsageRegistryEntry(entryInput);
+    return {
+      usage_id: entry.usageId,
+      project_id: entry.projectId,
+      ai_mode: entry.aiMode,
+      provider_type: entry.providerType,
+      provider_name: entry.providerName,
+      model_name: entry.modelName,
+      enabled_at: entry.enabledAt,
+      disabled_at: entry.disabledAt || null,
+      allowed_stages: entry.allowedStages,
+      data_boundary: entry.dataBoundary,
+      user_acknowledged: entry.userAcknowledged,
+    };
+  }
+
+  function toExportAiSuggestionEvent(eventInput) {
+    const event = createAiSuggestionEvent(eventInput);
+    return {
+      suggestion_id: event.suggestionId,
+      project_id: event.projectId,
+      record_id: event.recordId || null,
+      stage: event.stage,
+      mode: event.mode,
+      model_name: event.modelName,
+      prompt_hash: event.promptHash,
+      input_hash: event.inputHash,
+      input_summary: event.inputSummary,
+      suggested_decision: event.suggestedDecision,
+      rationale: event.rationale,
+      confidence: event.confidence,
+      human_action: event.humanAction,
+      linked_decision_id: event.linkedDecisionId || null,
+      created_at: event.createdAt,
+      audit_schema_version: event.schemaVersion,
+    };
+  }
+
+  function serializeAiSuggestionEventsJsonl(events) {
+    const list = Array.isArray(events) ? events : [];
+    if (list.length === 0) {
+      return '';
+    }
+
+    return `${list.map((event) => JSON.stringify(toExportAiSuggestionEvent(event))).join('\n')}\n`;
+  }
+
   function buildPrismaCountsJson(decisions, events) {
     return {
       schemaVersion: AUDIT_SCHEMA_VERSION,
@@ -530,6 +721,73 @@
       source: 'screening_decisions_and_audit_events',
       counts: calculatePrismaCountsFromDecisions(decisions, events),
     };
+  }
+
+  function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents) {
+    const manifest = createProjectManifest(manifestInput);
+    const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
+    const usageRows = manifest.aiUsageRegistry.length > 0
+      ? manifest.aiUsageRegistry.map((entry) => {
+          const normalized = createAiUsageRegistryEntry(entry);
+          return `| ${normalized.aiMode} | ${normalized.providerType} | ${normalized.providerName || '-'} | ${normalized.modelName || '-'} | ${normalized.allowedStages.join(', ') || '-'} | ${normalized.dataBoundary} | ${normalized.userAcknowledged ? 'yes' : 'no'} |`;
+        }).join('\n')
+      : '| off | none | - | - | - | local_only | no |';
+    const actionRows = Object.keys(suggestionSummary.byHumanAction).length > 0
+      ? Object.keys(suggestionSummary.byHumanAction)
+          .sort()
+          .map((key) => `| ${key} | ${suggestionSummary.byHumanAction[key]} |`)
+          .join('\n')
+      : '| none | 0 |';
+
+    const reportLines = [
+      '# PRISMA-trAIce Report',
+      '',
+      `Project: ${manifest.projectName}`,
+      `Project ID: ${manifest.projectId}`,
+      `AI mode: ${manifest.aiMode}`,
+      `Generated at: ${manifest.exportGeneratedAt}`,
+      '',
+      '## AI Usage Registry',
+      '',
+      '| AI mode | Provider type | Provider | Model | Allowed stages | Data boundary | User acknowledged |',
+      '|---|---|---|---|---|---|---|',
+      usageRows,
+      '',
+    ];
+
+    if (manifest.aiMode === 'off') {
+      reportLines.push(
+        '## No-AI Statement',
+        '',
+        'No AI provider was enabled for this project export.',
+        'No AI suggestion changed final screening decisions without explicit human confirmation.',
+        ''
+      );
+    } else {
+      reportLines.push(
+        '## AI Suggestion Summary',
+        '',
+        `Total suggestions: ${suggestionSummary.totalSuggestions}`,
+        '',
+        '| Human action | Count |',
+        '|---|---:|',
+        actionRows,
+        '',
+        'AI suggestions are logged separately from final ScreeningDecision records and require human confirmation before affecting PRISMA counts.',
+        ''
+      );
+    }
+
+    reportLines.push(
+      '## Transparency Notes',
+      '',
+      '- Input and prompt hashes are recorded by default instead of raw sensitive full text.',
+      '- AI suggestions never become final included or excluded decisions without a human decision record.',
+      '- This report describes AI usage scope, review expectations, and local/cloud boundary declarations.',
+      ''
+    );
+
+    return reportLines.join('\n');
   }
 
   function buildAuditSummaryMarkdown(manifestInput, events, decisions) {
@@ -592,6 +850,10 @@
   return {
     AUDIT_SCHEMA_VERSION,
     EXCLUSION_REASONS,
+    createAiUsageRegistryEntry,
+    upsertAiUsageRegistry,
+    createAiSuggestionEvent,
+    appendAiSuggestionEvent,
     createProjectManifest,
     createAuditEvent,
     appendAuditEvent,
@@ -600,11 +862,15 @@
     updateScreeningDecision,
     calculatePrismaCountsFromDecisions,
     summarizeAuditEvents,
+    summarizeAiSuggestions,
     buildProjectManifestExport,
+    buildAiUsageRegistryExport,
     serializeEventsJsonl,
     serializeScreeningDecisionsCsv,
     serializeExclusionReasonsCsv,
+    serializeAiSuggestionEventsJsonl,
     buildPrismaCountsJson,
     buildAuditSummaryMarkdown,
+    buildPrismaTraiceReportMarkdown,
   };
 });
