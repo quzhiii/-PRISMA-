@@ -801,7 +801,7 @@
       '| File | Purpose | Decision boundary |',
       '|---|---|---|',
       '| `ai_usage_registry.json` | Records AI mode, provider, model, allowed workflow stages, data boundary, and user acknowledgement. | Configuration evidence only; it is not a screening decision ledger. |',
-      '| `ai_suggestions.jsonl` | Records each AI suggestion, rationale, confidence, input/prompt hashes, human action, and linked human decision when present. | Advisory log only; accepted or edited suggestions require a linked human `ScreeningDecision`, while rejected suggestions do not affect PRISMA counts. |',
+      '| `ai_suggestions.jsonl` | Records each AI suggestion, rationale, confidence, input/prompt hashes, human action, review timestamp, human edit details, linked human decision, and `prisma_count_boundary`. | Advisory log only; accepted or edited suggestions require a linked human `ScreeningDecision`, while rejected suggestions do not affect PRISMA counts. |',
       '| `PRISMA_TRAICE_REPORT.md` | Human-readable transparency summary for AI usage, No-AI state, suggestion handling, and local/cloud boundary declarations. | Report narrative only; final counts remain derived from `screening_decisions.csv` and audit events. |',
       '',
     ];
@@ -841,6 +841,16 @@
     );
 
     reportLines.push(
+      '## AI Suggestion Review Trace Fields',
+      '',
+      '| Field | Meaning |',
+      '|---|---|',
+      '| `reviewed_at` | Timestamp of the human review action when a suggestion is accepted, edited, rejected, or ignored. |',
+      '| `human_edited_decision` | Explicit human rewrite decision when the suggestion was edited. |',
+      '| `human_edited_exclusion_reason` | Normalized exclusion reason used for an edited exclude decision. |',
+      '| `linked_decision_id` | Human `ScreeningDecision` created by an accepted or edited suggestion. Empty for rejected or pending suggestions. |',
+      '| `prisma_count_boundary` | Declares whether the row is linked to a human decision for counts or remains advisory-only. |',
+      '',
       '## Transparency Notes',
       '',
       '- Input and prompt hashes are recorded by default instead of raw sensitive full text.',

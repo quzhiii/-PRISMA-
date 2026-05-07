@@ -121,6 +121,12 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.match(report, /ai_usage_registry\.json/);
   assert.match(report, /ai_suggestions\.jsonl/);
   assert.match(report, /PRISMA_TRAICE_REPORT\.md/);
+  assert.match(report, /AI Suggestion Review Trace Fields/);
+  assert.match(report, /`reviewed_at`/);
+  assert.match(report, /`human_edited_decision`/);
+  assert.match(report, /`human_edited_exclusion_reason`/);
+  assert.match(report, /`linked_decision_id`/);
+  assert.match(report, /`prisma_count_boundary`/);
   assert.match(report, /AI Suggestion Summary/);
   assert.match(report, /Total suggestions: 2/);
   assert.match(report, /Reviewed suggestions: 2/);
@@ -285,6 +291,9 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
+  assert.match(workspaceHtml, /reviewed_at/);
+  assert.match(workspaceHtml, /human edit fields/);
+  assert.match(workspaceHtml, /prisma_count_boundary/);
   assert.match(workspaceHtml, /Generate Mock AI Suggestions/);
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
