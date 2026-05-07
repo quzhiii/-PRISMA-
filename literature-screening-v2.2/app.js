@@ -3655,9 +3655,15 @@ function acceptAiSuggestion(suggestionId) {
   }
 
   const decision = buildHumanConfirmedDecisionFromSuggestion(suggestion, suggestion.suggestedDecision);
+  const reviewedAt = new Date().toISOString();
   updateAiSuggestionEventSafe(suggestionId, {
     humanAction: 'accepted',
     linkedDecisionId: decision?.decisionId || '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      reviewedAt,
+      reviewNote: 'Human accepted AI suggestion and created a linked ScreeningDecision.',
+    },
   }, { persist: false });
   appendAuditEventsSafe({
     eventType: 'ai_suggestion_reviewed',
@@ -3666,6 +3672,7 @@ function acceptAiSuggestion(suggestionId) {
       suggestionId,
       humanAction: 'accepted',
       linkedDecisionId: decision?.decisionId || '',
+      reviewedAt,
     },
     source: 'human',
   }, { persist: false });
@@ -3681,9 +3688,15 @@ function rejectAiSuggestion(suggestionId) {
     return;
   }
 
+  const reviewedAt = new Date().toISOString();
   updateAiSuggestionEventSafe(suggestionId, {
     humanAction: 'rejected',
     linkedDecisionId: '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      reviewedAt,
+      reviewNote: 'Human rejected AI suggestion; no ScreeningDecision was created from this suggestion.',
+    },
   }, { persist: false });
   appendAuditEventsSafe({
     eventType: 'ai_suggestion_reviewed',
@@ -3692,6 +3705,7 @@ function rejectAiSuggestion(suggestionId) {
       suggestionId,
       humanAction: 'rejected',
       linkedDecisionId: '',
+      reviewedAt,
     },
     source: 'human',
   }, { persist: false });
@@ -3729,14 +3743,17 @@ function editAiSuggestion(suggestionId, editedDecision, exclusionReason = '') {
       ? `Human-edited AI suggestion ${suggestion.suggestionId}; exclusion reason: ${normalizedExclusionReason}`
       : `Human-edited AI suggestion ${suggestion.suggestionId}`,
   });
+  const reviewedAt = new Date().toISOString();
   updateAiSuggestionEventSafe(suggestionId, {
     humanAction: 'edited',
     linkedDecisionId: decision?.decisionId || '',
     metadata: {
       ...(suggestion.metadata || {}),
+      reviewedAt,
       humanEditedDecision: normalizedDecision,
       humanEditedExclusionReason: normalizedExclusionReason,
       humanEditedOriginalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+      reviewNote: 'Human rewrote AI suggestion and created a linked ScreeningDecision.',
     },
   }, { persist: false });
   appendAuditEventsSafe({
@@ -3746,6 +3763,7 @@ function editAiSuggestion(suggestionId, editedDecision, exclusionReason = '') {
       suggestionId,
       humanAction: 'edited',
       linkedDecisionId: decision?.decisionId || '',
+      reviewedAt,
       editedDecision: normalizedDecision,
       exclusionReason: normalizedExclusionReason,
       originalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',

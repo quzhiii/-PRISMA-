@@ -177,6 +177,67 @@ test('serializes audit package artifacts with stable escaping', () => {
   assert.match(summary, /Unresolved Risks And Notes/);
 });
 
+test('serializes AI suggestion review trace fields in JSONL exports', () => {
+  const acceptedJsonl = AuditEngine.serializeAiSuggestionEventsJsonl([
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-accepted',
+      projectId: 'project-1',
+      recordId: 'record-1',
+      suggestedDecision: 'include',
+      humanAction: 'accepted',
+      linkedDecisionId: 'decision-1',
+      metadata: {
+        reviewedAt: '2026-05-07T10:00:00.000Z',
+        reviewNote: 'Human accepted AI suggestion and created a linked ScreeningDecision.',
+      },
+    }),
+  ]);
+  const editedJsonl = AuditEngine.serializeAiSuggestionEventsJsonl([
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-edited',
+      projectId: 'project-1',
+      recordId: 'record-2',
+      suggestedDecision: 'include',
+      humanAction: 'edited',
+      linkedDecisionId: 'decision-2',
+      metadata: {
+        reviewedAt: '2026-05-07T10:01:00.000Z',
+        humanEditedDecision: 'exclude',
+        humanEditedExclusionReason: 'wrong_population',
+        humanEditedOriginalExclusionReason: '\u4eba\u7fa4\u4e0d\u7b26',
+        reviewNote: 'Human rewrote AI suggestion and created a linked ScreeningDecision.',
+      },
+    }),
+  ]);
+  const rejectedJsonl = AuditEngine.serializeAiSuggestionEventsJsonl([
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-rejected',
+      projectId: 'project-1',
+      recordId: 'record-3',
+      suggestedDecision: 'uncertain',
+      humanAction: 'rejected',
+      metadata: {
+        reviewedAt: '2026-05-07T10:02:00.000Z',
+        reviewNote: 'Human rejected AI suggestion; no ScreeningDecision was created from this suggestion.',
+      },
+    }),
+  ]);
+
+  const accepted = JSON.parse(acceptedJsonl);
+  const edited = JSON.parse(editedJsonl);
+  const rejected = JSON.parse(rejectedJsonl);
+
+  assert.equal(accepted.reviewed_at, '2026-05-07T10:00:00.000Z');
+  assert.equal(accepted.review_note, 'Human accepted AI suggestion and created a linked ScreeningDecision.');
+  assert.equal(accepted.prisma_count_boundary, 'linked_human_screening_decision_required_for_counts');
+  assert.equal(edited.human_edited_decision, 'exclude');
+  assert.equal(edited.human_edited_exclusion_reason, 'wrong_population');
+  assert.equal(edited.human_edited_original_exclusion_reason, '\u4eba\u7fa4\u4e0d\u7b26');
+  assert.equal(edited.prisma_count_boundary, 'linked_human_screening_decision_required_for_counts');
+  assert.equal(rejected.linked_decision_id, null);
+  assert.equal(rejected.prisma_count_boundary, 'advisory_log_only_not_counted_directly');
+});
+
 test('v2.2 app exposes all audit export download types', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
   const expectedTypes = [

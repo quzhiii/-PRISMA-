@@ -290,10 +290,13 @@ test('accepting an AI suggestion creates a human-confirmed ScreeningDecision', a
 
   assert.equal(reviewedSuggestion.humanAction, 'accepted');
   assert.ok(reviewedSuggestion.linkedDecisionId);
+  assert.ok(reviewedSuggestion.metadata.reviewedAt);
+  assert.match(reviewedSuggestion.metadata.reviewNote, /linked ScreeningDecision/);
   assert.equal(decision.source, 'human_ai_confirmation');
   assert.equal(decision.decision, suggestion.suggestedDecision);
   assert.equal(decision.aiAssistanceUsed, true);
   assert.equal(reviewEvent.after.linkedDecisionId, decision.decisionId);
+  assert.equal(reviewEvent.after.reviewedAt, reviewedSuggestion.metadata.reviewedAt);
   assert.equal(counts.titleAbstractIncluded, 1);
 });
 
@@ -310,8 +313,11 @@ test('rejecting an AI suggestion logs review but does not change PRISMA counts',
 
   assert.equal(reviewedSuggestion.humanAction, 'rejected');
   assert.equal(reviewedSuggestion.linkedDecisionId, '');
+  assert.ok(reviewedSuggestion.metadata.reviewedAt);
+  assert.match(reviewedSuggestion.metadata.reviewNote, /no ScreeningDecision/);
   assert.equal(state.screeningDecisions.length, 0);
   assert.equal(reviewEvent.after.linkedDecisionId, '');
+  assert.equal(reviewEvent.after.reviewedAt, reviewedSuggestion.metadata.reviewedAt);
   assert.equal(counts.titleAbstractIncluded, 0);
   assert.equal(counts.titleAbstractExcluded, 0);
   assert.equal(counts.titleAbstractUncertain, 0);
@@ -331,11 +337,14 @@ test('editing an AI suggestion to exclude records a chosen decision and exclusio
   const counts = AuditEngine.calculatePrismaCountsFromDecisions(state.screeningDecisions, state.auditEvents);
 
   assert.equal(reviewedSuggestion.humanAction, 'edited');
+  assert.ok(reviewedSuggestion.metadata.reviewedAt);
   assert.equal(reviewedSuggestion.metadata.humanEditedDecision, 'exclude');
   assert.equal(reviewedSuggestion.metadata.humanEditedExclusionReason, 'wrong_population');
+  assert.match(reviewedSuggestion.metadata.reviewNote, /linked ScreeningDecision/);
   assert.equal(decision.decision, 'exclude');
   assert.equal(decision.exclusionReason, 'wrong_population');
   assert.equal(decision.metadata.originalExclusionReason, uiReason);
+  assert.equal(reviewEvent.after.reviewedAt, reviewedSuggestion.metadata.reviewedAt);
   assert.equal(reviewEvent.after.editedDecision, 'exclude');
   assert.equal(reviewEvent.after.exclusionReason, 'wrong_population');
   assert.equal(counts.titleAbstractExcluded, 1);

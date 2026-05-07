@@ -713,6 +713,7 @@
 
   function toExportAiSuggestionEvent(eventInput) {
     const event = createAiSuggestionEvent(eventInput);
+    const metadata = normalizeObject(event.metadata);
     return {
       suggestion_id: event.suggestionId,
       project_id: event.projectId,
@@ -728,6 +729,14 @@
       confidence: event.confidence,
       human_action: event.humanAction,
       linked_decision_id: event.linkedDecisionId || null,
+      reviewed_at: metadata.reviewedAt || metadata.reviewed_at || null,
+      human_edited_decision: metadata.humanEditedDecision || metadata.human_edited_decision || null,
+      human_edited_exclusion_reason: metadata.humanEditedExclusionReason || metadata.human_edited_exclusion_reason || null,
+      human_edited_original_exclusion_reason: metadata.humanEditedOriginalExclusionReason || metadata.human_edited_original_exclusion_reason || null,
+      review_note: metadata.reviewNote || metadata.review_note || null,
+      prisma_count_boundary: event.linkedDecisionId
+        ? 'linked_human_screening_decision_required_for_counts'
+        : 'advisory_log_only_not_counted_directly',
       created_at: event.createdAt,
       audit_schema_version: event.schemaVersion,
     };
