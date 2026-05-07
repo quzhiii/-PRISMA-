@@ -109,6 +109,14 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   const source = await readV22App();
 
   assert.match(source, /function renderAiSuggestionPanel/);
+  assert.match(source, /AUDIT_ENGINE\.summarizeAiSuggestions\(aiSuggestionEvents\)/);
+  assert.match(source, /const summaryHtml = `/);
+  assert.match(source, /Total suggestions/);
+  assert.match(source, /Pending/);
+  assert.match(source, /Reviewed/);
+  assert.match(source, /Linked human decisions/);
+  assert.match(source, /Advisory-only reviews/);
+  assert.match(source, /do not enter PRISMA counts directly/);
   assert.match(source, /const isPending = entry\.humanAction === 'pending'/);
   assert.match(source, /Human rewrite decision/);
   assert.match(source, /<option value="include">include<\/option>/);

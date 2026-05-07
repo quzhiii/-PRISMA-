@@ -94,6 +94,21 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
       rationale: 'Mock suggestion',
       confidence: 0.7,
       humanAction: 'accepted',
+      linkedDecisionId: 'decision-1',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      projectId: 'project-1',
+      recordId: 'record-2',
+      stage: 'title_abstract',
+      mode: 'suggest_only',
+      modelName: 'mock-screening-assistant',
+      promptHash: 'prompt-hash-2',
+      inputHash: 'input-hash-2',
+      inputSummary: 'second summary',
+      suggestedDecision: 'exclude',
+      rationale: 'Mock exclusion suggestion',
+      confidence: 0.5,
+      humanAction: 'rejected',
     }),
   ]);
 
@@ -107,8 +122,19 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.match(report, /ai_suggestions\.jsonl/);
   assert.match(report, /PRISMA_TRAICE_REPORT\.md/);
   assert.match(report, /AI Suggestion Summary/);
+  assert.match(report, /Total suggestions: 2/);
+  assert.match(report, /Reviewed suggestions: 2/);
+  assert.match(report, /Pending suggestions: 0/);
+  assert.match(report, /Linked human decisions: 1/);
+  assert.match(report, /Reviewed suggestions without linked human decision: 1/);
+  assert.match(report, /Advisory-only reviewed suggestions: 1/);
+  assert.match(report, /Accepted or edited suggestions without linked human decision: 0/);
+  assert.match(report, /\| accepted \| 1 \|/);
+  assert.match(report, /\| rejected \| 1 \|/);
+  assert.match(report, /\| include \| 1 \|/);
+  assert.match(report, /\| exclude \| 1 \|/);
   assert.match(report, /human confirmation/i);
-  assert.match(report, /rejected suggestions only update the AI suggestion log/i);
+  assert.match(report, /rejected or ignored suggestions only update the AI suggestion log/i);
   assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
 });
 

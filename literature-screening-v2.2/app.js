@@ -3969,9 +3969,26 @@ function restoreProjectState(snapshot) {
 function renderAiSuggestionPanel() {
   const container = document.getElementById('aiSuggestionPanel');
   if (!container) return;
+  const summary = AUDIT_ENGINE.summarizeAiSuggestions(aiSuggestionEvents);
+  const summaryHtml = `
+    <div class="surface-panel" style="margin-bottom: 12px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+        <div><div class="muted-text"><span class="zh">建议总数</span><span class="en">Total suggestions</span></div><strong>${summary.totalSuggestions}</strong></div>
+        <div><div class="muted-text"><span class="zh">待确认</span><span class="en">Pending</span></div><strong>${summary.pendingSuggestions}</strong></div>
+        <div><div class="muted-text"><span class="zh">已复核</span><span class="en">Reviewed</span></div><strong>${summary.reviewedSuggestions}</strong></div>
+        <div><div class="muted-text"><span class="zh">关联人工 decision</span><span class="en">Linked human decisions</span></div><strong>${summary.linkedHumanDecisionCount}</strong></div>
+        <div><div class="muted-text"><span class="zh">仅建议日志</span><span class="en">Advisory-only reviews</span></div><strong>${summary.advisoryOnlyReviewedSuggestionCount}</strong></div>
+      </div>
+      <div class="muted-text" style="margin-top: 8px;">
+        <span class="zh">pending、rejected 或 ignored 建议不会直接进入 PRISMA counts；只有关联的人类 ScreeningDecision 会影响最终计数。</span>
+        <span class="en">Pending, rejected, or ignored suggestions do not enter PRISMA counts directly; only linked human ScreeningDecision records affect final counts.</span>
+      </div>
+    </div>
+  `;
 
   if (!Array.isArray(aiSuggestionEvents) || aiSuggestionEvents.length === 0) {
     container.innerHTML = `
+      ${summaryHtml}
       <div class="muted-text">
         <span class="zh">当前还没有 AI 建议。可以先生成本地 mock 建议，再人工接受、拒绝或改写。</span>
         <span class="en">There are no AI suggestions yet. Generate local mock suggestions first, then accept, reject, or edit them manually.</span>
@@ -4042,7 +4059,7 @@ function renderAiSuggestionPanel() {
     `;
   }).join('');
 
-  container.innerHTML = rows;
+  container.innerHTML = summaryHtml + rows;
 }
 
 function shouldAutoRestoreProjectState() {

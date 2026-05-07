@@ -508,6 +508,12 @@
   function summarizeAiSuggestions(events) {
     const summary = {
       totalSuggestions: 0,
+      pendingSuggestions: 0,
+      reviewedSuggestions: 0,
+      linkedHumanDecisionCount: 0,
+      unlinkedReviewedSuggestionCount: 0,
+      advisoryOnlyReviewedSuggestionCount: 0,
+      acceptedOrEditedWithoutLinkedDecisionCount: 0,
       byMode: {},
       byHumanAction: {},
       bySuggestedDecision: {},
@@ -515,7 +521,29 @@
 
     (Array.isArray(events) ? events : []).forEach((entry) => {
       const event = createAiSuggestionEvent(entry);
+      const isPending = event.humanAction === 'pending';
+      const hasLinkedDecision = !!event.linkedDecisionId;
+      const createsHumanDecision = event.humanAction === 'accepted' || event.humanAction === 'edited';
+      const isAdvisoryOnlyReview = event.humanAction === 'rejected' || event.humanAction === 'ignored';
+
       summary.totalSuggestions += 1;
+      if (isPending) {
+        summary.pendingSuggestions += 1;
+      } else {
+        summary.reviewedSuggestions += 1;
+      }
+      if (hasLinkedDecision) {
+        summary.linkedHumanDecisionCount += 1;
+      }
+      if (!isPending && !hasLinkedDecision) {
+        summary.unlinkedReviewedSuggestionCount += 1;
+      }
+      if (isAdvisoryOnlyReview) {
+        summary.advisoryOnlyReviewedSuggestionCount += 1;
+      }
+      if (createsHumanDecision && !hasLinkedDecision) {
+        summary.acceptedOrEditedWithoutLinkedDecisionCount += 1;
+      }
       increment(summary.byMode, event.mode);
       increment(summary.byHumanAction, event.humanAction);
       increment(summary.bySuggestedDecision, event.suggestedDecision);
@@ -738,6 +766,12 @@
           .map((key) => `| ${key} | ${suggestionSummary.byHumanAction[key]} |`)
           .join('\n')
       : '| none | 0 |';
+    const suggestedDecisionRows = Object.keys(suggestionSummary.bySuggestedDecision).length > 0
+      ? Object.keys(suggestionSummary.bySuggestedDecision)
+          .sort()
+          .map((key) => `| ${key} | ${suggestionSummary.bySuggestedDecision[key]} |`)
+          .join('\n')
+      : '| none | 0 |';
 
     const reportLines = [
       '# PRISMA-trAIce Report',
@@ -771,21 +805,31 @@
         'No AI suggestion changed final screening decisions without explicit human confirmation.',
         ''
       );
-    } else {
-      reportLines.push(
-        '## AI Suggestion Summary',
-        '',
-        `Total suggestions: ${suggestionSummary.totalSuggestions}`,
-        '',
-        '| Human action | Count |',
-        '|---|---:|',
-        actionRows,
-        '',
-        'AI suggestions are logged separately from final ScreeningDecision records and require human confirmation before affecting PRISMA counts.',
-        'Accepted or edited suggestions create a human-confirmed ScreeningDecision; rejected suggestions only update the AI suggestion log.',
-        ''
-      );
     }
+
+    reportLines.push(
+      '## AI Suggestion Summary',
+      '',
+      `Total suggestions: ${suggestionSummary.totalSuggestions}`,
+      `Pending suggestions: ${suggestionSummary.pendingSuggestions}`,
+      `Reviewed suggestions: ${suggestionSummary.reviewedSuggestions}`,
+      `Linked human decisions: ${suggestionSummary.linkedHumanDecisionCount}`,
+      `Reviewed suggestions without linked human decision: ${suggestionSummary.unlinkedReviewedSuggestionCount}`,
+      `Advisory-only reviewed suggestions: ${suggestionSummary.advisoryOnlyReviewedSuggestionCount}`,
+      `Accepted or edited suggestions without linked human decision: ${suggestionSummary.acceptedOrEditedWithoutLinkedDecisionCount}`,
+      '',
+      '| Human action | Count |',
+      '|---|---:|',
+      actionRows,
+      '',
+      '| Suggested decision | Count |',
+      '|---|---:|',
+      suggestedDecisionRows,
+      '',
+      'AI suggestions are logged separately from final ScreeningDecision records and require human confirmation before affecting PRISMA counts.',
+      'Accepted or edited suggestions create a linked human-confirmed ScreeningDecision; rejected or ignored suggestions only update the AI suggestion log.',
+      ''
+    );
 
     reportLines.push(
       '## Transparency Notes',

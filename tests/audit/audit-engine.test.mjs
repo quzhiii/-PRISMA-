@@ -73,6 +73,49 @@ test('creates AI suggestion events without turning them into final screening dec
   assert.equal(suggestion.linkedDecisionId, '');
 });
 
+test('summarizes AI suggestion review boundaries for PRISMA-trAIce reporting', () => {
+  const summary = AuditEngine.summarizeAiSuggestions([
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-1',
+      recordId: 'record-1',
+      suggestedDecision: 'include',
+      humanAction: 'pending',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-2',
+      recordId: 'record-2',
+      suggestedDecision: 'exclude',
+      humanAction: 'accepted',
+      linkedDecisionId: 'decision-2',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-3',
+      recordId: 'record-3',
+      suggestedDecision: 'include',
+      humanAction: 'edited',
+      linkedDecisionId: 'decision-3',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-4',
+      recordId: 'record-4',
+      suggestedDecision: 'uncertain',
+      humanAction: 'rejected',
+    }),
+  ]);
+
+  assert.equal(summary.totalSuggestions, 4);
+  assert.equal(summary.pendingSuggestions, 1);
+  assert.equal(summary.reviewedSuggestions, 3);
+  assert.equal(summary.linkedHumanDecisionCount, 2);
+  assert.equal(summary.unlinkedReviewedSuggestionCount, 1);
+  assert.equal(summary.advisoryOnlyReviewedSuggestionCount, 1);
+  assert.equal(summary.acceptedOrEditedWithoutLinkedDecisionCount, 0);
+  assert.equal(summary.byHumanAction.accepted, 1);
+  assert.equal(summary.byHumanAction.edited, 1);
+  assert.equal(summary.byHumanAction.rejected, 1);
+  assert.equal(summary.bySuggestedDecision.include, 2);
+});
+
 test('creates audit events with normalized actor and source metadata', () => {
   const event = AuditEngine.createAuditEvent({
     projectId: 'project-1',
