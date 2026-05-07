@@ -1,0 +1,151 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import vm from 'node:vm';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..', '..');
+
+async function readV22App() {
+  return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+}
+
+async function readV22Workspace() {
+  return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8');
+}
+
+function extractSimpleFunctionBlock(source, functionName) {
+  const marker = `function ${functionName}(`;
+  const start = source.indexOf(marker);
+  if (start === -1) {
+    throw new Error(`Function not found: ${functionName}`);
+  }
+
+  let parenDepth = 0;
+  let signatureEnd = start;
+  for (; signatureEnd < source.length; signatureEnd += 1) {
+    const char = source[signatureEnd];
+    if (char === '(') parenDepth += 1;
+    if (char === ')') {
+      parenDepth -= 1;
+      if (parenDepth === 0) {
+        signatureEnd += 1;
+        break;
+      }
+    }
+  }
+
+  const braceStart = source.indexOf('{', signatureEnd);
+  let depth = 0;
+  let index = braceStart;
+  for (; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        index += 1;
+        break;
+      }
+    }
+  }
+
+  return source.slice(start, index);
+}
+
+async function loadToggleHarness() {
+  const source = await readV22App();
+  const elements = new Map();
+  const code = [
+    `
+const document = {
+  getElementById(id) {
+    return globalThis.__elements.get(id) || null;
+  },
+};
+`,
+    extractSimpleFunctionBlock(source, 'getAiSuggestionControlId'),
+    extractSimpleFunctionBlock(source, 'toggleAiSuggestionEditReason'),
+    `
+function putElement(id, patch = {}) {
+  const element = Object.assign({
+    id,
+    value: '',
+    hidden: false,
+    disabled: false,
+  }, patch);
+  globalThis.__elements.set(id, element);
+  return element;
+}
+this.__exports = {
+  getAiSuggestionControlId,
+  toggleAiSuggestionEditReason,
+  putElement,
+};
+`,
+  ].join('\n\n');
+
+  const context = { __elements: elements };
+  vm.createContext(context);
+  vm.runInContext(code, context);
+  return context.__exports;
+}
+
+test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion panel mount', async () => {
+  const workspace = await readV22Workspace();
+
+  assert.match(workspace, /V2\.3 PRISMA-trAIce/);
+  assert.match(workspace, /name="aiMode" value="off"/);
+  assert.match(workspace, /name="aiMode" value="assistive"/);
+  assert.match(workspace, /name="aiMode" value="experimental"/);
+  assert.match(workspace, /onclick="generateMockAiSuggestions\(\)"/);
+  assert.match(workspace, /id="aiSuggestionPanel"/);
+});
+
+test('AI suggestion panel renders explicit rewrite selectors for pending suggestions', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function renderAiSuggestionPanel/);
+  assert.match(source, /const isPending = entry\.humanAction === 'pending'/);
+  assert.match(source, /Human rewrite decision/);
+  assert.match(source, /<option value="include">include<\/option>/);
+  assert.match(source, /<option value="exclude">exclude<\/option>/);
+  assert.match(source, /<option value="uncertain">uncertain<\/option>/);
+  assert.match(source, /Exclusion reason/);
+  assert.match(source, /选择排除理由 \/ Choose a reason/);
+  assert.match(source, /reasonOptions/);
+  assert.match(source, /editAiSuggestion\('\$\{suggestionId\}', document\.getElementById\('\$\{editDecisionId\}'\)\?\.value, document\.getElementById\('\$\{editReasonId\}'\)\?\.value\)/);
+});
+
+test('AI suggestion panel disables accept edit and reject actions after review', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /\$\{!isPending \? 'disabled' : ''\}/);
+  assert.match(source, /Linked decision/);
+  assert.match(source, /entry\.linkedDecisionId/);
+  assert.match(source, /const editControls = isPending/);
+  assert.match(source, /: '';/);
+});
+
+test('exclude selection toggles the reason selector on and off', async () => {
+  const harness = await loadToggleHarness();
+  const suggestionId = 'suggestion-1';
+  const decisionId = harness.getAiSuggestionControlId(suggestionId, 'edit-decision');
+  const wrapperId = harness.getAiSuggestionControlId(suggestionId, 'edit-reason-wrapper');
+  const reasonId = harness.getAiSuggestionControlId(suggestionId, 'edit-reason');
+  const decisionSelect = harness.putElement(decisionId, { value: 'include' });
+  const reasonWrapper = harness.putElement(wrapperId, { hidden: false });
+  const reasonSelect = harness.putElement(reasonId, { disabled: false });
+
+  harness.toggleAiSuggestionEditReason(suggestionId);
+  assert.equal(reasonWrapper.hidden, true);
+  assert.equal(reasonSelect.disabled, true);
+
+  decisionSelect.value = 'exclude';
+  harness.toggleAiSuggestionEditReason(suggestionId);
+  assert.equal(reasonWrapper.hidden, false);
+  assert.equal(reasonSelect.disabled, false);
+});
