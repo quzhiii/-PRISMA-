@@ -200,9 +200,11 @@ Benchmark evidence:
 
 ## 10. Recommended Next Patch
 
-Start the next pass with a release-readiness or V2.4 preparation patch:
+V2.3 release-readiness is now tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
+
+Start the next pass with V2.4 preparation:
 
 1. Keep V2.3 as a mock/local audit layer and do not add a real provider yet.
-2. Freeze the current audit package and PRISMA-trAIce export field list in a release note or docs table.
-3. Add a short release checklist for V2.3 readiness: export files, No-AI behavior, assistive mock review flow, and full regression command.
-4. Then move to V2.4 quality appraisal structure: template schema, `quality_appraisal.csv`, and evidence table planning.
+2. Use the V2.3 checklist as the export and behavior freeze for PRISMA-trAIce readiness.
+3. Move to V2.4 quality appraisal structure: template schema, `quality_appraisal.csv`, and evidence table planning.
+4. Preserve the current full regression gate before each V2.4 slice.

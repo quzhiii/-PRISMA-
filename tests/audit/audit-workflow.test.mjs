@@ -81,7 +81,8 @@ test('v2.2 app supports accept, reject, and edit actions for AI suggestions', as
   assert.match(source, /renderAiSuggestionPanel/);
   assert.match(source, /normalizeAiHumanDecision\(editedDecision\)/);
   assert.match(source, /toggleAiSuggestionEditReason/);
-  assert.match(source, /选择排除理由 \/ Choose a reason/);
+  assert.match(source, /const chooseReasonText = panelLang === 'zh'/);
+  assert.match(source, /Choose a reason/);
   assert.match(source, /humanEditedDecision: normalizedDecision/);
   assert.doesNotMatch(source, /suggestion\.suggestedDecision === 'include' \? 'uncertain' : 'include'/);
 });

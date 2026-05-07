@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.2 audit-ready local-first evidence screening workspace with import, conservative deduplication, full-text review, quality appraisal, and audit package export.">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.2 local-first evidence screening workspace with import, conservative deduplication, full-text review, quality appraisal, audit package export, and AI transparency records.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
   <title>PRISMA Literature Screening v2.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,7 @@
           </span>
           <span class="brand-copy">
             <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.2 audit-ready</span><span class="en">Research-grade workspace v2.2 audit-ready</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.2</span><span class="en">Research-grade workspace v2.2 audit-ready</span></span>
           </span>
         </a>
         <div class="nav-actions">
@@ -754,16 +754,23 @@
             </div>
             <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
             <p class="section-subtitle" style="margin-bottom: 10px;"><span class="zh">审计包记录完整的筛选过程证据，全部在浏览器本地生成，不会自动上传。可用于方法学附录、审稿回复或研究团队内部分享。</span><span class="en">The audit package captures the full screening evidence chain. Everything is generated locally in your browser and never uploaded automatically. Use it for methodology appendices, reviewer responses, or team sharing.</span></p>
-            <div class="info-box" style="margin-bottom: 12px;">
-              <h4 style="margin: 0 0 10px;"><span class="zh">V2.3 PRISMA-trAIce 准备</span><span class="en">V2.3 PRISMA-trAIce Readiness</span></h4>
-              <label class="checkbox-label"><input type="radio" name="aiMode" value="off" checked onclick="setAiModeSafe('off')"><span><span class="zh">关闭 AI：导出 No-AI 透明声明</span><span class="en">AI off: export a No-AI transparency statement</span></span></label>
-              <label class="checkbox-label" style="margin-top: 10px;"><input type="radio" name="aiMode" value="assistive" onclick="setAiModeSafe('assistive')"><span><span class="zh">辅助模式：仅记录建议，不写最终决定</span><span class="en">Assistive mode: log suggestions only, never final decisions</span></span></label>
-              <label class="checkbox-label" style="margin-top: 10px;"><input type="radio" name="aiMode" value="experimental" onclick="setAiModeSafe('experimental')"><span><span class="zh">实验模式：保留更完整的 AI 使用记录</span><span class="en">Experimental mode: keep fuller AI usage traces</span></span></label>
+            <div class="info-box ai-readiness-box" style="margin-bottom: 12px;">
+              <h4><span class="zh">V2.3 PRISMA-trAIce 透明记录</span><span class="en">V2.3 PRISMA-trAIce Readiness</span></h4>
+              <p class="ai-readiness-copy"><span class="zh">PRISMA-trAIce 是面向“系统综述中使用 AI”的透明报告要求：需要说明 AI 用在什么环节、是否影响筛选决定，以及人工如何复核。</span><span class="en">PRISMA-trAIce is a transparency checklist for AI use in systematic reviews: where AI is used, whether it affects screening decisions, and how humans review it.</span></p>
+              <div class="ai-readiness-steps">
+                <div><strong><span class="zh">为什么做</span><span class="en">Why</span></strong><span><span class="zh">让审稿人和团队看清 AI 只提供建议，不直接改变最终计数。</span><span class="en">Reviewers can see that AI only suggests and never changes final counts directly.</span></span></div>
+                <div><strong><span class="zh">怎么做</span><span class="en">How</span></strong><span><span class="zh">记录 AI 模式、建议日志、人工接受/拒绝/改写，以及关联的人类筛选决定。</span><span class="en">Record AI mode, suggestion logs, human accept/reject/edit actions, and linked human screening decisions.</span></span></div>
+              </div>
+              <div class="ai-mode-options">
+                <label class="checkbox-label"><input type="radio" name="aiMode" value="off" checked onclick="setAiModeSafe('off')"><span><span class="zh">关闭 AI：导出未使用 AI 的透明声明</span><span class="en">AI off: export a No-AI transparency statement</span></span></label>
+                <label class="checkbox-label"><input type="radio" name="aiMode" value="assistive" onclick="setAiModeSafe('assistive')"><span><span class="zh">辅助记录：只保存建议和人工复核结果</span><span class="en">Assistive mode: log suggestions and human review only</span></span></label>
+                <label class="checkbox-label"><input type="radio" name="aiMode" value="experimental" onclick="setAiModeSafe('experimental')"><span><span class="zh">完整记录：额外保留模型和提示词追踪信息</span><span class="en">Trace mode: keep fuller model and prompt records</span></span></label>
+              </div>
               <div class="button-group" style="margin-top: 12px;">
-                <button type="button" class="btn btn-secondary" onclick="generateMockAiSuggestions()"><span class="zh">生成 mock AI 建议</span><span class="en">Generate Mock AI Suggestions</span></button>
+                <button type="button" class="btn btn-secondary" onclick="generateMockAiSuggestions()"><span class="zh">生成本地示例 AI 建议</span><span class="en">Generate Mock AI Suggestions</span></button>
                 <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">下载 PRISMA-trAIce 报告</span><span class="en">Download PRISMA-trAIce Report</span></button>
               </div>
-              <p class="muted-text" style="margin-top: 10px;"><span class="zh">当前阶段只生成本地 mock suggestion log，用来验证“AI 建议必须人工确认”的流程。</span><span class="en">This stage only generates a local mock suggestion log to validate the rule that AI suggestions require human confirmation.</span></p>
+              <p class="muted-text" style="margin-top: 10px;"><span class="zh">当前不连接真实 AI 服务，只用本地示例建议验证“AI 建议必须由人工确认”的审计闭环。</span><span class="en">This stage does not connect to a real AI provider; local mock suggestions verify the human-confirmation audit loop.</span></p>
               <div id="aiSuggestionPanel" style="margin-top: 12px;"></div>
             </div>
             <div class="button-group">
@@ -869,16 +876,18 @@
       const isZh = lang === 'zh';
       document.querySelectorAll('.zh').forEach((el) => {
         el.hidden = !isZh;
+        el.style.display = isZh ? '' : 'none';
       });
       document.querySelectorAll('.en').forEach((el) => {
         el.hidden = isZh;
+        el.style.display = isZh ? 'none' : '';
       });
       document.title = isZh ? 'PRISMA Workbench v2.2 工作台' : 'PRISMA Workbench v2.2 Workspace';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? 'PRISMA Workbench v2.2 audit-ready 本地优先工作台，支持导入、保守去重、全文复核、质量评价和审计包导出。'
-          : 'PRISMA Workbench v2.2 audit-ready local-first workspace for import, conservative deduplication, full-text review, quality appraisal, and audit package export.';
+          ? 'PRISMA Workbench v2.2 本地优先审计工作台，支持导入、保守去重、全文复核、质量评价、AI 透明记录和审计包导出。'
+          : 'PRISMA Workbench v2.2 audit-ready local-first workspace for import, conservative deduplication, full-text review, quality appraisal, AI transparency records, and audit package export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
@@ -898,6 +907,9 @@
       document.documentElement.lang = nextLang;
       localStorage.setItem('prisma_lang', nextLang);
       applyLangVisibility();
+      if (typeof renderAiSuggestionPanel === 'function') {
+        renderAiSuggestionPanel();
+      }
     };
 
     document.documentElement.lang = getCurrentLang();

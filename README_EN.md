@@ -175,6 +175,7 @@ Current coverage includes:
 - keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
 - keeps rejected suggestions out of PRISMA counts
 - does not connect a real AI provider
+- tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
 
 </details>
 

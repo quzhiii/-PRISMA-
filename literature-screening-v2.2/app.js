@@ -3553,7 +3553,7 @@ function hasAiSuggestionForIdentity(suggestionInput) {
 
 function generateMockAiSuggestions(limit = 3) {
   if (!uploadedData || uploadedData.length === 0) {
-    showToast('请先上传或加载示例数据，再生成 mock AI 建议', 'warning');
+    showToast('请先上传或加载示例数据，再生成本地示例 AI 建议', 'warning');
     return [];
   }
 
@@ -3587,7 +3587,7 @@ function generateMockAiSuggestions(limit = 3) {
   renderAiSuggestionPanel();
   const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
   const toastType = suggestions.length > 0 ? 'success' : 'info';
-  showToast(`已生成 ${suggestions.length} 条本地 mock AI 建议${skippedMessage}，仍需人工确认`, toastType);
+  showToast(`已生成 ${suggestions.length} 条本地示例 AI 建议${skippedMessage}，仍需人工确认`, toastType);
   return suggestions;
 }
 
@@ -3613,6 +3613,70 @@ function toggleAiSuggestionEditReason(suggestionId) {
 
   if (reasonWrapper) reasonWrapper.hidden = !isExclude;
   if (reasonSelect) reasonSelect.disabled = !isExclude;
+}
+
+const AI_SUGGESTION_STAGE_LABELS = Object.freeze({
+  title_abstract: { zh: '标题摘要筛选', en: 'Title and abstract' },
+  full_text: { zh: '全文复核', en: 'Full text' },
+  quality_appraisal: { zh: '质量评价', en: 'Quality appraisal' },
+});
+
+const AI_SUGGESTION_DECISION_LABELS = Object.freeze({
+  include: { zh: '纳入', en: 'include' },
+  exclude: { zh: '排除', en: 'exclude' },
+  uncertain: { zh: '暂不确定', en: 'uncertain' },
+});
+
+const AI_SUGGESTION_ACTION_LABELS = Object.freeze({
+  pending: { zh: '待人工确认', en: 'pending' },
+  accepted: { zh: '已接受', en: 'accepted' },
+  rejected: { zh: '已拒绝', en: 'rejected' },
+  edited: { zh: '已改写', en: 'edited' },
+  ignored: { zh: '已忽略', en: 'ignored' },
+});
+
+const AI_SUGGESTION_RATIONALE_LABELS = Object.freeze({
+  'Mock pathway flagged study-like design terms and kept the record for human confirmation.': {
+    zh: '本地示例规则识别到研究设计相关线索，建议保留给人工确认。',
+    en: 'Mock pathway flagged study-like design terms and kept the record for human confirmation.',
+  },
+  'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.': {
+    zh: '本地示例规则未找到足够相关线索，因此交由人工继续判断。',
+    en: 'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.',
+  },
+});
+
+function getAiSuggestionPanelLang() {
+  return typeof document !== 'undefined' && document.documentElement?.lang === 'en' ? 'en' : 'zh';
+}
+
+function getAiSuggestionLocalizedLabel(labels, key, fallback = '') {
+  const lang = getAiSuggestionPanelLang();
+  const normalized = String(key || '').trim();
+  return labels?.[normalized]?.[lang] || labels?.[normalized]?.en || fallback || normalized;
+}
+
+function getAiSuggestionStageLabel(stage) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_STAGE_LABELS, stage, stage || 'title_abstract');
+}
+
+function getAiSuggestionDecisionLabel(decision) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_DECISION_LABELS, decision, decision || 'uncertain');
+}
+
+function getAiSuggestionActionLabel(action) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_ACTION_LABELS, action, action || 'pending');
+}
+
+function getAiSuggestionRationaleText(entry) {
+  const rationale = String(entry?.rationale || '').trim();
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_RATIONALE_LABELS, rationale, rationale);
+}
+
+function applyAiSuggestionPanelLangVisibility() {
+  if (typeof applyLangVisibility === 'function') {
+    applyLangVisibility();
+  }
 }
 
 function buildHumanConfirmedDecisionFromSuggestion(suggestion, overrideDecision, options = {}) {
@@ -3723,13 +3787,13 @@ function editAiSuggestion(suggestionId, editedDecision, exclusionReason = '') {
 
   const normalizedDecision = normalizeAiHumanDecision(editedDecision);
   if (!normalizedDecision) {
-    showToast('请选择 include、exclude 或 uncertain 后再改写', 'warning');
+    showToast('请选择纳入、排除或暂不确定后再改写', 'warning');
     return;
   }
 
   const originalExclusionReason = String(exclusionReason || '').trim();
   if (normalizedDecision === 'exclude' && !originalExclusionReason) {
-    showToast('请选择排除理由后再改写为 exclude', 'warning');
+    showToast('请选择排除理由后再改写为排除', 'warning');
     return;
   }
 
@@ -3987,19 +4051,59 @@ function restoreProjectState(snapshot) {
 function renderAiSuggestionPanel() {
   const container = document.getElementById('aiSuggestionPanel');
   if (!container) return;
+  const panelLang = getAiSuggestionPanelLang();
+  const chooseDecisionText = panelLang === 'zh' ? '请选择' : 'Choose';
+  const chooseReasonText = panelLang === 'zh' ? '请选择排除理由' : 'Choose a reason';
+  const decisionOptions = ['include', 'exclude', 'uncertain']
+    .map((decision) => `<option value="${decision}">${escapeHTML(getAiSuggestionDecisionLabel(decision))}</option>`)
+    .join('');
+  const ui = panelLang === 'zh'
+    ? {
+        totalSuggestions: '建议总数',
+        pending: '待确认',
+        reviewed: '已复核',
+        linkedHumanDecisions: '关联人工决定',
+        advisoryOnlyReviews: '仅建议日志',
+        summaryNote: '待确认、已拒绝或已忽略的 AI 建议不会直接进入 PRISMA 计数；只有关联的人工筛选决定会影响最终计数。',
+        empty: '当前还没有 AI 建议。可以先生成本地示例建议，再由人工接受、拒绝或改写。',
+        linkedDecision: '关联人工决定：',
+        rewriteDecision: '人工改写决定',
+        exclusionReason: '排除理由',
+        confidence: '置信度：',
+        promptHash: '提示词 hash：',
+        accept: '接受',
+        edit: '改写',
+        reject: '拒绝',
+      }
+    : {
+        totalSuggestions: 'Total suggestions',
+        pending: 'Pending',
+        reviewed: 'Reviewed',
+        linkedHumanDecisions: 'Linked human decisions',
+        advisoryOnlyReviews: 'Advisory-only reviews',
+        summaryNote: 'Pending, rejected, or ignored suggestions do not enter PRISMA counts directly; only linked human ScreeningDecision records affect final counts.',
+        empty: 'There are no AI suggestions yet. Generate local mock suggestions first, then accept, reject, or edit them manually.',
+        linkedDecision: 'Linked decision:',
+        rewriteDecision: 'Human rewrite decision',
+        exclusionReason: 'Exclusion reason',
+        confidence: 'Confidence:',
+        promptHash: 'Prompt hash:',
+        accept: 'Accept',
+        edit: 'Edit',
+        reject: 'Reject',
+      };
   const summary = AUDIT_ENGINE.summarizeAiSuggestions(aiSuggestionEvents);
   const summaryHtml = `
-    <div class="surface-panel" style="margin-bottom: 12px;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
-        <div><div class="muted-text"><span class="zh">建议总数</span><span class="en">Total suggestions</span></div><strong>${summary.totalSuggestions}</strong></div>
-        <div><div class="muted-text"><span class="zh">待确认</span><span class="en">Pending</span></div><strong>${summary.pendingSuggestions}</strong></div>
-        <div><div class="muted-text"><span class="zh">已复核</span><span class="en">Reviewed</span></div><strong>${summary.reviewedSuggestions}</strong></div>
-        <div><div class="muted-text"><span class="zh">关联人工 decision</span><span class="en">Linked human decisions</span></div><strong>${summary.linkedHumanDecisionCount}</strong></div>
-        <div><div class="muted-text"><span class="zh">仅建议日志</span><span class="en">Advisory-only reviews</span></div><strong>${summary.advisoryOnlyReviewedSuggestionCount}</strong></div>
+    <div class="surface-panel ai-suggestion-summary" style="margin-bottom: 12px;">
+      <div class="ai-suggestion-summary-grid">
+        <div><div class="muted-text">${escapeHTML(ui.totalSuggestions)}</div><strong>${summary.totalSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.pending)}</div><strong>${summary.pendingSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.reviewed)}</div><strong>${summary.reviewedSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.linkedHumanDecisions)}</div><strong>${summary.linkedHumanDecisionCount}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.advisoryOnlyReviews)}</div><strong>${summary.advisoryOnlyReviewedSuggestionCount}</strong></div>
       </div>
-      <div class="muted-text" style="margin-top: 8px;">
-        <span class="zh">pending、rejected 或 ignored 建议不会直接进入 PRISMA counts；只有关联的人类 ScreeningDecision 会影响最终计数。</span>
-        <span class="en">Pending, rejected, or ignored suggestions do not enter PRISMA counts directly; only linked human ScreeningDecision records affect final counts.</span>
+      <div class="muted-text ai-suggestion-summary-note">
+        ${escapeHTML(ui.summaryNote)}
       </div>
     </div>
   `;
@@ -4007,11 +4111,11 @@ function renderAiSuggestionPanel() {
   if (!Array.isArray(aiSuggestionEvents) || aiSuggestionEvents.length === 0) {
     container.innerHTML = `
       ${summaryHtml}
-      <div class="muted-text">
-        <span class="zh">当前还没有 AI 建议。可以先生成本地 mock 建议，再人工接受、拒绝或改写。</span>
-        <span class="en">There are no AI suggestions yet. Generate local mock suggestions first, then accept, reject, or edit them manually.</span>
+      <div class="muted-text ai-suggestion-empty">
+        ${escapeHTML(ui.empty)}
       </div>
     `;
+    applyAiSuggestionPanelLangVisibility();
     return;
   }
 
@@ -4026,25 +4130,24 @@ function renderAiSuggestionPanel() {
     const editReasonWrapperId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason-wrapper');
     const editReasonId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason');
     const suggestionId = escapeHTML(entry.suggestionId);
+    const rationaleText = getAiSuggestionRationaleText(entry);
     const linkedDecision = entry.linkedDecisionId
-      ? `<div class="muted-text" style="margin-top: 6px;"><span class="zh">关联 decision:</span><span class="en">Linked decision:</span> <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
+      ? `<div class="muted-text" style="margin-top: 6px;">${escapeHTML(ui.linkedDecision)} <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
       : '';
     const editControls = isPending
       ? `
-        <div style="display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr); gap: 8px; margin-top: 10px;">
+        <div class="ai-suggestion-edit-grid">
           <label class="form-label" style="margin-bottom: 0;">
-            <span class="zh">人类改写决定</span><span class="en">Human rewrite decision</span>
+            ${escapeHTML(ui.rewriteDecision)}
             <select id="${editDecisionId}" class="form-input" onchange="toggleAiSuggestionEditReason('${suggestionId}')" style="margin-top: 4px;">
-              <option value="">选择 / Choose</option>
-              <option value="include">include</option>
-              <option value="exclude">exclude</option>
-              <option value="uncertain">uncertain</option>
+              <option value="">${chooseDecisionText}</option>
+              ${decisionOptions}
             </select>
           </label>
           <label id="${editReasonWrapperId}" class="form-label" style="margin-bottom: 0;" hidden>
-            <span class="zh">排除理由</span><span class="en">Exclusion reason</span>
+            ${escapeHTML(ui.exclusionReason)}
             <select id="${editReasonId}" class="form-input" style="margin-top: 4px;" disabled>
-              <option value="">选择排除理由 / Choose a reason</option>
+              <option value="">${chooseReasonText}</option>
               ${reasonOptions}
             </select>
           </label>
@@ -4053,24 +4156,28 @@ function renderAiSuggestionPanel() {
       : '';
 
     return `
-      <div class="surface-panel" style="margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;">
-          <div style="flex: 1;">
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
-              <span class="status-chip">${escapeHTML(entry.stage || 'title_abstract')}</span>
-              <span class="status-chip">${escapeHTML(entry.suggestedDecision || 'uncertain')}</span>
-              <span class="status-chip">${escapeHTML(entry.humanAction || 'pending')}</span>
+      <div class="surface-panel ai-suggestion-card" style="margin-bottom: 12px;">
+        <div class="ai-suggestion-card-layout">
+          <div class="ai-suggestion-card-main">
+            <div class="ai-suggestion-chip-row">
+              <span class="status-chip">${escapeHTML(getAiSuggestionStageLabel(entry.stage || 'title_abstract'))}</span>
+              <span class="status-chip">${escapeHTML(getAiSuggestionDecisionLabel(entry.suggestedDecision || 'uncertain'))}</span>
+              <span class="status-chip">${escapeHTML(getAiSuggestionActionLabel(entry.humanAction || 'pending'))}</span>
             </div>
-            <div style="font-weight: 700; margin-bottom: 6px;">${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId)}</div>
-            <div class="muted-text" style="margin-bottom: 6px;">${escapeHTML(entry.rationale || '')}</div>
-            <div class="muted-text">confidence: ${entry.confidence ?? '-'} | prompt: <code>${escapeHTML(entry.promptHash || '-')}</code></div>
+            <div class="ai-suggestion-title">${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId)}</div>
+            <div class="muted-text ai-suggestion-rationale">${escapeHTML(rationaleText)}</div>
+            <div class="muted-text ai-suggestion-meta">
+              ${escapeHTML(ui.confidence)} ${entry.confidence ?? '-'}
+              <span aria-hidden="true"> | </span>
+              ${escapeHTML(ui.promptHash)} <code>${escapeHTML(entry.promptHash || '-')}</code>
+            </div>
             ${linkedDecision}
             ${editControls}
           </div>
-          <div class="button-group" style="justify-content: flex-end;">
-            <button type="button" class="btn btn-secondary" onclick="acceptAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}><span class="zh">接受</span><span class="en">Accept</span></button>
-            <button type="button" class="btn btn-secondary" onclick="editAiSuggestion('${suggestionId}', document.getElementById('${editDecisionId}')?.value, document.getElementById('${editReasonId}')?.value)" ${!isPending ? 'disabled' : ''}><span class="zh">改写</span><span class="en">Edit</span></button>
-            <button type="button" class="btn btn-secondary" onclick="rejectAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}><span class="zh">拒绝</span><span class="en">Reject</span></button>
+          <div class="button-group ai-suggestion-actions">
+            <button type="button" class="btn btn-secondary" onclick="acceptAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.accept)}</button>
+            <button type="button" class="btn btn-secondary" onclick="editAiSuggestion('${suggestionId}', document.getElementById('${editDecisionId}')?.value, document.getElementById('${editReasonId}')?.value)" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.edit)}</button>
+            <button type="button" class="btn btn-secondary" onclick="rejectAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.reject)}</button>
           </div>
         </div>
       </div>
@@ -4078,6 +4185,7 @@ function renderAiSuggestionPanel() {
   }).join('');
 
   container.innerHTML = summaryHtml + rows;
+  applyAiSuggestionPanelLangVisibility();
 }
 
 function shouldAutoRestoreProjectState() {
@@ -6350,6 +6458,7 @@ function loadSampleData() {
       return response.json();
     })
     .then(sampleData => {
+      startNewProjectSession();
       uploadedData = sampleData.data;
       uploadedFiles = [{
         name: '示例数据.json',
@@ -6357,7 +6466,6 @@ function loadSampleData() {
         recordCount: sampleData.data.length,
         source: '系统内置'
       }];
-      startNewProjectSession();
       fileFormat = 'JSON';
       formatSource = '示例数据（中医治疗高血压）';
       
