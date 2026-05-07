@@ -61,6 +61,7 @@ flowchart LR
 
 | 版本线 | 路径 | 状态 |
 |---|---|---|
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 当前分支已加入 AI usage registry、AI suggestion log、人工确认闭环和透明报告；不接真实 AI provider |
 | V2.2 audit-ready | `literature-screening-v2.2/` | 当前开发主线，已加入审计模型、工作流事件和审计包导出 |
 | V2.1 stable | `literature-screening-v2.0/` | GitHub Pages 当前稳定路径，保留 6 步工作流和质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
@@ -75,6 +76,9 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 | `exclusion_reasons.csv` | 排除理由 taxonomy 和计数 |
 | `prisma_counts.json` | 从决策和事件重算的 PRISMA 计数 |
 | `audit_summary.md` | 可读的审计摘要和注意事项 |
+| `ai_usage_registry.json` | AI 模式、provider 边界、允许阶段和用户确认记录 |
+| `ai_suggestions.jsonl` | AI 建议、hash、人工复核动作、关联 decision、review trace 字段和 PRISMA 计数边界 |
+| `PRISMA_TRAICE_REPORT.md` | No-AI 或 assistive-AI 透明报告，用于 PRISMA-trAIce readiness |
 
 ## 核心能力
 
@@ -89,6 +93,7 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 | 质量评价 | 已有质量评价队列、研究设计建议和证据等级基线 |
 | PRISMA 2020 导出 | 支持多主题 SVG、纳入/排除表和筛选报告 |
 | 审计导出 | V2.2 已支持 manifest、event log、decision ledger、counts 和 summary |
+| PRISMA-trAIce readiness | V2.3 已加入 AI mode、AI usage registry、mock suggestion log、人工复核 trace 字段和透明报告；当前不接真实 AI provider |
 
 ## 性能与基准
 

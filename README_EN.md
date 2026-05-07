@@ -61,6 +61,7 @@ flowchart LR
 
 | Line | Path | Status |
 |---|---|---|
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current branch adds AI usage registry, AI suggestion log, human confirmation loop, and transparency report; no real AI provider is connected |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Current development line with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
@@ -75,6 +76,9 @@ V2.2 focuses on making the screening workflow auditable as data. Audit event typ
 | `exclusion_reasons.csv` | Exclusion taxonomy and reason counts |
 | `prisma_counts.json` | PRISMA counts recalculated from decisions and events |
 | `audit_summary.md` | Human-readable audit summary and notes |
+| `ai_usage_registry.json` | AI mode, provider boundary, allowed stages, and acknowledgement evidence |
+| `ai_suggestions.jsonl` | AI suggestions, hashes, human review actions, linked decisions, review trace fields, and PRISMA count boundary |
+| `PRISMA_TRAICE_REPORT.md` | No-AI or assistive-AI transparency report for PRISMA-trAIce readiness |
 
 ## Core capabilities
 
@@ -89,6 +93,7 @@ V2.2 focuses on making the screening workflow auditable as data. Audit event typ
 | Quality assessment | Quality queue, study-design suggestions, and evidence baselines |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
 | Audit export | V2.2 supports manifest, event log, decision ledger, counts, and summary |
+| PRISMA-trAIce readiness | V2.3 adds AI mode, AI usage registry, mock suggestion log, human review trace fields, and a transparency report; no real AI provider is connected |
 
 ## Performance and benchmarks
 
@@ -128,6 +133,7 @@ node tests\run-all-regressions.js
 Current coverage includes:
 
 - audit model, workflow hooks, audit-package export
+- AI suggestion panel, human review flow, PRISMA-trAIce report, and AI suggestion JSONL trace fields
 - dedup engine, candidate duplicate export, benchmark smoke/regression
 - import job state, parser chunk boundaries, import hardening
 - quality engine and study-design classifier
@@ -137,7 +143,7 @@ Current coverage includes:
 | Phase | Goal |
 |---|---|
 | V2.2 | Audit foundation, event log, recalculable PRISMA counts, audit-package export |
-| V2.3 | PRISMA-trAIce data model, AI usage registry, AI suggestion log, transparent report |
+| V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
 | V2.4 | Quality appraisal templates, evidence table, GRADE summary |
 | V2.5 | Reviewer isolation, conflict queue, resolver workflow, agreement metrics |
 | V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
@@ -156,6 +162,19 @@ Current coverage includes:
 - exports use a stable `snake_case` field schema (`project_id`, `screening_stage`, `human_decision`, etc.)
 - exports the audit package: manifest, events, decisions, exclusion reasons, counts, and summary
 - keeps AI mode `off` by default
+
+</details>
+
+<details>
+<summary><b>V2.3 PRISMA-trAIce readiness (current branch, 2026-05)</b></summary>
+
+- adds `off`, `assistive`, and `experimental` AI modes
+- exports `ai_usage_registry.json`
+- exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
+- exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
+- keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
+- keeps rejected suggestions out of PRISMA counts
+- does not connect a real AI provider
 
 </details>
 

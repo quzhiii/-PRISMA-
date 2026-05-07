@@ -75,14 +75,17 @@ V2.2 已完成的工程基础：
 
 目标：即使暂时不使用真实模型，也先让 AI 使用记录、建议记录和透明报告有数据结构。
 
-| 任务 | 产物 |
-|---|---|
-| AI mode | `off | assistive | experimental` |
-| AI usage registry | 记录工具、用途、数据边界、启用时间 |
-| AI suggestion log | 记录建议、理由、置信度、输入/提示 hash、人工处理结果 |
-| Mock AI suggestion pathway | 用本地 mock 数据验证 AI 建议必须人工确认 |
-| PRISMA-trAIce report | `PRISMA_TRAICE_REPORT.md` |
-| No-AI report | 未使用 AI 时也能导出透明声明 |
+当前状态：V2.3 readiness 已在 `literature-screening-v2.2/` 落地为本地 mock / audit layer，不连接真实 AI provider。
+
+| 任务 | 产物 | 状态 |
+|---|---|---|
+| AI mode | `off | assistive | experimental` | 已完成 |
+| AI usage registry | 记录工具、用途、数据边界、启用时间 | 已完成，导出 `ai_usage_registry.json` |
+| AI suggestion log | 记录建议、理由、置信度、输入/提示 hash、人工处理结果 | 已完成，导出 `ai_suggestions.jsonl` |
+| Mock AI suggestion pathway | 用本地 mock 数据验证 AI 建议必须人工确认 | 已完成，含重复 suggestion 去重 |
+| Human review trace | `reviewed_at`、人工改写字段、`linked_decision_id`、`prisma_count_boundary` | 已完成 |
+| PRISMA-trAIce report | `PRISMA_TRAICE_REPORT.md` | 已完成，含 No-AI / assistive 透明说明 |
+| No-AI report | 未使用 AI 时也能导出透明声明 | 已完成 |
 
 验收标准：
 
