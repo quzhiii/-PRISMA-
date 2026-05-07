@@ -193,6 +193,8 @@ function persistCurrentProjectState() {
     extractFunctionBlock(source, 'ensureDefaultAiUsageRegistry'),
     extractFunctionBlock(source, 'setAiModeSafe'),
     extractFunctionBlock(source, 'buildMockAiSuggestionForRecord'),
+    extractFunctionBlock(source, 'getAiSuggestionIdentity'),
+    extractFunctionBlock(source, 'hasAiSuggestionForIdentity'),
     extractFunctionBlock(source, 'generateMockAiSuggestions'),
     extractFunctionBlock(source, 'getAiSuggestionById'),
     extractFunctionBlock(source, 'normalizeAiHumanDecision'),
@@ -255,6 +257,23 @@ test('mock AI suggestions remain separate from final screening decisions until r
   assert.equal(counts.titleAbstractIncluded, 0);
   assert.equal(counts.titleAbstractExcluded, 0);
   assert.equal(state.aiSuggestionEvents.every((entry) => entry.humanAction === 'pending'), true);
+});
+
+test('mock AI suggestion generation skips records that already have a suggestion identity', async () => {
+  const harness = await loadAiReviewHarness();
+
+  const firstBatch = harness.generateMockAiSuggestions(2);
+  const secondBatch = harness.generateMockAiSuggestions(2);
+  const state = harness.getState();
+  const generatedEvents = state.auditEvents.filter((event) => event.eventType === 'ai_suggestion_generated');
+
+  assert.equal(firstBatch.length, 2);
+  assert.equal(secondBatch.length, 0);
+  assert.equal(state.aiSuggestionEvents.length, 2);
+  assert.equal(generatedEvents.at(-1).after.suggestionCount, 0);
+  assert.equal(generatedEvents.at(-1).after.skippedExistingSuggestionCount, 2);
+  assert.match(state.toastLog.at(-1).message, /跳过 2 条已有建议/);
+  assert.equal(state.toastLog.at(-1).type, 'info');
 });
 
 test('accepting an AI suggestion creates a human-confirmed ScreeningDecision', async () => {

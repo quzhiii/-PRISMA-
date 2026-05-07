@@ -64,8 +64,10 @@ test('v2.2 app keeps mock AI suggestions separate from final screening decisions
 
   assert.match(source, /generateMockAiSuggestions/);
   assert.match(source, /buildMockAiSuggestionForRecord/);
+  assert.match(source, /getAiSuggestionIdentity/);
+  assert.match(source, /hasAiSuggestionForIdentity/);
+  assert.match(source, /skippedExistingSuggestionCount/);
   assert.match(source, /appendAiSuggestionEventsSafe\(suggestions/);
-  assert.match(source, /showToast\(`已生成 \$\{suggestions\.length\} 条本地 mock AI 建议，仍需人工确认`/);
 });
 
 test('v2.2 app supports accept, reject, and edit actions for AI suggestions', async () => {

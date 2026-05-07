@@ -3535,6 +3535,22 @@ function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
   };
 }
 
+function getAiSuggestionIdentity(entry) {
+  return [
+    String(entry?.recordId || entry?.record_id || '').trim(),
+    String(entry?.stage || 'title_abstract').trim(),
+    String(entry?.modelName || entry?.model_name || '').trim(),
+    String(entry?.promptHash || entry?.prompt_hash || '').trim(),
+  ].join('::');
+}
+
+function hasAiSuggestionForIdentity(suggestionInput) {
+  const identity = getAiSuggestionIdentity(suggestionInput);
+  if (!identity || identity.startsWith('::')) return false;
+
+  return aiSuggestionEvents.some((entry) => getAiSuggestionIdentity(entry) === identity);
+}
+
 function generateMockAiSuggestions(limit = 3) {
   if (!uploadedData || uploadedData.length === 0) {
     showToast('请先上传或加载示例数据，再生成 mock AI 建议', 'warning');
@@ -3544,14 +3560,20 @@ function generateMockAiSuggestions(limit = 3) {
   const manifest = setAiModeSafe('assistive', { persist: false });
   const registry = ensureDefaultAiUsageRegistry({ persist: false });
   const selected = uploadedData.slice(0, Math.max(1, limit));
-  const suggestions = selected.map((record) => buildMockAiSuggestionForRecord(record, 'title_abstract'));
-  appendAiSuggestionEventsSafe(suggestions, { persist: false });
+  const candidates = selected.map((record) => buildMockAiSuggestionForRecord(record, 'title_abstract'));
+  const suggestions = candidates.filter((suggestion) => !hasAiSuggestionForIdentity(suggestion));
+  const skippedCount = candidates.length - suggestions.length;
+
+  if (suggestions.length > 0) {
+    appendAiSuggestionEventsSafe(suggestions, { persist: false });
+  }
 
   appendAuditEventsSafe({
     eventType: 'ai_suggestion_generated',
     recordId: '',
     after: {
       suggestionCount: suggestions.length,
+      skippedExistingSuggestionCount: skippedCount,
       aiMode: manifest?.aiMode || 'assistive',
     },
     source: 'system',
@@ -3563,7 +3585,9 @@ function generateMockAiSuggestions(limit = 3) {
 
   persistCurrentProjectState();
   renderAiSuggestionPanel();
-  showToast(`已生成 ${suggestions.length} 条本地 mock AI 建议，仍需人工确认`, 'success');
+  const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
+  const toastType = suggestions.length > 0 ? 'success' : 'info';
+  showToast(`已生成 ${suggestions.length} 条本地 mock AI 建议${skippedMessage}，仍需人工确认`, toastType);
   return suggestions;
 }
 
