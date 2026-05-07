@@ -753,6 +753,14 @@
       '|---|---|---|---|---|---|---|',
       usageRows,
       '',
+      '## Exported AI Audit Files',
+      '',
+      '| File | Purpose | Decision boundary |',
+      '|---|---|---|',
+      '| `ai_usage_registry.json` | Records AI mode, provider, model, allowed workflow stages, data boundary, and user acknowledgement. | Configuration evidence only; it is not a screening decision ledger. |',
+      '| `ai_suggestions.jsonl` | Records each AI suggestion, rationale, confidence, input/prompt hashes, human action, and linked human decision when present. | Advisory log only; accepted or edited suggestions require a linked human `ScreeningDecision`, while rejected suggestions do not affect PRISMA counts. |',
+      '| `PRISMA_TRAICE_REPORT.md` | Human-readable transparency summary for AI usage, No-AI state, suggestion handling, and local/cloud boundary declarations. | Report narrative only; final counts remain derived from `screening_decisions.csv` and audit events. |',
+      '',
     ];
 
     if (manifest.aiMode === 'off') {
@@ -774,6 +782,7 @@
         actionRows,
         '',
         'AI suggestions are logged separately from final ScreeningDecision records and require human confirmation before affecting PRISMA counts.',
+        'Accepted or edited suggestions create a human-confirmed ScreeningDecision; rejected suggestions only update the AI suggestion log.',
         ''
       );
     }
@@ -783,6 +792,8 @@
       '',
       '- Input and prompt hashes are recorded by default instead of raw sensitive full text.',
       '- AI suggestions never become final included or excluded decisions without a human decision record.',
+      '- `screening_decisions.csv` remains the final human decision ledger for PRISMA count replay.',
+      '- `ai_suggestions.jsonl` explains assistance and review handling, but it is not counted directly.',
       '- This report describes AI usage scope, review expectations, and local/cloud boundary declarations.',
       ''
     );

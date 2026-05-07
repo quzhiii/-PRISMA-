@@ -102,8 +102,14 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.equal(registryExport.registry[0].provider_type, 'local');
   assert.equal(JSON.parse(suggestionsJsonl.trim()).suggested_decision, 'include');
   assert.match(report, /AI Usage Registry/);
+  assert.match(report, /Exported AI Audit Files/);
+  assert.match(report, /ai_usage_registry\.json/);
+  assert.match(report, /ai_suggestions\.jsonl/);
+  assert.match(report, /PRISMA_TRAICE_REPORT\.md/);
   assert.match(report, /AI Suggestion Summary/);
   assert.match(report, /human confirmation/i);
+  assert.match(report, /rejected suggestions only update the AI suggestion log/i);
+  assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
 });
 
 test('serializes audit package artifacts with stable escaping', () => {
@@ -193,6 +199,9 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
   assert.match(workspaceHtml, /Generate Mock AI Suggestions/);
+  assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
+  assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
+  assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

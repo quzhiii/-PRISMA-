@@ -307,6 +307,9 @@ test('builds a PRISMA-trAIce report with a No-AI statement by default', () => {
   assert.match(report, /# PRISMA-trAIce Report/);
   assert.match(report, /No-AI Statement/);
   assert.match(report, /No AI provider was enabled/);
+  assert.match(report, /Exported AI Audit Files/);
+  assert.match(report, /ai_suggestions\.jsonl/);
+  assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
 });
 
 test('v2.2 workspace loads audit engine before app.js', async () => {
