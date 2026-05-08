@@ -66,6 +66,8 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
           apiKeyPresent: false,
           requestPolicy: 'disabled',
           realProviderConnected: false,
+          endpointOrigin: 'https://api.example.test',
+          apiKeyStorage: 'not_configured',
         },
       },
     }],
@@ -125,6 +127,11 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.equal(registryExport.registry[0].metadata.providerConfig.requestPolicy, 'disabled');
   assert.equal(JSON.parse(suggestionsJsonl.trim()).suggested_decision, 'include');
   assert.match(report, /AI Usage Registry/);
+  assert.match(report, /AI Provider Boundary/);
+  assert.match(report, /Request policy/);
+  assert.match(report, /Real provider connected/);
+  assert.match(report, /Endpoint origin/);
+  assert.match(report, /\| assistive \| local \| local_mock_provider \| mock-screening-assistant \| disabled \| no \| local_only \| https:\/\/api\.example\.test \| no \| not_configured \|/);
   assert.match(report, /Exported AI Audit Files/);
   assert.match(report, /ai_usage_registry\.json/);
   assert.match(report, /ai_suggestions\.jsonl/);

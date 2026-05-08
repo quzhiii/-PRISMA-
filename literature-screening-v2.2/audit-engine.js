@@ -712,6 +712,36 @@
     };
   }
 
+  function getAiProviderBoundary(entryInput) {
+    const entry = createAiUsageRegistryEntry(entryInput);
+    const metadata = normalizeObject(entry.metadata);
+    const providerConfig = normalizeObject(metadata.providerConfig || metadata.provider_config);
+    const endpointOrigin = normalizeString(providerConfig.endpointOrigin || providerConfig.endpoint_origin, '');
+    const requestPolicy = normalizeString(providerConfig.requestPolicy || providerConfig.request_policy, 'disabled');
+    const apiKeyStorage = normalizeString(providerConfig.apiKeyStorage || providerConfig.api_key_storage, 'not_configured');
+    const realProviderConnected = normalizeBoolean(
+      providerConfig.realProviderConnected === undefined ? providerConfig.real_provider_connected : providerConfig.realProviderConnected,
+      false
+    );
+    const apiKeyPresent = normalizeBoolean(
+      providerConfig.apiKeyPresent === undefined ? providerConfig.api_key_present : providerConfig.apiKeyPresent,
+      false
+    );
+
+    return {
+      aiMode: entry.aiMode,
+      providerType: entry.providerType,
+      providerName: entry.providerName || '-',
+      modelName: entry.modelName || '-',
+      requestPolicy,
+      realProviderConnected,
+      dataBoundary: normalizeString(providerConfig.dataBoundary || providerConfig.data_boundary, entry.dataBoundary),
+      endpointOrigin: endpointOrigin || '-',
+      apiKeyPresent,
+      apiKeyStorage,
+    };
+  }
+
   function toExportAiSuggestionEvent(eventInput) {
     const event = createAiSuggestionEvent(eventInput);
     const metadata = normalizeObject(event.metadata);
@@ -764,6 +794,12 @@
   function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents) {
     const manifest = createProjectManifest(manifestInput);
     const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
+    const boundaryRows = manifest.aiUsageRegistry.length > 0
+      ? manifest.aiUsageRegistry.map((entry) => {
+          const boundary = getAiProviderBoundary(entry);
+          return `| ${boundary.aiMode} | ${boundary.providerType} | ${boundary.providerName} | ${boundary.modelName} | ${boundary.requestPolicy} | ${boundary.realProviderConnected ? 'yes' : 'no'} | ${boundary.dataBoundary} | ${boundary.endpointOrigin} | ${boundary.apiKeyPresent ? 'yes' : 'no'} | ${boundary.apiKeyStorage} |`;
+        }).join('\n')
+      : '| off | none | - | - | disabled | no | local_only | - | no | not_configured |';
     const usageRows = manifest.aiUsageRegistry.length > 0
       ? manifest.aiUsageRegistry.map((entry) => {
           const normalized = createAiUsageRegistryEntry(entry);
@@ -796,6 +832,12 @@
       '| AI mode | Provider type | Provider | Model | Allowed stages | Data boundary | User acknowledged |',
       '|---|---|---|---|---|---|---|',
       usageRows,
+      '',
+      '## AI Provider Boundary',
+      '',
+      '| AI mode | Provider type | Provider | Model | Request policy | Real provider connected | Data boundary | Endpoint origin | API key present | API key storage |',
+      '|---|---|---|---|---|---|---|---|---|---|',
+      boundaryRows,
       '',
       '## Exported AI Audit Files',
       '',
