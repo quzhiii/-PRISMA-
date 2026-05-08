@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const requireFromRepo = createRequire(import.meta.url);
 const AuditEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2/audit-engine.js'));
+const AiProviderEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2/ai-provider-engine.js'));
 
 function extractFunctionBlock(source, functionName) {
   const marker = `function ${functionName}(`;
@@ -125,6 +126,7 @@ async function loadAiReviewHarness() {
   const code = [
     `
 const AUDIT_ENGINE = globalThis.AuditEngine;
+const AI_PROVIDER_ENGINE = globalThis.AiProviderEngine;
 const WORKFLOW_STEP_COUNT = 6;
 let uploadedData = [
   {
@@ -190,6 +192,11 @@ function persistCurrentProjectState() {
     extractFunctionBlock(source, 'upsertAiUsageRegistrySafe'),
     extractFunctionBlock(source, 'appendAiSuggestionEventsSafe'),
     extractFunctionBlock(source, 'updateAiSuggestionEventSafe'),
+    extractFunctionBlock(source, 'getDefaultAiProviderConfig'),
+    extractFunctionBlock(source, 'normalizeAiProviderConfigSafe'),
+    extractFunctionBlock(source, 'getCurrentAiProviderConfig'),
+    extractFunctionBlock(source, 'buildAiUsageRegistryEntrySafe'),
+    extractFunctionBlock(source, 'buildAiSuggestionTraceSafe'),
     extractFunctionBlock(source, 'ensureDefaultAiUsageRegistry'),
     extractFunctionBlock(source, 'setAiModeSafe'),
     extractFunctionBlock(source, 'buildMockAiSuggestionForRecord'),
@@ -230,7 +237,7 @@ this.__exports = {
 `,
   ].join('\n\n');
 
-  const context = { AuditEngine, console };
+  const context = { AuditEngine, AiProviderEngine, console };
   vm.createContext(context);
   vm.runInContext(code, context);
   return context.__exports;
@@ -257,6 +264,12 @@ test('mock AI suggestions remain separate from final screening decisions until r
   assert.equal(counts.titleAbstractIncluded, 0);
   assert.equal(counts.titleAbstractExcluded, 0);
   assert.equal(state.aiSuggestionEvents.every((entry) => entry.humanAction === 'pending'), true);
+  assert.equal(state.aiSuggestionEvents.every((entry) => entry.metadata.requestStatus === 'not_dispatched'), true);
+  assert.equal(state.aiSuggestionEvents.every((entry) => entry.metadata.rawPayloadIncluded === false), true);
+  assert.equal(state.aiSuggestionEvents.every((entry) => entry.metadata.realProviderConnected === false), true);
+  assert.equal(state.aiSuggestionEvents.every((entry) => entry.metadata.providerConfig.providerType === 'local'), true);
+  assert.match(state.aiSuggestionEvents[0].promptHash, /^local-hash-v1-/);
+  assert.match(state.aiSuggestionEvents[0].inputHash, /^local-hash-v1-/);
 });
 
 test('mock AI suggestion generation skips records that already have a suggestion identity', async () => {

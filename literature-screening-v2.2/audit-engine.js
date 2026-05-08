@@ -708,6 +708,7 @@
       allowed_stages: entry.allowedStages,
       data_boundary: entry.dataBoundary,
       user_acknowledged: entry.userAcknowledged,
+      metadata: entry.metadata,
     };
   }
 

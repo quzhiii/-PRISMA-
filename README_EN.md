@@ -61,7 +61,7 @@ flowchart LR
 
 | Line | Path | Status |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current branch adds AI usage registry, AI suggestion log, human confirmation loop, and transparency report; no real AI provider is connected |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current branch adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Current development line with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
@@ -93,7 +93,7 @@ V2.2 focuses on making the screening workflow auditable as data. Audit event typ
 | Quality assessment | Quality queue, study-design suggestions, and evidence baselines |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
 | Audit export | V2.2 supports manifest, event log, decision ledger, counts, and summary |
-| PRISMA-trAIce readiness | V2.3 adds AI mode, AI usage registry, mock suggestion log, human review trace fields, and a transparency report; no real AI provider is connected |
+| PRISMA-trAIce readiness | V2.3 adds AI mode, AI usage registry, provider abstraction, mock suggestion log, human review trace fields, and a transparency report; no real AI provider dispatch is enabled |
 
 ## Performance and benchmarks
 
@@ -169,12 +169,13 @@ Current coverage includes:
 <summary><b>V2.3 PRISMA-trAIce readiness (current branch, 2026-05)</b></summary>
 
 - adds `off`, `assistive`, and `experimental` AI modes
+- adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
 - exports `ai_usage_registry.json`
 - exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
 - exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
 - keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
 - keeps rejected suggestions out of PRISMA counts
-- does not connect a real AI provider
+- does not dispatch to a real AI provider or export API key material
 - tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
 
 </details>

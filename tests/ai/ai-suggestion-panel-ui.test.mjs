@@ -103,6 +103,9 @@ test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion pane
   assert.match(workspace, /name="aiMode" value="experimental"/);
   assert.match(workspace, /onclick="generateMockAiSuggestions\(\)"/);
   assert.match(workspace, /id="aiSuggestionPanel"/);
+  assert.match(workspace, /ai-provider-engine\.js/);
+  assert.match(workspace, /Provider boundary/);
+  assert.match(workspace, /real API dispatch remains disabled/);
 });
 
 test('AI suggestion panel renders explicit rewrite selectors for pending suggestions', async () => {

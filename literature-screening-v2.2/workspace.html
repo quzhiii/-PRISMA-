@@ -771,6 +771,10 @@
                 <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">下载 PRISMA-trAIce 报告</span><span class="en">Download PRISMA-trAIce Report</span></button>
               </div>
               <p class="muted-text" style="margin-top: 10px;"><span class="zh">当前不连接真实 AI 服务，只用本地示例建议验证“AI 建议必须由人工确认”的审计闭环。</span><span class="en">This stage does not connect to a real AI provider; local mock suggestions verify the human-confirmation audit loop.</span></p>
+              <div class="ai-provider-boundary">
+                <strong><span class="zh">Provider &#36793;&#30028;</span><span class="en">Provider boundary</span></strong>
+                <span><span class="zh">&#24050;&#20934;&#22791; provider &#25277;&#35937;&#12289;hash &#21644;&#33073;&#25935;&#35760;&#24405;&#65307;&#30495;&#23454; API &#35831;&#27714;&#20173;&#28982;&#20851;&#38381;&#65292;&#19981;&#20250;&#33258;&#21160;&#21457;&#36865;&#25991;&#29486;&#20869;&#23481;&#25110; API key&#12290;</span><span class="en">Provider abstraction, hashes, and redacted trace records are ready; real API dispatch remains disabled and never sends record content or API keys automatically.</span></span>
+              </div>
               <div id="aiSuggestionPanel" style="margin-top: 12px;"></div>
             </div>
             <div class="button-group">
@@ -939,6 +943,7 @@
   <script src="quality-engine.js?v=20260422-v21-shell"></script>
   <script src="import-job-runtime.js?v=20260422-v21-shell"></script>
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
+  <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
   <script src="app.js?v=20260428-v22-quality-ui"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>

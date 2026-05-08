@@ -195,16 +195,17 @@ Benchmark evidence:
 4. Exclusion reason taxonomy exports exist, but before/after changes to reason choices still need deeper audit events.
 5. Quality assessment exists as a baseline queue, but not formal tool-specific appraisal forms.
 6. Dual-review support exists, but reviewer isolation, conflict gates and final resolver records need formalization.
-7. AI usage registry and AI suggestion log now exist for V2.3 readiness. Real AI provider integration should still wait until the audit/reporting boundaries are release-stable.
+7. AI usage registry, provider abstraction, and AI suggestion log now exist for V2.3 readiness. Real AI provider dispatch remains disabled until the audit/reporting boundaries and API-key handling are release-stable.
 8. RDF/BibTeX/TXT import fallback behavior remains a future stability concern for large files.
 
 ## 10. Recommended Next Patch
 
 V2.3 release-readiness is now tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
 
-Start the next pass with V2.4 preparation:
+Start the next pass with provider-integration hardening or V2.4 preparation:
 
-1. Keep V2.3 as a mock/local audit layer and do not add a real provider yet.
+1. Keep V2.3 as a mock/local audit layer; provider request drafts may exist, but no real provider dispatch should occur yet.
 2. Use the V2.3 checklist as the export and behavior freeze for PRISMA-trAIce readiness.
-3. Move to V2.4 quality appraisal structure: template schema, `quality_appraisal.csv`, and evidence table planning.
-4. Preserve the current full regression gate before each V2.4 slice.
+3. For AI, add the OpenAI-compatible configuration UI only after API key storage warnings, redacted export checks, and manual-dispatch gates are in place.
+4. For V2.4, move to quality appraisal structure: template schema, `quality_appraisal.csv`, and evidence table planning.
+5. Preserve the current full regression gate before each slice.

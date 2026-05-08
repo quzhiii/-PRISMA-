@@ -15,6 +15,7 @@ const WORKFLOW_STEP_COUNT = FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5;
 const QUALITY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.QualityEngine || null : null;
 const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.ImportJobRuntime || null : null;
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
+const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
   'audit_events',
@@ -3439,6 +3440,108 @@ function updateAiSuggestionEventSafe(suggestionId, patch = {}, options = {}) {
   return next;
 }
 
+function getDefaultAiProviderConfig(aiMode = 'off') {
+  const mode = String(aiMode || 'off').trim();
+  return {
+    providerId: 'default-ai-provider',
+    providerType: mode === 'off' ? 'none' : 'local',
+    providerName: mode === 'off' ? '' : 'local_mock_provider',
+    modelName: mode === 'off' ? '' : 'mock-screening-assistant',
+    allowedStages: ['title_abstract'],
+    dataBoundary: 'local_only',
+    apiKeyPresent: false,
+    apiKeyStorage: 'not_configured',
+    requestPolicy: 'disabled',
+  };
+}
+
+function normalizeAiProviderConfigSafe(configInput = {}) {
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.normalizeProviderConfig === 'function') {
+    return AI_PROVIDER_ENGINE.normalizeProviderConfig(configInput);
+  }
+
+  return {
+    ...getDefaultAiProviderConfig(configInput.aiMode || 'off'),
+    ...configInput,
+    realProviderConnected: false,
+  };
+}
+
+function getCurrentAiProviderConfig(aiMode) {
+  const manifest = ensureProjectManifest() || {};
+  const configured = manifest?.settings?.aiProviderConfig || {};
+  return normalizeAiProviderConfigSafe({
+    ...getDefaultAiProviderConfig(aiMode || manifest.aiMode || 'off'),
+    ...configured,
+  });
+}
+
+function buildAiUsageRegistryEntrySafe(aiMode, context = {}) {
+  const providerConfig = getCurrentAiProviderConfig(aiMode);
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.buildAuditRegistryEntry === 'function') {
+    return AI_PROVIDER_ENGINE.buildAuditRegistryEntry(providerConfig, {
+      usageId: 'default-ai-mode',
+      projectId: ensureProjectId(),
+      aiMode,
+      userAcknowledged: aiMode === 'off',
+      ...context,
+    });
+  }
+
+  return {
+    usageId: 'default-ai-mode',
+    projectId: ensureProjectId(),
+    aiMode,
+    providerType: providerConfig.providerType,
+    providerName: providerConfig.providerName,
+    modelName: providerConfig.modelName,
+    allowedStages: providerConfig.allowedStages || ['title_abstract'],
+    dataBoundary: providerConfig.dataBoundary || 'local_only',
+    userAcknowledged: aiMode === 'off',
+    ...context,
+  };
+}
+
+function buildAiSuggestionTraceSafe(record, stage = 'title_abstract') {
+  const providerConfig = getCurrentAiProviderConfig('assistive');
+  const recordId = getRecordAuditId(record, 0);
+  const title = String(record?.title || record?.TI || record?.T1 || '').trim();
+  const abstractText = String(record?.abstract || record?.AB || record?.N2 || '').trim();
+  const fallbackTrace = {
+    modelName: providerConfig.modelName || 'mock-screening-assistant',
+    promptHash: `mock-prompt-title-abstract-v1`,
+    inputHash: `mock-input-${recordId}`,
+    inputSummary: title ? title.slice(0, 140) : `Record ${recordId}`,
+    metadata: {
+      providerConfig,
+      providerSchemaVersion: 'ai-provider.fallback',
+      requestStatus: 'not_dispatched',
+      requestReason: 'provider_engine_unavailable',
+      rawPayloadIncluded: false,
+      realProviderConnected: false,
+    },
+  };
+
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.buildSuggestionTrace === 'function') {
+    return AI_PROVIDER_ENGINE.buildSuggestionTrace({
+      providerConfig,
+      stage,
+      prompt: {
+        promptId: 'mock-title-abstract-screening',
+        promptVersion: 'v1',
+        template: 'Local mock heuristic for title and abstract screening. Output include, exclude, or uncertain for human confirmation only.',
+      },
+      input: {
+        recordId,
+        title,
+        abstract: abstractText,
+      },
+    });
+  }
+
+  return fallbackTrace;
+}
+
 function ensureDefaultAiUsageRegistry(options = {}) {
   const manifest = ensureProjectManifest();
   if (!manifest) return [];
@@ -3446,15 +3549,7 @@ function ensureDefaultAiUsageRegistry(options = {}) {
     return manifest.aiUsageRegistry;
   }
 
-  return upsertAiUsageRegistrySafe({
-    usageId: 'default-ai-mode',
-    providerType: manifest.aiMode === 'off' ? 'none' : 'local',
-    providerName: manifest.aiMode === 'off' ? '' : 'local_mock_provider',
-    modelName: manifest.aiMode === 'off' ? '' : 'mock-screening-assistant',
-    allowedStages: ['title_abstract'],
-    dataBoundary: 'local_only',
-    userAcknowledged: manifest.aiMode === 'off',
-  }, options);
+  return upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(manifest.aiMode || 'off'), options);
 }
 
 function setAiModeSafe(nextMode, options = {}) {
@@ -3464,22 +3559,10 @@ function setAiModeSafe(nextMode, options = {}) {
   }
 
   const manifest = updateProjectManifestSafe({ aiMode: mode }, options);
-  const providerType = mode === 'off' ? 'none' : 'local';
-  const providerName = mode === 'off' ? '' : 'local_mock_provider';
-  const modelName = mode === 'off' ? '' : 'mock-screening-assistant';
-  const acknowledged = mode === 'off';
-  upsertAiUsageRegistrySafe({
-    usageId: 'default-ai-mode',
-    aiMode: mode,
-    providerType,
-    providerName,
-    modelName,
-    allowedStages: ['title_abstract'],
-    dataBoundary: 'local_only',
-    userAcknowledged: acknowledged,
+  upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(mode, {
     enabledAt: manifest?.updatedAt || new Date().toISOString(),
     disabledAt: mode === 'off' ? manifest?.updatedAt || new Date().toISOString() : '',
-  }, options);
+  }), options);
 
   if (typeof appendAuditEventsSafe === 'function') {
     appendAuditEventsSafe({
@@ -3507,21 +3590,17 @@ function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
   const looksRelevant = /trial|cohort|random|systematic|meta|干预|研究|队列|随机/.test(combined);
   const suggestedDecision = looksRelevant ? 'include' : 'uncertain';
   const confidence = looksRelevant ? 0.74 : 0.41;
-  const inputSummary = title
-    ? title.slice(0, 140)
-    : `Record ${recordId}`;
-  const inputHash = `mock-input-${recordId}`;
-  const promptHash = 'mock-prompt-title-abstract-v1';
+  const trace = buildAiSuggestionTraceSafe(record, stage);
 
   return {
     projectId: ensureProjectId(),
     recordId,
     stage,
     mode: 'suggest_only',
-    modelName: 'mock-screening-assistant',
-    promptHash,
-    inputHash,
-    inputSummary,
+    modelName: trace.modelName || 'mock-screening-assistant',
+    promptHash: trace.promptHash || 'mock-prompt-title-abstract-v1',
+    inputHash: trace.inputHash || `mock-input-${recordId}`,
+    inputSummary: trace.inputSummary || (title ? title.slice(0, 140) : `Record ${recordId}`),
     suggestedDecision,
     rationale: looksRelevant
       ? 'Mock pathway flagged study-like design terms and kept the record for human confirmation.'
@@ -3529,6 +3608,7 @@ function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
     confidence,
     humanAction: 'pending',
     metadata: {
+      ...(trace.metadata || {}),
       mock: true,
       source: 'local_demo',
     },

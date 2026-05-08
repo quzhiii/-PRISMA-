@@ -61,6 +61,13 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
       allowedStages: ['title_abstract'],
       dataBoundary: 'local_only',
       userAcknowledged: true,
+      metadata: {
+        providerConfig: {
+          apiKeyPresent: false,
+          requestPolicy: 'disabled',
+          realProviderConnected: false,
+        },
+      },
     }],
   });
   const registryExport = AuditEngine.buildAiUsageRegistryExport(manifest);
@@ -115,6 +122,7 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.equal(registryExport.aiMode, 'assistive');
   assert.equal(registryExport.registry.length, 1);
   assert.equal(registryExport.registry[0].provider_type, 'local');
+  assert.equal(registryExport.registry[0].metadata.providerConfig.requestPolicy, 'disabled');
   assert.equal(JSON.parse(suggestionsJsonl.trim()).suggested_decision, 'include');
   assert.match(report, /AI Usage Registry/);
   assert.match(report, /Exported AI Audit Files/);
