@@ -119,9 +119,21 @@
     }
 
     return Object.keys(value).some((key) => {
-      if (SECRET_KEY_PATTERN.test(key) && normalizeString(value[key], '')) {
-        return true;
+      const normalizedKey = String(key || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+      if (['apikeypresent', 'apikeystorage'].includes(normalizedKey)) {
+        return false;
       }
+
+      if (SECRET_KEY_PATTERN.test(key)) {
+        const rawValue = value[key];
+        if (typeof rawValue === 'boolean') {
+          return rawValue;
+        }
+
+        const normalizedValue = normalizeString(rawValue, '').toLowerCase();
+        return Boolean(normalizedValue && !['false', '0', 'no', 'not_configured'].includes(normalizedValue));
+      }
+
       return hasSecretLikeValue(value[key]);
     });
   }

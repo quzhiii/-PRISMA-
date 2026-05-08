@@ -163,7 +163,14 @@ let isDualReviewMode = false;
 let currentReviewer = 'A';
 let persistedSnapshots = 0;
 let renderedPanels = 0;
+let renderedProviderPanels = 0;
 let toastLog = [];
+const documentElements = new Map();
+const document = {
+  getElementById(id) {
+    return documentElements.get(id) || null;
+  },
+};
 const localStorage = {
   store: new Map(),
   getItem(key) {
@@ -178,6 +185,9 @@ function showToast(message, type) {
 }
 function renderAiSuggestionPanel() {
   renderedPanels += 1;
+}
+function renderAiProviderConfigPanel() {
+  renderedProviderPanels += 1;
 }
 function persistCurrentProjectState() {
   persistedSnapshots += 1;
@@ -195,6 +205,10 @@ function persistCurrentProjectState() {
     extractFunctionBlock(source, 'getDefaultAiProviderConfig'),
     extractFunctionBlock(source, 'normalizeAiProviderConfigSafe'),
     extractFunctionBlock(source, 'getCurrentAiProviderConfig'),
+    extractFunctionBlock(source, 'getAiProviderControlValue'),
+    extractFunctionBlock(source, 'getAiProviderCheckboxValue'),
+    extractFunctionBlock(source, 'buildAiProviderConfigFromControls'),
+    extractFunctionBlock(source, 'saveAiProviderConfig'),
     extractFunctionBlock(source, 'buildAiUsageRegistryEntrySafe'),
     extractFunctionBlock(source, 'buildAiSuggestionTraceSafe'),
     extractFunctionBlock(source, 'ensureDefaultAiUsageRegistry'),
@@ -224,14 +238,26 @@ function getState() {
     aiSuggestionEvents,
     persistedSnapshots,
     renderedPanels,
+    renderedProviderPanels,
     toastLog,
   };
+}
+function putElement(id, patch = {}) {
+  const element = Object.assign({
+    id,
+    value: '',
+    checked: false,
+  }, patch);
+  documentElements.set(id, element);
+  return element;
 }
 this.__exports = {
   generateMockAiSuggestions,
   acceptAiSuggestion,
   rejectAiSuggestion,
   editAiSuggestion,
+  saveAiProviderConfig,
+  putElement,
   getState,
 };
 `,
@@ -250,6 +276,36 @@ function getReviewedEvent(state, suggestionId, humanAction) {
     event.after?.humanAction === humanAction
   ));
 }
+
+test('saving provider configuration records a redacted disabled boundary', async () => {
+  const harness = await loadAiReviewHarness();
+  harness.putElement('aiProviderType', { value: 'user_provided_endpoint' });
+  harness.putElement('aiProviderName', { value: 'Team endpoint' });
+  harness.putElement('aiProviderModel', { value: 'screening-model' });
+  harness.putElement('aiProviderEndpoint', { value: 'https://api.example.test/v1/responses?key=secret' });
+  harness.putElement('aiProviderDataBoundary', { value: 'hash_only' });
+  harness.putElement('aiProviderStageFullText', { checked: true });
+  harness.putElement('aiProviderStageQuality', { checked: false });
+  harness.putElement('aiProviderStageReporting', { checked: true });
+
+  const config = harness.saveAiProviderConfig();
+  const state = harness.getState();
+  const registryEntry = state.projectManifest.aiUsageRegistry[0];
+  const providerEvent = state.auditEvents.find((event) => event.eventType === 'ai_provider_config_updated');
+
+  assert.equal(config.providerType, 'user_provided_endpoint');
+  assert.equal(config.requestPolicy, 'disabled');
+  assert.equal(config.realProviderConnected, false);
+  assert.equal(config.apiKeyPresent, false);
+  assert.deepEqual(config.allowedStages, ['title_abstract', 'full_text', 'reporting']);
+  assert.equal(config.endpointUrl, 'https://api.example.test/v1/responses');
+  assert.equal(registryEntry.providerType, 'user_provided_endpoint');
+  assert.equal(registryEntry.metadata.providerConfig.endpointOrigin, 'https://api.example.test');
+  assert.equal(registryEntry.metadata.realProviderConnected, false);
+  assert.equal(providerEvent.after.requestPolicy, 'disabled');
+  assert.equal(providerEvent.after.realProviderConnected, false);
+  assert.doesNotMatch(JSON.stringify(state.projectManifest), /secret/);
+});
 
 test('mock AI suggestions remain separate from final screening decisions until reviewed', async () => {
   const harness = await loadAiReviewHarness();

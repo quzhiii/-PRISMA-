@@ -1013,6 +1013,7 @@ function init() {
   renderExclusionTemplateEditor();
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
 
   // v1.4: Ensure Step4 entry button reflects readiness
   updateStep4EntryLock();
@@ -3476,6 +3477,142 @@ function getCurrentAiProviderConfig(aiMode) {
   });
 }
 
+function getAiProviderControlValue(id, fallback = '') {
+  if (typeof document === 'undefined') return fallback;
+  const element = document.getElementById(id);
+  return element ? String(element.value || '').trim() : fallback;
+}
+
+function getAiProviderCheckboxValue(id) {
+  if (typeof document === 'undefined') return false;
+  const element = document.getElementById(id);
+  return Boolean(element && element.checked);
+}
+
+function buildAiProviderConfigFromControls() {
+  const providerType = getAiProviderControlValue('aiProviderType', 'local');
+  const allowedStages = ['title_abstract'];
+  if (getAiProviderCheckboxValue('aiProviderStageFullText')) allowedStages.push('full_text');
+  if (getAiProviderCheckboxValue('aiProviderStageQuality')) allowedStages.push('quality_appraisal');
+  if (getAiProviderCheckboxValue('aiProviderStageReporting')) allowedStages.push('reporting');
+
+  return normalizeAiProviderConfigSafe({
+    providerId: 'default-ai-provider',
+    providerType,
+    providerName: getAiProviderControlValue('aiProviderName', providerType === 'local' ? 'local_mock_provider' : ''),
+    modelName: getAiProviderControlValue('aiProviderModel', providerType === 'local' ? 'mock-screening-assistant' : ''),
+    endpointUrl: getAiProviderControlValue('aiProviderEndpoint', ''),
+    allowedStages,
+    dataBoundary: getAiProviderControlValue('aiProviderDataBoundary', providerType === 'local' ? 'local_only' : 'hash_only'),
+    apiKeyPresent: false,
+    apiKeyStorage: 'not_configured',
+    requestPolicy: 'disabled',
+  });
+}
+
+function saveAiProviderConfig() {
+  const config = buildAiProviderConfigFromControls();
+  const manifest = ensureProjectManifest() || {};
+  const settings = {
+    ...(manifest.settings || {}),
+    aiProviderConfig: config,
+  };
+
+  updateProjectManifestSafe({ settings }, { persist: false });
+  upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(manifest.aiMode || 'off', {
+    enabledAt: new Date().toISOString(),
+  }), { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_provider_config_updated',
+    recordId: '',
+    after: {
+      providerType: config.providerType,
+      providerName: config.providerName,
+      modelName: config.modelName,
+      endpointOrigin: config.endpointOrigin || '',
+      allowedStages: config.allowedStages,
+      dataBoundary: config.dataBoundary,
+      requestPolicy: config.requestPolicy,
+      realProviderConnected: config.realProviderConnected,
+    },
+    source: 'human',
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderAiProviderConfigPanel();
+  renderAiSuggestionPanel();
+  showToast('AI provider boundary saved. Real API dispatch remains disabled.', 'success');
+  return config;
+}
+
+function renderAiProviderConfigPanel() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('aiProviderConfigPanel');
+  if (!container) return;
+
+  const manifest = ensureProjectManifest() || {};
+  const config = getCurrentAiProviderConfig(manifest.aiMode || 'off');
+  const panelLang = getAiSuggestionPanelLang();
+  const isZh = panelLang === 'zh';
+  const providerOptions = [
+    ['local', isZh ? '本地示例 provider' : 'Local mock provider'],
+    ['user_provided_endpoint', isZh ? '用户自带 OpenAI-compatible endpoint' : 'User-provided OpenAI-compatible endpoint'],
+    ['hosted', isZh ? '托管 provider（仅记录）' : 'Hosted provider (record only)'],
+  ].map(([value, label]) => `<option value="${value}" ${config.providerType === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
+  const boundaryOptions = [
+    ['local_only', isZh ? '仅本地' : 'Local only'],
+    ['hash_only', isZh ? '仅记录 hash / endpoint 边界' : 'Hash and endpoint boundary only'],
+    ['cloud_submitted', isZh ? '未来云端提交（当前仍关闭）' : 'Future cloud submission (currently disabled)'],
+  ].map(([value, label]) => `<option value="${value}" ${config.dataBoundary === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
+  const stageChecked = (stage) => config.allowedStages.includes(stage) ? 'checked' : '';
+
+  container.innerHTML = `
+    <details class="ai-provider-config-card">
+      <summary>
+        <span>${escapeHTML(isZh ? 'AI provider 配置记录' : 'AI Provider Configuration Record')}</span>
+        <small>${escapeHTML(isZh ? '只保存边界，不保存 API key，不发送请求' : 'Boundary only. No API key storage. No dispatch.')}</small>
+      </summary>
+      <div class="ai-provider-config-grid">
+        <label>
+          <span>${escapeHTML(isZh ? 'Provider 类型' : 'Provider type')}</span>
+          <select id="aiProviderType">${providerOptions}</select>
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? 'Provider 名称' : 'Provider name')}</span>
+          <input id="aiProviderName" type="text" value="${escapeHTML(config.providerName || '')}" placeholder="local_mock_provider">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '模型名称' : 'Model name')}</span>
+          <input id="aiProviderModel" type="text" value="${escapeHTML(config.modelName || '')}" placeholder="mock-screening-assistant">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? 'Endpoint URL（可选，仅记录脱敏边界）' : 'Endpoint URL (optional, redacted boundary only)')}</span>
+          <input id="aiProviderEndpoint" type="url" value="${escapeHTML(config.endpointUrl || '')}" placeholder="https://api.example.com/v1/responses">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '数据边界' : 'Data boundary')}</span>
+          <select id="aiProviderDataBoundary">${boundaryOptions}</select>
+        </label>
+      </div>
+      <fieldset class="ai-provider-stage-list">
+        <legend>${escapeHTML(isZh ? '允许阶段（仅记录，不触发请求）' : 'Allowed stages (record only)')}</legend>
+        <label><input type="checkbox" checked disabled> ${escapeHTML(isZh ? '标题摘要筛选' : 'Title and abstract')}</label>
+        <label><input id="aiProviderStageFullText" type="checkbox" ${stageChecked('full_text')}> ${escapeHTML(isZh ? '全文复核' : 'Full text')}</label>
+        <label><input id="aiProviderStageQuality" type="checkbox" ${stageChecked('quality_appraisal')}> ${escapeHTML(isZh ? '质量评价' : 'Quality appraisal')}</label>
+        <label><input id="aiProviderStageReporting" type="checkbox" ${stageChecked('reporting')}> ${escapeHTML(isZh ? '报告辅助' : 'Reporting')}</label>
+      </fieldset>
+      <div class="ai-provider-safety-note">
+        ${escapeHTML(isZh
+          ? '当前 requestPolicy 固定为 disabled；API key 不提供输入框，也不会写入导出文件。'
+          : 'requestPolicy is fixed to disabled; API keys have no input field and are never written to exports.')}
+      </div>
+      <div class="button-group ai-provider-actions">
+        <button type="button" class="btn btn-secondary" onclick="saveAiProviderConfig()">${escapeHTML(isZh ? '保存 provider 边界' : 'Save provider boundary')}</button>
+      </div>
+    </details>
+  `;
+}
+
 function buildAiUsageRegistryEntrySafe(aiMode, context = {}) {
   const providerConfig = getCurrentAiProviderConfig(aiMode);
   if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.buildAuditRegistryEntry === 'function') {
@@ -4061,6 +4198,7 @@ function startNewProjectSession() {
   renderExclusionTemplateEditor();
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
   updateStep4EntryLock();
 }
@@ -4125,6 +4263,7 @@ function restoreProjectState(snapshot) {
 
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
 }
 
@@ -4648,6 +4787,7 @@ function setStep(step) {
   }
   if (nextStep === 6 || (!FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT && nextStep === 5)) {
     renderImportJobShell();
+    renderAiProviderConfigPanel();
     renderAiSuggestionPanel();
   }
 }

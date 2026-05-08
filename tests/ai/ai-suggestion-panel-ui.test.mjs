@@ -106,6 +106,20 @@ test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion pane
   assert.match(workspace, /ai-provider-engine\.js/);
   assert.match(workspace, /Provider boundary/);
   assert.match(workspace, /real API dispatch remains disabled/);
+  assert.match(workspace, /id="aiProviderConfigPanel"/);
+});
+
+test('AI provider configuration shell is boundary-only and does not expose API key input', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function renderAiProviderConfigPanel/);
+  assert.match(source, /function saveAiProviderConfig/);
+  assert.match(source, /aiProviderType/);
+  assert.match(source, /aiProviderEndpoint/);
+  assert.match(source, /requestPolicy is fixed to disabled/);
+  assert.match(source, /apiKeyPresent: false/);
+  assert.doesNotMatch(source, /id="aiProviderApiKey"/);
+  assert.doesNotMatch(source, /type="password"/);
 });
 
 test('AI suggestion panel renders explicit rewrite selectors for pending suggestions', async () => {

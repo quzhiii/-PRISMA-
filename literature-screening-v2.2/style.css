@@ -1640,6 +1640,72 @@ tbody tr:nth-child(even) {
 	line-height: 1.45;
 }
 
+.ai-provider-config-card {
+	margin-top: 10px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.76);
+	border: 1px solid rgba(36, 52, 71, 0.12);
+}
+
+.ai-provider-config-card summary {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	cursor: pointer;
+	font-weight: 700;
+}
+
+.ai-provider-config-card summary small {
+	font-weight: 500;
+	color: var(--color-text-secondary);
+}
+
+.ai-provider-config-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 12px;
+}
+
+.ai-provider-config-grid label {
+	display: grid;
+	gap: 5px;
+	font-size: var(--font-size-sm);
+	color: var(--color-text-secondary);
+}
+
+.ai-provider-config-grid input,
+.ai-provider-config-grid select {
+	width: 100%;
+}
+
+.ai-provider-stage-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+	margin: 12px 0 0;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid rgba(36, 52, 71, 0.1);
+}
+
+.ai-provider-stage-list legend {
+	padding: 0 4px;
+	font-size: var(--font-size-sm);
+	font-weight: 700;
+}
+
+.ai-provider-safety-note {
+	margin-top: 10px;
+	color: var(--color-text-secondary);
+	font-size: var(--font-size-sm);
+}
+
+.ai-provider-actions {
+	margin-top: 10px;
+}
+
 .ai-suggestion-summary-grid {
 	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
