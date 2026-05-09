@@ -95,6 +95,7 @@ const SMART_IMPORT_CONFIG = {
   MAX_RETRY: 3                 // 最大重试次数
 };
 const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-streaming-v2';
+const LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES = 20 * 1024 * 1024;
 
 let importQueue = {
   tasks: [],                   // 待导入任务队列
@@ -1301,6 +1302,49 @@ function shouldAllowWholeFileParseFallback(ext) {
   return !supportsIncrementalWorkerFormat(ext);
 }
 
+function isLocalFilePageContext() {
+  try {
+    return typeof window !== 'undefined'
+      && window.location
+      && window.location.protocol === 'file:';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function shouldAllowLocalFileWorkerFallback(file, ext) {
+  if (!isLocalFilePageContext() || !supportsIncrementalWorkerFormat(ext)) {
+    return false;
+  }
+
+  const fileSize = Number.isFinite(file?.size) ? file.size : 0;
+  return fileSize <= LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES;
+}
+
+async function parseFileWithLocalFileFallback(file, ext, onProgress = null) {
+  const text = await readBlobAsText(file);
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'read',
+      loadedBytes: file.size,
+      totalBytes: file.size
+    });
+  }
+
+  const records = parseFileContent(text, ext);
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'parse',
+      loadedBytes: file.size,
+      totalBytes: file.size,
+      parsed: records.length,
+      total: records.length,
+      complete: true
+    });
+  }
+  return records;
+}
+
 function createIncrementalWorkerFailureError(file, ext, cause) {
   const causeMessage = cause?.message || '未知 worker 错误';
   const formatLabel = ext || 'unknown';
@@ -1477,6 +1521,10 @@ async function parseFileInChunks(file, onProgress = null) {
     try {
       return await parseFileIncrementallyWithWorker(file, ext, onProgress);
     } catch (workerError) {
+      if (shouldAllowLocalFileWorkerFallback(file, ext)) {
+        console.warn('Incremental worker unavailable in file:// mode, using local main-thread parser:', workerError);
+        return parseFileWithLocalFileFallback(file, ext, onProgress);
+      }
       throw createIncrementalWorkerFailureError(file, ext, workerError);
     }
   }
@@ -3541,7 +3589,10 @@ function saveAiProviderConfig() {
   persistCurrentProjectState();
   renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
-  showToast('AI provider boundary saved. Real API dispatch remains disabled.', 'success');
+  const toastLang = typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en';
+  showToast(toastLang === 'zh'
+    ? 'AI 服务边界已保存；真实服务请求仍然关闭'
+    : 'AI provider boundary saved. Real API dispatch remains disabled.', 'success');
   return config;
 }
 
@@ -3555,13 +3606,13 @@ function renderAiProviderConfigPanel() {
   const panelLang = getAiSuggestionPanelLang();
   const isZh = panelLang === 'zh';
   const providerOptions = [
-    ['local', isZh ? '本地示例 provider' : 'Local mock provider'],
-    ['user_provided_endpoint', isZh ? '用户自带 OpenAI-compatible endpoint' : 'User-provided OpenAI-compatible endpoint'],
-    ['hosted', isZh ? '托管 provider（仅记录）' : 'Hosted provider (record only)'],
+    ['local', isZh ? '本地示例服务' : 'Local mock provider'],
+    ['user_provided_endpoint', isZh ? '用户自带兼容服务（仅记录）' : 'User-provided OpenAI-compatible endpoint'],
+    ['hosted', isZh ? '托管服务（仅记录）' : 'Hosted provider (record only)'],
   ].map(([value, label]) => `<option value="${value}" ${config.providerType === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
   const boundaryOptions = [
     ['local_only', isZh ? '仅本地' : 'Local only'],
-    ['hash_only', isZh ? '仅记录 hash / endpoint 边界' : 'Hash and endpoint boundary only'],
+    ['hash_only', isZh ? '仅记录摘要指纹和服务边界' : 'Hash and endpoint boundary only'],
     ['cloud_submitted', isZh ? '未来云端提交（当前仍关闭）' : 'Future cloud submission (currently disabled)'],
   ].map(([value, label]) => `<option value="${value}" ${config.dataBoundary === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
   const stageChecked = (stage) => config.allowedStages.includes(stage) ? 'checked' : '';
@@ -3569,16 +3620,16 @@ function renderAiProviderConfigPanel() {
   container.innerHTML = `
     <details class="ai-provider-config-card">
       <summary>
-        <span>${escapeHTML(isZh ? 'AI provider 配置记录' : 'AI Provider Configuration Record')}</span>
-        <small>${escapeHTML(isZh ? '只保存边界，不保存 API key，不发送请求' : 'Boundary only. No API key storage. No dispatch.')}</small>
+        <span>${escapeHTML(isZh ? 'AI 服务边界记录' : 'AI Provider Configuration Record')}</span>
+        <small>${escapeHTML(isZh ? '只保存边界，不保存密钥，不发送请求' : 'Boundary only. No API key storage. No dispatch.')}</small>
       </summary>
       <div class="ai-provider-config-grid">
         <label>
-          <span>${escapeHTML(isZh ? 'Provider 类型' : 'Provider type')}</span>
+          <span>${escapeHTML(isZh ? '服务类型' : 'Provider type')}</span>
           <select id="aiProviderType">${providerOptions}</select>
         </label>
         <label>
-          <span>${escapeHTML(isZh ? 'Provider 名称' : 'Provider name')}</span>
+          <span>${escapeHTML(isZh ? '服务名称' : 'Provider name')}</span>
           <input id="aiProviderName" type="text" value="${escapeHTML(config.providerName || '')}" placeholder="local_mock_provider">
         </label>
         <label>
@@ -3586,7 +3637,7 @@ function renderAiProviderConfigPanel() {
           <input id="aiProviderModel" type="text" value="${escapeHTML(config.modelName || '')}" placeholder="mock-screening-assistant">
         </label>
         <label>
-          <span>${escapeHTML(isZh ? 'Endpoint URL（可选，仅记录脱敏边界）' : 'Endpoint URL (optional, redacted boundary only)')}</span>
+          <span>${escapeHTML(isZh ? '服务地址（可选，仅记录脱敏边界）' : 'Endpoint URL (optional, redacted boundary only)')}</span>
           <input id="aiProviderEndpoint" type="url" value="${escapeHTML(config.endpointUrl || '')}" placeholder="https://api.example.com/v1/responses">
         </label>
         <label>
@@ -3603,11 +3654,11 @@ function renderAiProviderConfigPanel() {
       </fieldset>
       <div class="ai-provider-safety-note">
         ${escapeHTML(isZh
-          ? '当前 requestPolicy 固定为 disabled；API key 不提供输入框，也不会写入导出文件。'
+          ? '当前请求策略固定为关闭；页面不提供密钥输入框，也不会把密钥写入导出文件。'
           : 'requestPolicy is fixed to disabled; API keys have no input field and are never written to exports.')}
       </div>
       <div class="button-group ai-provider-actions">
-        <button type="button" class="btn btn-secondary" onclick="saveAiProviderConfig()">${escapeHTML(isZh ? '保存 provider 边界' : 'Save provider boundary')}</button>
+        <button type="button" class="btn btn-secondary" onclick="saveAiProviderConfig()">${escapeHTML(isZh ? '保存服务边界' : 'Save provider boundary')}</button>
       </div>
     </details>
   `;
@@ -4206,7 +4257,7 @@ function startNewProjectSession() {
 function persistCurrentProjectState() {
   const projectId = ensureProjectId();
   const snapshot = {
-    version: '2.2-audit-shell',
+    version: '2.3-prisma-traice-release',
     timestamp: new Date().toISOString(),
     projectId,
     uploadedData,
@@ -6119,13 +6170,17 @@ function buildAuditExportContent(type) {
     case 'audit_prisma_counts':
       return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
     case 'audit_summary':
-      return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions);
+      return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions, {
+        language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
+      });
     case 'ai_usage_registry':
       return JSON.stringify(AUDIT_ENGINE.buildAiUsageRegistryExport(manifest), null, 2);
     case 'ai_suggestions':
       return AUDIT_ENGINE.serializeAiSuggestionEventsJsonl(aiSuggestionEvents);
     case 'prisma_traice_report':
-      return AUDIT_ENGINE.buildPrismaTraiceReportMarkdown(manifest, aiSuggestionEvents);
+      return AUDIT_ENGINE.buildPrismaTraiceReportMarkdown(manifest, aiSuggestionEvents, {
+        language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
+      });
     default:
       return '';
   }

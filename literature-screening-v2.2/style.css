@@ -1627,6 +1627,56 @@ tbody tr:nth-child(even) {
 	border: 1px solid rgba(36, 52, 71, 0.1);
 }
 
+.ai-transparency-panel {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: minmax(240px, 0.85fr) minmax(320px, 1.15fr);
+	gap: 12px 18px;
+	align-items: start;
+	margin: 0;
+}
+
+.ai-transparency-panel > h4,
+.ai-transparency-panel > .ai-readiness-copy {
+	grid-column: 1 / -1;
+}
+
+.ai-transparency-panel .ai-readiness-steps,
+.ai-transparency-panel .ai-mode-options,
+.ai-transparency-panel .ai-transparency-actions,
+.ai-transparency-panel .ai-transparency-note {
+	margin-top: 0;
+}
+
+.ai-transparency-panel .ai-readiness-steps {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ai-transparency-panel .ai-mode-options {
+	grid-template-columns: 1fr;
+}
+
+.ai-transparency-actions {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.ai-transparency-actions .btn {
+	width: 100%;
+}
+
+.ai-transparency-note {
+	align-self: center;
+}
+
+.ai-transparency-panel .ai-provider-boundary,
+.ai-transparency-panel #aiProviderConfigPanel,
+.ai-transparency-panel #aiSuggestionPanel {
+	grid-column: 1 / -1;
+	margin-top: 0;
+}
+
 .ai-provider-boundary {
 	display: grid;
 	gap: 4px;
@@ -1638,6 +1688,54 @@ tbody tr:nth-child(even) {
 	color: var(--color-text-secondary);
 	font-size: var(--font-size-sm);
 	line-height: 1.45;
+}
+
+.export-files-panel {
+	display: grid;
+	gap: 14px;
+}
+
+.export-files-panel > .button-group {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.export-files-panel > .button-group:first-of-type {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	padding-bottom: 12px;
+	border-bottom: 1px solid rgba(36, 52, 71, 0.1);
+}
+
+.export-files-panel > .button-group:first-of-type .btn {
+	width: 100%;
+	min-height: 44px;
+	padding: 10px 12px;
+	text-align: center;
+}
+
+.export-files-panel > h4 {
+	margin: 4px 0 0 !important;
+}
+
+.export-files-panel > .section-subtitle {
+	margin: -6px 0 0 !important;
+}
+
+.export-files-panel > .audit-package-downloads {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	padding: 12px;
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.64);
+	border: 1px solid rgba(36, 52, 71, 0.1);
+}
+
+.export-files-panel > .audit-package-downloads .btn {
+	width: 100%;
+	min-height: 40px;
+	padding: 9px 10px;
+	font-size: var(--font-size-sm);
+	text-align: center;
 }
 
 .ai-provider-config-card {
@@ -2454,6 +2552,19 @@ summary::-webkit-details-marker {
 		grid-template-columns: 1fr;
 	}
 
+	.ai-transparency-panel {
+		grid-template-columns: 1fr;
+	}
+
+	.ai-transparency-panel .ai-readiness-steps,
+	.ai-transparency-actions {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.export-files-panel > .audit-package-downloads {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
 	.ai-suggestion-card-layout {
 		flex-direction: column;
 	}
@@ -2501,6 +2612,14 @@ summary::-webkit-details-marker {
 	.hero-metrics,
 	.exclude-item,
 	.keyword-item {
+		grid-template-columns: 1fr;
+	}
+
+	.export-files-panel > .button-group,
+	.export-files-panel > .button-group:first-of-type,
+	.export-files-panel > .audit-package-downloads,
+	.ai-transparency-panel .ai-readiness-steps,
+	.ai-transparency-actions {
 		grid-template-columns: 1fr;
 	}
 

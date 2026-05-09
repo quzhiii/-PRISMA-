@@ -157,6 +157,15 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.match(report, /human confirmation/i);
   assert.match(report, /rejected or ignored suggestions only update the AI suggestion log/i);
   assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
+
+  const zhReport = AuditEngine.buildPrismaTraiceReportMarkdown(manifest, [], { language: 'zh' });
+  assert.match(zhReport, /PRISMA-trAIce 透明报告/);
+  assert.match(zhReport, /AI 使用登记/);
+  assert.match(zhReport, /AI 服务边界/);
+  assert.match(zhReport, /AI 建议处理摘要/);
+  assert.match(zhReport, /辅助记录/);
+  assert.match(zhReport, /本地示例服务/);
+  assert.match(zhReport, /AI 建议不会/);
 });
 
 test('serializes audit package artifacts with stable escaping', () => {
@@ -196,6 +205,18 @@ test('serializes audit package artifacts with stable escaping', () => {
   assert.match(summary, /record_imported/);
   assert.match(summary, /fullTextExcluded/);
   assert.match(summary, /Unresolved Risks And Notes/);
+
+  const zhSummary = AuditEngine.buildAuditSummaryMarkdown(
+    AuditEngine.buildProjectManifestExport({ projectId: 'project-1', projectName: 'Audit Export' }),
+    events,
+    decisions,
+    { language: 'zh' }
+  );
+  assert.match(zhSummary, /审计摘要/);
+  assert.match(zhSummary, /事件摘要/);
+  assert.match(zhSummary, /PRISMA 计数/);
+  assert.match(zhSummary, /最终纳入研究数/);
+  assert.match(zhSummary, /AI 建议不会/);
 });
 
 test('serializes AI suggestion review trace fields in JSONL exports', () => {
@@ -306,10 +327,14 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
+  assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
+  assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
+  assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);
+  assert.match(workspaceHtml, /V2\.3 PRISMA-trAIce/);
   assert.match(workspaceHtml, /reviewed_at/);
   assert.match(workspaceHtml, /human edit fields/);
   assert.match(workspaceHtml, /prisma_count_boundary/);
-  assert.match(workspaceHtml, /Generate Mock AI Suggestions/);
+  assert.match(workspaceHtml, /Generate Local Example AI Suggestions/);
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);
@@ -319,7 +344,7 @@ test('audit package exports use the stable snake_case ledger schema', () => {
   const manifest = AuditEngine.buildProjectManifestExport({
     projectId: 'project-1',
     projectName: 'Schema Review',
-    appVersion: 'v2.2',
+    appVersion: 'v2.3',
     aiMode: 'off',
     timestamp: '2026-04-28T00:00:00.000Z',
   });

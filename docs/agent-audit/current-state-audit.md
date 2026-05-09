@@ -1,8 +1,8 @@
 # Current State Audit
 
-Date: 2026-05-07
+Date: 2026-05-09
 
-Target iteration: V2.3 PRISMA-trAIce readiness checkpoint
+Target iteration: V2.3 PRISMA-trAIce release-ready checkpoint
 
 ## 1. Repository Structure
 
@@ -10,7 +10,7 @@ The repository is a static browser application with historical version folders a
 
 Important paths:
 
-- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.2/V2.3 readiness line.
+- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.3 release-ready line.
 - `index.html`, `login.html`, `app.js`, `parser-worker.js`, `db-worker.js`, `style.css`: root-level legacy/current shared entry files.
 - `dedup-engine.js`: shared conservative deduplication engine used by root and versioned workspaces.
 - `literature-screening-v2.0/`: current V2.1 workspace implementation and GitHub Pages-compatible version path.
@@ -60,7 +60,7 @@ Project persistence:
 - `restoreProjectState(snapshot)` rehydrates runtime state.
 - `localStorage` keys include collaboration state, current project id, import progress and user session.
 
-Main gap: there is no first-class `ProjectManifest`, `AuditEvent`, or `ScreeningDecision` model yet.
+Historical baseline: older releases did not have a first-class `ProjectManifest`, `AuditEvent`, or `ScreeningDecision` model.
 
 V2.3 checkpoint update:
 
@@ -172,7 +172,7 @@ Sandbox behavior:
 
 Latest verified result:
 
-- 96 tests passed.
+- 104 tests passed.
 - 0 tests failed.
 
 Existing test areas:
@@ -200,7 +200,7 @@ Benchmark evidence:
 
 ## 10. Recommended Next Patch
 
-V2.3 release-readiness is now tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
+V2.3 release-readiness is now satisfied and tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
 
 Start the next pass with provider-integration hardening or V2.4 preparation:
 

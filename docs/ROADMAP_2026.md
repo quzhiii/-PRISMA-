@@ -1,6 +1,6 @@
 # PRISMA Workbench 2026 Roadmap
 
-Last updated: 2026-04-28
+Last updated: 2026-05-09
 
 ## Roadmap 原则
 
@@ -16,7 +16,8 @@ Last updated: 2026-04-28
 |---|---|---|
 | v1.7.x | 历史维护版 | 根目录旧入口 |
 | V2.1 stable | 当前稳定演示路径 | `literature-screening-v2.0/` |
-| V2.2 audit-ready | 当前开发主线 | `literature-screening-v2.2/` |
+| V2.3 PRISMA-trAIce readiness | current release | `literature-screening-v2.2/` compatibility path |
+| V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
 
 V2.2 已完成的工程基础：
 
@@ -75,7 +76,7 @@ V2.2 已完成的工程基础：
 
 目标：即使暂时不使用真实模型，也先让 AI 使用记录、建议记录和透明报告有数据结构。
 
-当前状态：V2.3 readiness 已在 `literature-screening-v2.2/` 落地为本地 mock / audit layer，不连接真实 AI provider。
+Current status: V2.3 readiness is release-ready in `literature-screening-v2.2/` as a local mock/audit layer. Real AI provider dispatch remains disabled.
 
 | 任务 | 产物 | 状态 |
 |---|---|---|

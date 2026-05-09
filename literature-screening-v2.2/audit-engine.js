@@ -188,7 +188,7 @@
       reviewType: normalizeString(payload.reviewType || payload.review_type, 'systematic_review'),
       prismaVersion: normalizeString(payload.prismaVersion || payload.prisma_version, 'PRISMA_2020'),
       aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
-      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.2'),
+      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.3'),
       dataResidency: normalizeString(payload.dataResidency || payload.data_residency, 'local_browser'),
       exportGeneratedAt: normalizeString(payload.exportGeneratedAt || payload.export_generated_at, timestamp),
       dataSources: normalizeArray(payload.dataSources || payload.data_sources),
@@ -791,33 +791,163 @@
     };
   }
 
-  function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents) {
+  function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents, options = {}) {
     const manifest = createProjectManifest(manifestInput);
     const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
+    const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
+    const isZh = language === 'zh';
+    const zhLabels = {
+      off: '关闭',
+      assistive: '辅助记录',
+      experimental: '完整记录',
+      none: '无',
+      local: '本地示例服务',
+      user_provided_endpoint: '用户自带兼容服务',
+      hosted: '托管服务记录',
+      local_only: '仅本地',
+      hash_only: '仅记录摘要指纹和服务边界',
+      cloud_submitted: '云端提交记录',
+      disabled: '关闭',
+      not_configured: '未配置',
+      accepted: '已接受',
+      rejected: '已拒绝',
+      edited: '已改写',
+      ignored: '已忽略',
+      pending: '待处理',
+      include: '纳入',
+      exclude: '排除',
+      uncertain: '不确定',
+      suggest_only: '仅建议',
+      prioritise: '优先级提示',
+      uncertainty_flagging: '不确定性提示',
+      report_helper: '报告辅助',
+      title_abstract: '标题摘要',
+      full_text: '全文复核',
+      reporting: '报告',
+    };
+    const label = (value) => {
+      const normalized = normalizeString(value, '');
+      if (!normalized) return '-';
+      return isZh ? (zhLabels[normalized] || normalized) : normalized;
+    };
+    const yesNo = (value) => (isZh ? (value ? '是' : '否') : (value ? 'yes' : 'no'));
+    const stageList = (stages) => {
+      const list = Array.isArray(stages) ? stages : [];
+      return list.length > 0 ? list.map(label).join(', ') : '-';
+    };
     const boundaryRows = manifest.aiUsageRegistry.length > 0
       ? manifest.aiUsageRegistry.map((entry) => {
           const boundary = getAiProviderBoundary(entry);
-          return `| ${boundary.aiMode} | ${boundary.providerType} | ${boundary.providerName} | ${boundary.modelName} | ${boundary.requestPolicy} | ${boundary.realProviderConnected ? 'yes' : 'no'} | ${boundary.dataBoundary} | ${boundary.endpointOrigin} | ${boundary.apiKeyPresent ? 'yes' : 'no'} | ${boundary.apiKeyStorage} |`;
+          return `| ${label(boundary.aiMode)} | ${label(boundary.providerType)} | ${boundary.providerName || '-'} | ${boundary.modelName || '-'} | ${label(boundary.requestPolicy)} | ${yesNo(boundary.realProviderConnected)} | ${label(boundary.dataBoundary)} | ${boundary.endpointOrigin || '-'} | ${yesNo(boundary.apiKeyPresent)} | ${label(boundary.apiKeyStorage)} |`;
         }).join('\n')
-      : '| off | none | - | - | disabled | no | local_only | - | no | not_configured |';
+      : `| ${label('off')} | ${label('none')} | - | - | ${label('disabled')} | ${yesNo(false)} | ${label('local_only')} | - | ${yesNo(false)} | ${label('not_configured')} |`;
     const usageRows = manifest.aiUsageRegistry.length > 0
       ? manifest.aiUsageRegistry.map((entry) => {
           const normalized = createAiUsageRegistryEntry(entry);
-          return `| ${normalized.aiMode} | ${normalized.providerType} | ${normalized.providerName || '-'} | ${normalized.modelName || '-'} | ${normalized.allowedStages.join(', ') || '-'} | ${normalized.dataBoundary} | ${normalized.userAcknowledged ? 'yes' : 'no'} |`;
+          return `| ${label(normalized.aiMode)} | ${label(normalized.providerType)} | ${normalized.providerName || '-'} | ${normalized.modelName || '-'} | ${stageList(normalized.allowedStages)} | ${label(normalized.dataBoundary)} | ${yesNo(normalized.userAcknowledged)} |`;
         }).join('\n')
-      : '| off | none | - | - | - | local_only | no |';
+      : `| ${label('off')} | ${label('none')} | - | - | - | ${label('local_only')} | ${yesNo(false)} |`;
     const actionRows = Object.keys(suggestionSummary.byHumanAction).length > 0
       ? Object.keys(suggestionSummary.byHumanAction)
           .sort()
-          .map((key) => `| ${key} | ${suggestionSummary.byHumanAction[key]} |`)
+          .map((key) => `| ${label(key)} | ${suggestionSummary.byHumanAction[key]} |`)
           .join('\n')
-      : '| none | 0 |';
+      : `| ${label('none')} | 0 |`;
     const suggestedDecisionRows = Object.keys(suggestionSummary.bySuggestedDecision).length > 0
       ? Object.keys(suggestionSummary.bySuggestedDecision)
           .sort()
-          .map((key) => `| ${key} | ${suggestionSummary.bySuggestedDecision[key]} |`)
+          .map((key) => `| ${label(key)} | ${suggestionSummary.bySuggestedDecision[key]} |`)
           .join('\n')
-      : '| none | 0 |';
+      : `| ${label('none')} | 0 |`;
+
+    if (isZh) {
+      const reportLines = [
+        '# PRISMA-trAIce 透明报告',
+        '',
+        `项目：${manifest.projectName}`,
+        `项目 ID：${manifest.projectId}`,
+        `AI 模式：${label(manifest.aiMode)}`,
+        `生成时间：${manifest.exportGeneratedAt}`,
+        '',
+        '## AI 使用登记',
+        '',
+        '| AI 模式 | 服务类型 | 服务名称 | 模型 | 允许环节 | 数据边界 | 用户已确认 |',
+        '|---|---|---|---|---|---|---|',
+        usageRows,
+        '',
+        '## AI 服务边界',
+        '',
+        '| AI 模式 | 服务类型 | 服务名称 | 模型 | 请求策略 | 已连接真实服务 | 数据边界 | 服务地址域名 | 是否存在密钥 | 密钥保存方式 |',
+        '|---|---|---|---|---|---|---|---|---|---|',
+        boundaryRows,
+        '',
+        '## 导出的 AI 审计文件',
+        '',
+        '| 文件 | 用途 | 决策边界 |',
+        '|---|---|---|',
+        '| `ai_usage_registry.json` | 记录 AI 模式、服务、模型、允许使用环节、数据边界和用户确认状态。 | 仅作为配置证据，不是最终筛选决策表。 |',
+        '| `ai_suggestions.jsonl` | 记录每条 AI 建议、理由、置信度、输入/提示词指纹、人工处理动作、复核时间、人工改写信息、关联的人类决策和计数边界。 | 仅作为建议日志；接受或改写必须关联人类确认的 `ScreeningDecision`，拒绝的建议不会影响 PRISMA 计数。 |',
+        '| `PRISMA_TRAICE_REPORT.md` | 面向方法学附录和团队复核的可读透明报告，说明 AI 使用范围、No-AI 状态、建议处理方式和本地/云端边界。 | 仅作为报告说明；最终计数仍来自 `screening_decisions.csv` 和审计事件。 |',
+        '',
+      ];
+
+      if (manifest.aiMode === 'off') {
+        reportLines.push(
+          '## 未使用 AI 声明',
+          '',
+          '本次项目导出未启用 AI 服务。',
+          '没有任何 AI 建议在缺少明确人工确认的情况下改变最终筛选决策。',
+          ''
+        );
+      }
+
+      reportLines.push(
+        '## AI 建议处理摘要',
+        '',
+        `建议总数：${suggestionSummary.totalSuggestions}`,
+        `待处理建议：${suggestionSummary.pendingSuggestions}`,
+        `已复核建议：${suggestionSummary.reviewedSuggestions}`,
+        `已关联人类决策：${suggestionSummary.linkedHumanDecisionCount}`,
+        `已复核但未关联人类决策：${suggestionSummary.unlinkedReviewedSuggestionCount}`,
+        `仅作为建议日志的复核：${suggestionSummary.advisoryOnlyReviewedSuggestionCount}`,
+        `已接受或改写但缺少关联人类决策：${suggestionSummary.acceptedOrEditedWithoutLinkedDecisionCount}`,
+        '',
+        '| 人工处理动作 | 数量 |',
+        '|---|---:|',
+        actionRows,
+        '',
+        '| AI 建议决策 | 数量 |',
+        '|---|---:|',
+        suggestedDecisionRows,
+        '',
+        'AI 建议与最终 `ScreeningDecision` 分开记录，只有经过人工确认后才可能影响 PRISMA 计数。',
+        '接受或改写建议会创建关联的人类确认 `ScreeningDecision`；拒绝或忽略建议只更新 AI 建议日志。',
+        ''
+      );
+
+      reportLines.push(
+        '## AI 建议复核追踪字段',
+        '',
+        '| 字段 | 含义 |',
+        '|---|---|',
+        '| `reviewed_at` | 人工接受、改写、拒绝或忽略建议时的复核时间。 |',
+        '| `human_edited_decision` | 建议被改写时，研究者明确选择的人类决策。 |',
+        '| `human_edited_exclusion_reason` | 改写为排除时使用的标准化排除理由。 |',
+        '| `linked_decision_id` | 接受或改写建议后创建的人类 `ScreeningDecision`。拒绝或待处理建议为空。 |',
+        '| `prisma_count_boundary` | 说明该行是否已关联到人类决策并可用于计数，或仍然只是建议日志。 |',
+        '',
+        '## 透明性说明',
+        '',
+        '- 默认记录输入和提示词指纹，而不是原始敏感全文。',
+        '- AI 建议不会在缺少人类决策记录的情况下成为最终纳入或排除决定。',
+        '- `screening_decisions.csv` 仍是 PRISMA 计数回放的最终人工决策表。',
+        '- `ai_suggestions.jsonl` 用于解释辅助建议和复核处理方式，但不会被直接计数。',
+        '- 本报告说明 AI 使用范围、人工复核要求，以及本地/云端服务边界。',
+        ''
+      );
+
+      return reportLines.join('\n');
+    }
 
     const reportLines = [
       '# PRISMA-trAIce Report',
@@ -907,17 +1037,63 @@
     return reportLines.join('\n');
   }
 
-  function buildAuditSummaryMarkdown(manifestInput, events, decisions) {
+  function buildAuditSummaryMarkdown(manifestInput, events, decisions, options = {}) {
     const manifest = createProjectManifest(manifestInput);
     const eventSummary = summarizeAuditEvents(events);
     const counts = calculatePrismaCountsFromDecisions(decisions, events);
+    const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
+    const isZh = language === 'zh';
     const eventTypeRows = Object.keys(eventSummary.byType)
       .sort()
       .map((eventType) => `| ${eventType} | ${eventSummary.byType[eventType]} |`)
       .join('\n') || '| none | 0 |';
+    const countLabelsZh = {
+      recordsImported: '导入记录数',
+      duplicatesRemoved: '去除重复数',
+      recordsAfterDeduplication: '去重后记录数',
+      titleAbstractScreened: '标题/摘要筛选数',
+      titleAbstractExcluded: '标题/摘要排除数',
+      fullTextAssessed: '全文评估数',
+      fullTextExcluded: '全文排除数',
+      studiesIncluded: '最终纳入研究数',
+      pendingFullTextReview: '待全文复核数',
+    };
     const countRows = Object.keys(counts)
-      .map((key) => `| ${key} | ${counts[key]} |`)
+      .map((key) => `| ${isZh ? (countLabelsZh[key] || key) : key} | ${counts[key]} |`)
       .join('\n');
+
+    if (isZh) {
+      return [
+        '# 审计摘要',
+        '',
+        `项目：${manifest.projectName}`,
+        `项目 ID：${manifest.projectId}`,
+        `审计 schema 版本：${manifest.schemaVersion}`,
+        `PRISMA 版本：${manifest.prismaVersion}`,
+        `AI 模式：${manifest.aiMode}`,
+        '',
+        '## 事件摘要',
+        '',
+        `事件总数：${eventSummary.totalEvents}`,
+        '',
+        '| 事件类型 | 数量 |',
+        '|---|---:|',
+        eventTypeRows,
+        '',
+        '## PRISMA 计数',
+        '',
+        '| 指标 | 数值 |',
+        '|---|---:|',
+        countRows,
+        '',
+        '## 未解决风险与说明',
+        '',
+        '- 计数来自持久化的 ScreeningDecision 记录和 AuditEvent 事件。',
+        `- 当前 AI 模式为 ${manifest.aiMode}；AI 建议不会在缺少人类决策记录的情况下成为最终筛选决定。`,
+        '- 尚未形成最终全文决定的记录不会进入最终纳入研究计数。',
+        '',
+      ].join('\n');
+    }
 
     return [
       '# Audit Summary',

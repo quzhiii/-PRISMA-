@@ -3,7 +3,7 @@
 面向系统综述、Meta 分析和证据整合项目的本地优先工作台。它把文献导入、保守去重、规则筛选、人工复核、质量评价、PRISMA 2020 导出和审计包放在同一个浏览器流程里。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.2%20audit--ready-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.3%20PRISMA--trAIce-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Stable demo](https://img.shields.io/badge/Stable%20demo-V2.1-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -61,8 +61,8 @@ flowchart LR
 
 | 版本线 | 路径 | 状态 |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 当前分支已加入 AI usage registry、AI suggestion log、人工确认闭环和透明报告；不接真实 AI provider |
-| V2.2 audit-ready | `literature-screening-v2.2/` | 当前开发主线，已加入审计模型、工作流事件和审计包导出 |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current release line. Keeps V2.2 audit foundation and adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled. The `v2.2` path remains the compatibility release path. |
+| V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | GitHub Pages 当前稳定路径，保留 6 步工作流和质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
 
@@ -112,7 +112,7 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 ```text
 workspace.html              -> 工作台页面与步骤结构
 app.js                      -> 主流程、规则筛选、复核、导出和状态管理
-audit-engine.js             -> V2.2 审计模型、决策序列化和审计包构建
+audit-engine.js             -> V2.3 审计模型、决策序列化和审计包构建
 db-worker.js                -> IndexedDB 数据层
 parser-worker.js            -> 多格式解析和后台消息编排
 streaming-parser.js         -> 常用格式增量解析状态机
@@ -151,7 +151,7 @@ node tests\run-all-regressions.js
 ## 版本历史
 
 <details>
-<summary><b>V2.2 audit-ready（当前开发主线，2026-04）</b></summary>
+<summary><b>V2.2 audit-ready (completed foundation, 2026-04)</b></summary>
 
 - 新增 `literature-screening-v2.2/` 独立工作区
 - 新增 `audit-engine.js`

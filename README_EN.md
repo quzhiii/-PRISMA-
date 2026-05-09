@@ -3,7 +3,7 @@
 A local-first workspace for systematic reviews, meta-analyses, and evidence synthesis. It brings literature import, conservative deduplication, rule-based screening, manual review, quality assessment, PRISMA 2020 export, and audit-package output into one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.2%20audit--ready-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.3%20PRISMA--trAIce-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Stable demo](https://img.shields.io/badge/Stable%20demo-V2.1-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -55,18 +55,18 @@ flowchart LR
 | Rule screening | Title/abstract include, exclude, and uncertain decisions |
 | Manual review | Full-text decisions, exclusion reasons, reviewer notes |
 | Quality assessment | Study-design suggestions, tool-family suggestions, evidence baselines |
-| Export | PRISMA SVG, result tables, screening report, V2.2 audit package |
+| Export | PRISMA SVG, result tables, screening report, V2.3 audit package |
 
 ## Current status
 
 | Line | Path | Status |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current branch adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled |
-| V2.2 audit-ready | `literature-screening-v2.2/` | Current development line with audit model, workflow events, and audit-package exports |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current release line. Keeps the V2.2 audit foundation and adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled. The `v2.2` path remains the compatibility release path. |
+| V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.2 focuses on making the screening workflow auditable as data. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. It adds these exports:
+V2.3 is the current public release surface. It preserves the V2.2 audit model while adding PRISMA-trAIce transparency files. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. It adds these exports:
 
 | File | Purpose |
 |---|---|
@@ -112,7 +112,7 @@ Benchmark numbers come from [`docs/benchmarks/dedup/post-implementation-benchmar
 ```text
 workspace.html              -> Workspace page and step structure
 app.js                      -> Main flow, rule screening, review, export, and state management
-audit-engine.js             -> V2.2 audit model, decision serialization, audit-package builders
+audit-engine.js             -> V2.3 audit and PRISMA-trAIce model, decision serialization, audit-package builders
 db-worker.js                -> IndexedDB data layer
 parser-worker.js            -> Multi-format parsing and background orchestration
 streaming-parser.js         -> Incremental parsing state machines
@@ -152,7 +152,7 @@ Current coverage includes:
 ## Version history
 
 <details>
-<summary><b>V2.2 audit-ready (current development line, 2026-04)</b></summary>
+<summary><b>V2.2 audit-ready (completed foundation, 2026-04)</b></summary>
 
 - adds the isolated `literature-screening-v2.2/` workspace
 - adds `audit-engine.js`
@@ -166,7 +166,7 @@ Current coverage includes:
 </details>
 
 <details>
-<summary><b>V2.3 PRISMA-trAIce readiness (current branch, 2026-05)</b></summary>
+<summary><b>V2.3 PRISMA-trAIce readiness (current release, 2026-05)</b></summary>
 
 - adds `off`, `assistive`, and `experimental` AI modes
 - adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
@@ -176,6 +176,7 @@ Current coverage includes:
 - keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
 - keeps rejected suggestions out of PRISMA counts
 - does not dispatch to a real AI provider or export API key material
+- ships from the `literature-screening-v2.2/` compatibility path while presenting V2.3 as the release version
 - tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
 
 </details>
