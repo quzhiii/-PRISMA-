@@ -22,9 +22,98 @@ test('creates a project manifest with conservative defaults', () => {
   assert.equal(manifest.reviewType, 'systematic_review');
   assert.equal(manifest.prismaVersion, 'PRISMA_2020');
   assert.equal(manifest.aiMode, 'off');
+  assert.deepEqual(manifest.aiUsageRegistry, []);
   assert.equal(manifest.schemaVersion, AuditEngine.AUDIT_SCHEMA_VERSION);
   assert.ok(manifest.createdAt);
   assert.ok(manifest.updatedAt);
+});
+
+test('creates AI usage registry entries and keeps them normalized in the project manifest', () => {
+  const registry = AuditEngine.upsertAiUsageRegistry([], {
+    usageId: 'default-ai-mode',
+    projectId: 'project-1',
+    aiMode: 'assistive',
+    providerType: 'local',
+    providerName: 'local_mock_provider',
+    modelName: 'mock-screening-assistant',
+    allowedStages: ['title_abstract'],
+    dataBoundary: 'local_only',
+    userAcknowledged: true,
+  });
+  const manifest = AuditEngine.createProjectManifest({
+    projectId: 'project-1',
+    aiMode: 'assistive',
+    aiUsageRegistry: registry,
+  });
+
+  assert.equal(manifest.aiUsageRegistry.length, 1);
+  assert.equal(manifest.aiUsageRegistry[0].usageId, 'default-ai-mode');
+  assert.equal(manifest.aiUsageRegistry[0].providerType, 'local');
+  assert.equal(manifest.aiUsageRegistry[0].dataBoundary, 'local_only');
+});
+
+test('creates AI suggestion events without turning them into final screening decisions', () => {
+  const suggestion = AuditEngine.createAiSuggestionEvent({
+    projectId: 'project-1',
+    recordId: 'record-1',
+    stage: 'title_abstract',
+    mode: 'suggest_only',
+    modelName: 'mock-screening-assistant',
+    promptHash: 'prompt-hash',
+    inputHash: 'input-hash',
+    inputSummary: 'Trial abstract summary',
+    suggestedDecision: 'include',
+    rationale: 'Looks relevant',
+    confidence: 0.82,
+  });
+
+  assert.equal(suggestion.projectId, 'project-1');
+  assert.equal(suggestion.suggestedDecision, 'include');
+  assert.equal(suggestion.humanAction, 'pending');
+  assert.equal(suggestion.linkedDecisionId, '');
+});
+
+test('summarizes AI suggestion review boundaries for PRISMA-trAIce reporting', () => {
+  const summary = AuditEngine.summarizeAiSuggestions([
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-1',
+      recordId: 'record-1',
+      suggestedDecision: 'include',
+      humanAction: 'pending',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-2',
+      recordId: 'record-2',
+      suggestedDecision: 'exclude',
+      humanAction: 'accepted',
+      linkedDecisionId: 'decision-2',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-3',
+      recordId: 'record-3',
+      suggestedDecision: 'include',
+      humanAction: 'edited',
+      linkedDecisionId: 'decision-3',
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'suggestion-4',
+      recordId: 'record-4',
+      suggestedDecision: 'uncertain',
+      humanAction: 'rejected',
+    }),
+  ]);
+
+  assert.equal(summary.totalSuggestions, 4);
+  assert.equal(summary.pendingSuggestions, 1);
+  assert.equal(summary.reviewedSuggestions, 3);
+  assert.equal(summary.linkedHumanDecisionCount, 2);
+  assert.equal(summary.unlinkedReviewedSuggestionCount, 1);
+  assert.equal(summary.advisoryOnlyReviewedSuggestionCount, 1);
+  assert.equal(summary.acceptedOrEditedWithoutLinkedDecisionCount, 0);
+  assert.equal(summary.byHumanAction.accepted, 1);
+  assert.equal(summary.byHumanAction.edited, 1);
+  assert.equal(summary.byHumanAction.rejected, 1);
+  assert.equal(summary.bySuggestedDecision.include, 2);
 });
 
 test('creates audit events with normalized actor and source metadata', () => {
@@ -248,7 +337,27 @@ test('builds an audit summary markdown report', () => {
   assert.match(summary, /Unresolved Risks And Notes/);
 });
 
-test('v2.2 workspace loads audit engine before app.js', async () => {
+test('builds a PRISMA-trAIce report with a No-AI statement by default', () => {
+  const report = AuditEngine.buildPrismaTraiceReportMarkdown(
+    AuditEngine.createProjectManifest({
+      projectId: 'project-1',
+      projectName: 'No AI review',
+      aiMode: 'off',
+    }),
+    []
+  );
+
+  assert.match(report, /# PRISMA-trAIce Report/);
+  assert.match(report, /No-AI Statement/);
+  assert.match(report, /No AI provider was enabled/);
+  assert.match(report, /AI Provider Boundary/);
+  assert.match(report, /\| off \| none \| - \| - \| disabled \| no \| local_only \| - \| no \| not_configured \|/);
+  assert.match(report, /Exported AI Audit Files/);
+  assert.match(report, /ai_suggestions\.jsonl/);
+  assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
+});
+
+test('v2.3 workspace loads audit engine before app.js', async () => {
   const workspaceHtml = await fs.readFile(
     path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
     'utf8'
@@ -258,7 +367,7 @@ test('v2.2 workspace loads audit engine before app.js', async () => {
 
   assert.ok(auditIndex > 0);
   assert.ok(appIndex > auditIndex);
-  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.2/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.3/);
 });
 
 test('v2.2 db worker declares audit stores and message handlers', async () => {

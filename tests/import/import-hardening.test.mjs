@@ -11,6 +11,8 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const requireFromRepo = createRequire(import.meta.url);
 const ImportJobRuntime = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.0/import-job-runtime.js'));
 const appSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.0/app.js'), 'utf8');
+const v22AppSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+const v22WorkspaceSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8');
 
 test('incremental worker formats do not allow whole-file parse fallback', () => {
   ['.csv', '.tsv', '.ris', '.nbib', '.enw'].forEach((ext) => {
@@ -33,6 +35,25 @@ test('parseFileInChunks throws on incremental worker failure instead of silently
     /catch \(workerError\) \{\s*if \(!shouldAllowWholeFileParseFallback\(ext\)\) \{\s*throw createIncrementalWorkerFailureError\(file, ext, workerError\);/m
   );
   assert.doesNotMatch(appSource, /Incremental worker parsing failed, falling back to whole-file parser/);
+});
+
+test('v2.2 local file mode has a bounded parser fallback when workers are blocked', () => {
+  assert.match(v22AppSource, /const LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES = 20 \* 1024 \* 1024;/);
+  assert.match(
+    v22AppSource,
+    /function isLocalFilePageContext\(\) \{[\s\S]*?window\.location\.protocol === 'file:';[\s\S]*?\}/m
+  );
+  assert.match(
+    v22AppSource,
+    /function shouldAllowLocalFileWorkerFallback\(file, ext\) \{[\s\S]*?!isLocalFilePageContext\(\) \|\| !supportsIncrementalWorkerFormat\(ext\)[\s\S]*?fileSize <= LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES;[\s\S]*?\}/m
+  );
+  assert.match(
+    v22AppSource,
+    /catch \(workerError\) \{\s*if \(shouldAllowLocalFileWorkerFallback\(file, ext\)\) \{[\s\S]*?return parseFileWithLocalFileFallback\(file, ext, onProgress\);[\s\S]*?\}\s*throw createIncrementalWorkerFailureError\(file, ext, workerError\);/m
+  );
+  assert.match(v22WorkspaceSource, /const isLocalFileMode = window\.location\.protocol === 'file:';/);
+  assert.match(v22WorkspaceSource, /const dbWorker = isLocalFileMode \? null : new Worker\('db-worker\.js\?v=20260427-v22-audit'\);/);
+  assert.match(v22WorkspaceSource, /const parserWorker = isLocalFileMode \? null : new Worker\('parser-worker\.js\?v=20260422-streaming-v2'\);/);
 });
 
 test('finalize import lifecycle cleans loading and progress when success UI finalization throws', async () => {

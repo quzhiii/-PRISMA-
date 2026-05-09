@@ -29,6 +29,10 @@
   ]);
 
   const VALID_AI_MODES = new Set(['off', 'assistive', 'experimental']);
+  const VALID_AI_PROVIDER_TYPES = new Set(['none', 'local', 'user_provided_endpoint', 'hosted']);
+  const VALID_AI_DATA_BOUNDARIES = new Set(['local_only', 'hash_only', 'cloud_submitted']);
+  const VALID_AI_SUGGESTION_MODES = new Set(['suggest_only', 'prioritise', 'uncertainty_flagging', 'report_helper']);
+  const VALID_AI_HUMAN_ACTIONS = new Set(['accepted', 'rejected', 'edited', 'ignored', 'pending']);
   const VALID_DECISIONS = new Set(['include', 'exclude', 'uncertain', 'pending']);
   const VALID_CONFLICT_STATUSES = new Set(['none', 'pending', 'resolved']);
   const VALID_QUALITY_APPRAISAL_STATUSES = new Set(['not_started', 'queued', 'in_progress', 'complete']);
@@ -141,6 +145,26 @@
     return Boolean(fallback);
   }
 
+  function normalizeNumber(value, fallback) {
+    if (value === undefined || value === null || value === '') {
+      return fallback;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  function normalizeConfidence(value) {
+    const numeric = normalizeNumber(value, null);
+    if (numeric === null) {
+      return null;
+    }
+
+    if (numeric < 0) return 0;
+    if (numeric > 1) return 1;
+    return numeric;
+  }
+
   function normalizeExclusionReason(value) {
     const normalized = normalizeString(value, '');
     if (!normalized) {
@@ -164,11 +188,15 @@
       reviewType: normalizeString(payload.reviewType || payload.review_type, 'systematic_review'),
       prismaVersion: normalizeString(payload.prismaVersion || payload.prisma_version, 'PRISMA_2020'),
       aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
-      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.2'),
+      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.3'),
       dataResidency: normalizeString(payload.dataResidency || payload.data_residency, 'local_browser'),
       exportGeneratedAt: normalizeString(payload.exportGeneratedAt || payload.export_generated_at, timestamp),
       dataSources: normalizeArray(payload.dataSources || payload.data_sources),
       reviewers: normalizeArray(payload.reviewers),
+      aiUsageRegistry: normalizeArray(payload.aiUsageRegistry || payload.ai_usage_registry).map((entry) => createAiUsageRegistryEntry({
+        projectId: payload.projectId || payload.project_id,
+        ...entry,
+      })),
       settings: normalizeObject(payload.settings),
       schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
     };
@@ -264,6 +292,91 @@
       metadata: normalizeObject(payload.metadata),
       schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
     };
+  }
+
+  function createAiUsageRegistryEntry(input) {
+    const payload = input || {};
+    const enabledAt = normalizeString(payload.enabledAt || payload.enabled_at, '') || nowIso();
+    const disabledAt = normalizeString(payload.disabledAt || payload.disabled_at, '');
+
+    return {
+      usageId: normalizeString(payload.usageId || payload.usage_id, makeId('aiusage')),
+      projectId: normalizeString(payload.projectId || payload.project_id, ''),
+      aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
+      providerType: normalizeEnum(payload.providerType || payload.provider_type, VALID_AI_PROVIDER_TYPES, 'none'),
+      providerName: normalizeString(payload.providerName || payload.provider_name, ''),
+      modelName: normalizeString(payload.modelName || payload.model_name, ''),
+      enabledAt,
+      disabledAt,
+      allowedStages: normalizeArray(payload.allowedStages || payload.allowed_stages).map((stage) => normalizeString(stage, '')).filter(Boolean),
+      dataBoundary: normalizeEnum(payload.dataBoundary || payload.data_boundary, VALID_AI_DATA_BOUNDARIES, 'local_only'),
+      userAcknowledged: normalizeBoolean(payload.userAcknowledged === undefined ? payload.user_acknowledged : payload.userAcknowledged, false),
+      metadata: normalizeObject(payload.metadata),
+    };
+  }
+
+  function upsertAiUsageRegistry(registry, entryInput) {
+    const list = Array.isArray(registry) ? registry.slice() : [];
+    const entry = createAiUsageRegistryEntry(entryInput);
+    const existingIndex = list.findIndex((item) => normalizeString(item && (item.usageId || item.usage_id), '') === entry.usageId);
+
+    if (existingIndex >= 0) {
+      list[existingIndex] = entry;
+    } else {
+      list.push(entry);
+    }
+
+    return list.sort((left, right) => normalizeString(left.enabledAt, '').localeCompare(normalizeString(right.enabledAt, '')));
+  }
+
+  function createAiSuggestionEvent(input) {
+    const payload = input || {};
+    const createdAt = normalizeString(payload.createdAt || payload.created_at, '') || nowIso();
+
+    return {
+      suggestionId: normalizeString(payload.suggestionId || payload.suggestion_id, makeId('aisuggestion')),
+      projectId: normalizeString(payload.projectId || payload.project_id, ''),
+      recordId: normalizeString(payload.recordId || payload.record_id, ''),
+      stage: normalizeString(payload.stage, 'title_abstract'),
+      mode: normalizeEnum(payload.mode, VALID_AI_SUGGESTION_MODES, 'suggest_only'),
+      modelName: normalizeString(payload.modelName || payload.model_name, ''),
+      promptHash: normalizeString(payload.promptHash || payload.prompt_hash, ''),
+      inputHash: normalizeString(payload.inputHash || payload.input_hash, ''),
+      inputSummary: normalizeString(payload.inputSummary || payload.input_summary, ''),
+      suggestedDecision: normalizeDecision(payload.suggestedDecision || payload.suggested_decision),
+      rationale: normalizeString(payload.rationale, ''),
+      confidence: normalizeConfidence(payload.confidence),
+      humanAction: normalizeEnum(payload.humanAction || payload.human_action, VALID_AI_HUMAN_ACTIONS, 'pending'),
+      linkedDecisionId: normalizeString(payload.linkedDecisionId || payload.linked_decision_id, ''),
+      createdAt,
+      metadata: normalizeObject(payload.metadata),
+      schemaVersion: normalizeString(payload.schemaVersion || payload.schema_version, AUDIT_SCHEMA_VERSION),
+    };
+  }
+
+  function appendAiSuggestionEvent(events, eventInput) {
+    const list = Array.isArray(events) ? events.slice() : [];
+
+    if (Array.isArray(eventInput)) {
+      eventInput.forEach((entry) => {
+        list.push(createAiSuggestionEvent(entry));
+      });
+      return list.sort(compareAiSuggestionEvents);
+    }
+
+    list.push(createAiSuggestionEvent(eventInput));
+    return list.sort(compareAiSuggestionEvents);
+  }
+
+  function compareAiSuggestionEvents(left, right) {
+    const leftTime = normalizeString(left && (left.createdAt || left.created_at), '');
+    const rightTime = normalizeString(right && (right.createdAt || right.created_at), '');
+
+    if (leftTime !== rightTime) {
+      return leftTime.localeCompare(rightTime);
+    }
+
+    return normalizeString(left && (left.suggestionId || left.suggestion_id), '').localeCompare(normalizeString(right && (right.suggestionId || right.suggestion_id), ''));
   }
 
   function updateScreeningDecision(existing, patch) {
@@ -392,6 +505,53 @@
     return summary;
   }
 
+  function summarizeAiSuggestions(events) {
+    const summary = {
+      totalSuggestions: 0,
+      pendingSuggestions: 0,
+      reviewedSuggestions: 0,
+      linkedHumanDecisionCount: 0,
+      unlinkedReviewedSuggestionCount: 0,
+      advisoryOnlyReviewedSuggestionCount: 0,
+      acceptedOrEditedWithoutLinkedDecisionCount: 0,
+      byMode: {},
+      byHumanAction: {},
+      bySuggestedDecision: {},
+    };
+
+    (Array.isArray(events) ? events : []).forEach((entry) => {
+      const event = createAiSuggestionEvent(entry);
+      const isPending = event.humanAction === 'pending';
+      const hasLinkedDecision = !!event.linkedDecisionId;
+      const createsHumanDecision = event.humanAction === 'accepted' || event.humanAction === 'edited';
+      const isAdvisoryOnlyReview = event.humanAction === 'rejected' || event.humanAction === 'ignored';
+
+      summary.totalSuggestions += 1;
+      if (isPending) {
+        summary.pendingSuggestions += 1;
+      } else {
+        summary.reviewedSuggestions += 1;
+      }
+      if (hasLinkedDecision) {
+        summary.linkedHumanDecisionCount += 1;
+      }
+      if (!isPending && !hasLinkedDecision) {
+        summary.unlinkedReviewedSuggestionCount += 1;
+      }
+      if (isAdvisoryOnlyReview) {
+        summary.advisoryOnlyReviewedSuggestionCount += 1;
+      }
+      if (createsHumanDecision && !hasLinkedDecision) {
+        summary.acceptedOrEditedWithoutLinkedDecisionCount += 1;
+      }
+      increment(summary.byMode, event.mode);
+      increment(summary.byHumanAction, event.humanAction);
+      increment(summary.bySuggestedDecision, event.suggestedDecision);
+    });
+
+    return summary;
+  }
+
   function increment(target, key) {
     const normalized = normalizeString(key, 'unknown');
     target[normalized] = (target[normalized] || 0) + 1;
@@ -481,6 +641,17 @@
     };
   }
 
+  function buildAiUsageRegistryExport(manifestInput) {
+    const manifest = createProjectManifest(manifestInput);
+    return {
+      schemaVersion: manifest.schemaVersion,
+      projectId: manifest.projectId,
+      aiMode: manifest.aiMode,
+      generatedAt: manifest.exportGeneratedAt,
+      registry: manifest.aiUsageRegistry.map((entry) => toExportAiUsageRegistryEntry(entry)),
+    };
+  }
+
   function toExportAuditEvent(eventInput) {
     const event = createAuditEvent(eventInput);
     return {
@@ -523,6 +694,94 @@
     };
   }
 
+  function toExportAiUsageRegistryEntry(entryInput) {
+    const entry = createAiUsageRegistryEntry(entryInput);
+    return {
+      usage_id: entry.usageId,
+      project_id: entry.projectId,
+      ai_mode: entry.aiMode,
+      provider_type: entry.providerType,
+      provider_name: entry.providerName,
+      model_name: entry.modelName,
+      enabled_at: entry.enabledAt,
+      disabled_at: entry.disabledAt || null,
+      allowed_stages: entry.allowedStages,
+      data_boundary: entry.dataBoundary,
+      user_acknowledged: entry.userAcknowledged,
+      metadata: entry.metadata,
+    };
+  }
+
+  function getAiProviderBoundary(entryInput) {
+    const entry = createAiUsageRegistryEntry(entryInput);
+    const metadata = normalizeObject(entry.metadata);
+    const providerConfig = normalizeObject(metadata.providerConfig || metadata.provider_config);
+    const endpointOrigin = normalizeString(providerConfig.endpointOrigin || providerConfig.endpoint_origin, '');
+    const requestPolicy = normalizeString(providerConfig.requestPolicy || providerConfig.request_policy, 'disabled');
+    const apiKeyStorage = normalizeString(providerConfig.apiKeyStorage || providerConfig.api_key_storage, 'not_configured');
+    const realProviderConnected = normalizeBoolean(
+      providerConfig.realProviderConnected === undefined ? providerConfig.real_provider_connected : providerConfig.realProviderConnected,
+      false
+    );
+    const apiKeyPresent = normalizeBoolean(
+      providerConfig.apiKeyPresent === undefined ? providerConfig.api_key_present : providerConfig.apiKeyPresent,
+      false
+    );
+
+    return {
+      aiMode: entry.aiMode,
+      providerType: entry.providerType,
+      providerName: entry.providerName || '-',
+      modelName: entry.modelName || '-',
+      requestPolicy,
+      realProviderConnected,
+      dataBoundary: normalizeString(providerConfig.dataBoundary || providerConfig.data_boundary, entry.dataBoundary),
+      endpointOrigin: endpointOrigin || '-',
+      apiKeyPresent,
+      apiKeyStorage,
+    };
+  }
+
+  function toExportAiSuggestionEvent(eventInput) {
+    const event = createAiSuggestionEvent(eventInput);
+    const metadata = normalizeObject(event.metadata);
+    return {
+      suggestion_id: event.suggestionId,
+      project_id: event.projectId,
+      record_id: event.recordId || null,
+      stage: event.stage,
+      mode: event.mode,
+      model_name: event.modelName,
+      prompt_hash: event.promptHash,
+      input_hash: event.inputHash,
+      input_summary: event.inputSummary,
+      suggested_decision: event.suggestedDecision,
+      rationale: event.rationale,
+      confidence: event.confidence,
+      human_action: event.humanAction,
+      linked_decision_id: event.linkedDecisionId || null,
+      reviewed_at: metadata.reviewedAt || metadata.reviewed_at || null,
+      human_edited_decision: metadata.humanEditedDecision || metadata.human_edited_decision || null,
+      human_edited_exclusion_reason: metadata.humanEditedExclusionReason || metadata.human_edited_exclusion_reason || null,
+      human_edited_original_exclusion_reason: metadata.humanEditedOriginalExclusionReason || metadata.human_edited_original_exclusion_reason || null,
+      review_note: metadata.reviewNote || metadata.review_note || null,
+      prisma_count_boundary: event.linkedDecisionId
+        ? 'linked_human_screening_decision_required_for_counts'
+        : 'advisory_log_only_not_counted_directly',
+      created_at: event.createdAt,
+      audit_schema_version: event.schemaVersion,
+    };
+  }
+
+  function serializeAiSuggestionEventsJsonl(events) {
+    const list = Array.isArray(events) ? events : [];
+    if (list.length === 0) {
+      return '';
+    }
+
+    return `${list.map((event) => JSON.stringify(toExportAiSuggestionEvent(event))).join('\n')}\n`;
+  }
+
   function buildPrismaCountsJson(decisions, events) {
     return {
       schemaVersion: AUDIT_SCHEMA_VERSION,
@@ -532,17 +791,309 @@
     };
   }
 
-  function buildAuditSummaryMarkdown(manifestInput, events, decisions) {
+  function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents, options = {}) {
+    const manifest = createProjectManifest(manifestInput);
+    const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
+    const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
+    const isZh = language === 'zh';
+    const zhLabels = {
+      off: '关闭',
+      assistive: '辅助记录',
+      experimental: '完整记录',
+      none: '无',
+      local: '本地示例服务',
+      user_provided_endpoint: '用户自带兼容服务',
+      hosted: '托管服务记录',
+      local_only: '仅本地',
+      hash_only: '仅记录摘要指纹和服务边界',
+      cloud_submitted: '云端提交记录',
+      disabled: '关闭',
+      not_configured: '未配置',
+      accepted: '已接受',
+      rejected: '已拒绝',
+      edited: '已改写',
+      ignored: '已忽略',
+      pending: '待处理',
+      include: '纳入',
+      exclude: '排除',
+      uncertain: '不确定',
+      suggest_only: '仅建议',
+      prioritise: '优先级提示',
+      uncertainty_flagging: '不确定性提示',
+      report_helper: '报告辅助',
+      title_abstract: '标题摘要',
+      full_text: '全文复核',
+      reporting: '报告',
+    };
+    const label = (value) => {
+      const normalized = normalizeString(value, '');
+      if (!normalized) return '-';
+      return isZh ? (zhLabels[normalized] || normalized) : normalized;
+    };
+    const yesNo = (value) => (isZh ? (value ? '是' : '否') : (value ? 'yes' : 'no'));
+    const stageList = (stages) => {
+      const list = Array.isArray(stages) ? stages : [];
+      return list.length > 0 ? list.map(label).join(', ') : '-';
+    };
+    const boundaryRows = manifest.aiUsageRegistry.length > 0
+      ? manifest.aiUsageRegistry.map((entry) => {
+          const boundary = getAiProviderBoundary(entry);
+          return `| ${label(boundary.aiMode)} | ${label(boundary.providerType)} | ${boundary.providerName || '-'} | ${boundary.modelName || '-'} | ${label(boundary.requestPolicy)} | ${yesNo(boundary.realProviderConnected)} | ${label(boundary.dataBoundary)} | ${boundary.endpointOrigin || '-'} | ${yesNo(boundary.apiKeyPresent)} | ${label(boundary.apiKeyStorage)} |`;
+        }).join('\n')
+      : `| ${label('off')} | ${label('none')} | - | - | ${label('disabled')} | ${yesNo(false)} | ${label('local_only')} | - | ${yesNo(false)} | ${label('not_configured')} |`;
+    const usageRows = manifest.aiUsageRegistry.length > 0
+      ? manifest.aiUsageRegistry.map((entry) => {
+          const normalized = createAiUsageRegistryEntry(entry);
+          return `| ${label(normalized.aiMode)} | ${label(normalized.providerType)} | ${normalized.providerName || '-'} | ${normalized.modelName || '-'} | ${stageList(normalized.allowedStages)} | ${label(normalized.dataBoundary)} | ${yesNo(normalized.userAcknowledged)} |`;
+        }).join('\n')
+      : `| ${label('off')} | ${label('none')} | - | - | - | ${label('local_only')} | ${yesNo(false)} |`;
+    const actionRows = Object.keys(suggestionSummary.byHumanAction).length > 0
+      ? Object.keys(suggestionSummary.byHumanAction)
+          .sort()
+          .map((key) => `| ${label(key)} | ${suggestionSummary.byHumanAction[key]} |`)
+          .join('\n')
+      : `| ${label('none')} | 0 |`;
+    const suggestedDecisionRows = Object.keys(suggestionSummary.bySuggestedDecision).length > 0
+      ? Object.keys(suggestionSummary.bySuggestedDecision)
+          .sort()
+          .map((key) => `| ${label(key)} | ${suggestionSummary.bySuggestedDecision[key]} |`)
+          .join('\n')
+      : `| ${label('none')} | 0 |`;
+
+    if (isZh) {
+      const reportLines = [
+        '# PRISMA-trAIce 透明报告',
+        '',
+        `项目：${manifest.projectName}`,
+        `项目 ID：${manifest.projectId}`,
+        `AI 模式：${label(manifest.aiMode)}`,
+        `生成时间：${manifest.exportGeneratedAt}`,
+        '',
+        '## AI 使用登记',
+        '',
+        '| AI 模式 | 服务类型 | 服务名称 | 模型 | 允许环节 | 数据边界 | 用户已确认 |',
+        '|---|---|---|---|---|---|---|',
+        usageRows,
+        '',
+        '## AI 服务边界',
+        '',
+        '| AI 模式 | 服务类型 | 服务名称 | 模型 | 请求策略 | 已连接真实服务 | 数据边界 | 服务地址域名 | 是否存在密钥 | 密钥保存方式 |',
+        '|---|---|---|---|---|---|---|---|---|---|',
+        boundaryRows,
+        '',
+        '## 导出的 AI 审计文件',
+        '',
+        '| 文件 | 用途 | 决策边界 |',
+        '|---|---|---|',
+        '| `ai_usage_registry.json` | 记录 AI 模式、服务、模型、允许使用环节、数据边界和用户确认状态。 | 仅作为配置证据，不是最终筛选决策表。 |',
+        '| `ai_suggestions.jsonl` | 记录每条 AI 建议、理由、置信度、输入/提示词指纹、人工处理动作、复核时间、人工改写信息、关联的人类决策和计数边界。 | 仅作为建议日志；接受或改写必须关联人类确认的 `ScreeningDecision`，拒绝的建议不会影响 PRISMA 计数。 |',
+        '| `PRISMA_TRAICE_REPORT.md` | 面向方法学附录和团队复核的可读透明报告，说明 AI 使用范围、No-AI 状态、建议处理方式和本地/云端边界。 | 仅作为报告说明；最终计数仍来自 `screening_decisions.csv` 和审计事件。 |',
+        '',
+      ];
+
+      if (manifest.aiMode === 'off') {
+        reportLines.push(
+          '## 未使用 AI 声明',
+          '',
+          '本次项目导出未启用 AI 服务。',
+          '没有任何 AI 建议在缺少明确人工确认的情况下改变最终筛选决策。',
+          ''
+        );
+      }
+
+      reportLines.push(
+        '## AI 建议处理摘要',
+        '',
+        `建议总数：${suggestionSummary.totalSuggestions}`,
+        `待处理建议：${suggestionSummary.pendingSuggestions}`,
+        `已复核建议：${suggestionSummary.reviewedSuggestions}`,
+        `已关联人类决策：${suggestionSummary.linkedHumanDecisionCount}`,
+        `已复核但未关联人类决策：${suggestionSummary.unlinkedReviewedSuggestionCount}`,
+        `仅作为建议日志的复核：${suggestionSummary.advisoryOnlyReviewedSuggestionCount}`,
+        `已接受或改写但缺少关联人类决策：${suggestionSummary.acceptedOrEditedWithoutLinkedDecisionCount}`,
+        '',
+        '| 人工处理动作 | 数量 |',
+        '|---|---:|',
+        actionRows,
+        '',
+        '| AI 建议决策 | 数量 |',
+        '|---|---:|',
+        suggestedDecisionRows,
+        '',
+        'AI 建议与最终 `ScreeningDecision` 分开记录，只有经过人工确认后才可能影响 PRISMA 计数。',
+        '接受或改写建议会创建关联的人类确认 `ScreeningDecision`；拒绝或忽略建议只更新 AI 建议日志。',
+        ''
+      );
+
+      reportLines.push(
+        '## AI 建议复核追踪字段',
+        '',
+        '| 字段 | 含义 |',
+        '|---|---|',
+        '| `reviewed_at` | 人工接受、改写、拒绝或忽略建议时的复核时间。 |',
+        '| `human_edited_decision` | 建议被改写时，研究者明确选择的人类决策。 |',
+        '| `human_edited_exclusion_reason` | 改写为排除时使用的标准化排除理由。 |',
+        '| `linked_decision_id` | 接受或改写建议后创建的人类 `ScreeningDecision`。拒绝或待处理建议为空。 |',
+        '| `prisma_count_boundary` | 说明该行是否已关联到人类决策并可用于计数，或仍然只是建议日志。 |',
+        '',
+        '## 透明性说明',
+        '',
+        '- 默认记录输入和提示词指纹，而不是原始敏感全文。',
+        '- AI 建议不会在缺少人类决策记录的情况下成为最终纳入或排除决定。',
+        '- `screening_decisions.csv` 仍是 PRISMA 计数回放的最终人工决策表。',
+        '- `ai_suggestions.jsonl` 用于解释辅助建议和复核处理方式，但不会被直接计数。',
+        '- 本报告说明 AI 使用范围、人工复核要求，以及本地/云端服务边界。',
+        ''
+      );
+
+      return reportLines.join('\n');
+    }
+
+    const reportLines = [
+      '# PRISMA-trAIce Report',
+      '',
+      `Project: ${manifest.projectName}`,
+      `Project ID: ${manifest.projectId}`,
+      `AI mode: ${manifest.aiMode}`,
+      `Generated at: ${manifest.exportGeneratedAt}`,
+      '',
+      '## AI Usage Registry',
+      '',
+      '| AI mode | Provider type | Provider | Model | Allowed stages | Data boundary | User acknowledged |',
+      '|---|---|---|---|---|---|---|',
+      usageRows,
+      '',
+      '## AI Provider Boundary',
+      '',
+      '| AI mode | Provider type | Provider | Model | Request policy | Real provider connected | Data boundary | Endpoint origin | API key present | API key storage |',
+      '|---|---|---|---|---|---|---|---|---|---|',
+      boundaryRows,
+      '',
+      '## Exported AI Audit Files',
+      '',
+      '| File | Purpose | Decision boundary |',
+      '|---|---|---|',
+      '| `ai_usage_registry.json` | Records AI mode, provider, model, allowed workflow stages, data boundary, and user acknowledgement. | Configuration evidence only; it is not a screening decision ledger. |',
+      '| `ai_suggestions.jsonl` | Records each AI suggestion, rationale, confidence, input/prompt hashes, human action, review timestamp, human edit details, linked human decision, and `prisma_count_boundary`. | Advisory log only; accepted or edited suggestions require a linked human `ScreeningDecision`, while rejected suggestions do not affect PRISMA counts. |',
+      '| `PRISMA_TRAICE_REPORT.md` | Human-readable transparency summary for AI usage, No-AI state, suggestion handling, and local/cloud boundary declarations. | Report narrative only; final counts remain derived from `screening_decisions.csv` and audit events. |',
+      '',
+    ];
+
+    if (manifest.aiMode === 'off') {
+      reportLines.push(
+        '## No-AI Statement',
+        '',
+        'No AI provider was enabled for this project export.',
+        'No AI suggestion changed final screening decisions without explicit human confirmation.',
+        ''
+      );
+    }
+
+    reportLines.push(
+      '## AI Suggestion Summary',
+      '',
+      `Total suggestions: ${suggestionSummary.totalSuggestions}`,
+      `Pending suggestions: ${suggestionSummary.pendingSuggestions}`,
+      `Reviewed suggestions: ${suggestionSummary.reviewedSuggestions}`,
+      `Linked human decisions: ${suggestionSummary.linkedHumanDecisionCount}`,
+      `Reviewed suggestions without linked human decision: ${suggestionSummary.unlinkedReviewedSuggestionCount}`,
+      `Advisory-only reviewed suggestions: ${suggestionSummary.advisoryOnlyReviewedSuggestionCount}`,
+      `Accepted or edited suggestions without linked human decision: ${suggestionSummary.acceptedOrEditedWithoutLinkedDecisionCount}`,
+      '',
+      '| Human action | Count |',
+      '|---|---:|',
+      actionRows,
+      '',
+      '| Suggested decision | Count |',
+      '|---|---:|',
+      suggestedDecisionRows,
+      '',
+      'AI suggestions are logged separately from final ScreeningDecision records and require human confirmation before affecting PRISMA counts.',
+      'Accepted or edited suggestions create a linked human-confirmed ScreeningDecision; rejected or ignored suggestions only update the AI suggestion log.',
+      ''
+    );
+
+    reportLines.push(
+      '## AI Suggestion Review Trace Fields',
+      '',
+      '| Field | Meaning |',
+      '|---|---|',
+      '| `reviewed_at` | Timestamp of the human review action when a suggestion is accepted, edited, rejected, or ignored. |',
+      '| `human_edited_decision` | Explicit human rewrite decision when the suggestion was edited. |',
+      '| `human_edited_exclusion_reason` | Normalized exclusion reason used for an edited exclude decision. |',
+      '| `linked_decision_id` | Human `ScreeningDecision` created by an accepted or edited suggestion. Empty for rejected or pending suggestions. |',
+      '| `prisma_count_boundary` | Declares whether the row is linked to a human decision for counts or remains advisory-only. |',
+      '',
+      '## Transparency Notes',
+      '',
+      '- Input and prompt hashes are recorded by default instead of raw sensitive full text.',
+      '- AI suggestions never become final included or excluded decisions without a human decision record.',
+      '- `screening_decisions.csv` remains the final human decision ledger for PRISMA count replay.',
+      '- `ai_suggestions.jsonl` explains assistance and review handling, but it is not counted directly.',
+      '- This report describes AI usage scope, review expectations, and local/cloud boundary declarations.',
+      ''
+    );
+
+    return reportLines.join('\n');
+  }
+
+  function buildAuditSummaryMarkdown(manifestInput, events, decisions, options = {}) {
     const manifest = createProjectManifest(manifestInput);
     const eventSummary = summarizeAuditEvents(events);
     const counts = calculatePrismaCountsFromDecisions(decisions, events);
+    const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
+    const isZh = language === 'zh';
     const eventTypeRows = Object.keys(eventSummary.byType)
       .sort()
       .map((eventType) => `| ${eventType} | ${eventSummary.byType[eventType]} |`)
       .join('\n') || '| none | 0 |';
+    const countLabelsZh = {
+      recordsImported: '导入记录数',
+      duplicatesRemoved: '去除重复数',
+      recordsAfterDeduplication: '去重后记录数',
+      titleAbstractScreened: '标题/摘要筛选数',
+      titleAbstractExcluded: '标题/摘要排除数',
+      fullTextAssessed: '全文评估数',
+      fullTextExcluded: '全文排除数',
+      studiesIncluded: '最终纳入研究数',
+      pendingFullTextReview: '待全文复核数',
+    };
     const countRows = Object.keys(counts)
-      .map((key) => `| ${key} | ${counts[key]} |`)
+      .map((key) => `| ${isZh ? (countLabelsZh[key] || key) : key} | ${counts[key]} |`)
       .join('\n');
+
+    if (isZh) {
+      return [
+        '# 审计摘要',
+        '',
+        `项目：${manifest.projectName}`,
+        `项目 ID：${manifest.projectId}`,
+        `审计 schema 版本：${manifest.schemaVersion}`,
+        `PRISMA 版本：${manifest.prismaVersion}`,
+        `AI 模式：${manifest.aiMode}`,
+        '',
+        '## 事件摘要',
+        '',
+        `事件总数：${eventSummary.totalEvents}`,
+        '',
+        '| 事件类型 | 数量 |',
+        '|---|---:|',
+        eventTypeRows,
+        '',
+        '## PRISMA 计数',
+        '',
+        '| 指标 | 数值 |',
+        '|---|---:|',
+        countRows,
+        '',
+        '## 未解决风险与说明',
+        '',
+        '- 计数来自持久化的 ScreeningDecision 记录和 AuditEvent 事件。',
+        `- 当前 AI 模式为 ${manifest.aiMode}；AI 建议不会在缺少人类决策记录的情况下成为最终筛选决定。`,
+        '- 尚未形成最终全文决定的记录不会进入最终纳入研究计数。',
+        '',
+      ].join('\n');
+    }
 
     return [
       '# Audit Summary',
@@ -592,6 +1143,10 @@
   return {
     AUDIT_SCHEMA_VERSION,
     EXCLUSION_REASONS,
+    createAiUsageRegistryEntry,
+    upsertAiUsageRegistry,
+    createAiSuggestionEvent,
+    appendAiSuggestionEvent,
     createProjectManifest,
     createAuditEvent,
     appendAuditEvent,
@@ -600,11 +1155,15 @@
     updateScreeningDecision,
     calculatePrismaCountsFromDecisions,
     summarizeAuditEvents,
+    summarizeAiSuggestions,
     buildProjectManifestExport,
+    buildAiUsageRegistryExport,
     serializeEventsJsonl,
     serializeScreeningDecisionsCsv,
     serializeExclusionReasonsCsv,
+    serializeAiSuggestionEventsJsonl,
     buildPrismaCountsJson,
     buildAuditSummaryMarkdown,
+    buildPrismaTraiceReportMarkdown,
   };
 });

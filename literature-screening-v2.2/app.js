@@ -15,6 +15,7 @@ const WORKFLOW_STEP_COUNT = FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5;
 const QUALITY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.QualityEngine || null : null;
 const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.ImportJobRuntime || null : null;
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
+const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
   'audit_events',
@@ -22,6 +23,9 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_exclusion_reasons',
   'audit_prisma_counts',
   'audit_summary',
+  'ai_usage_registry',
+  'ai_suggestions',
+  'prisma_traice_report',
 ]);
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
@@ -60,6 +64,7 @@ let importJobs = [];
 let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
+let aiSuggestionEvents = [];
 
 // Runtime mode state (Task 8)
 const RUNTIME_MODE = {
@@ -90,6 +95,7 @@ const SMART_IMPORT_CONFIG = {
   MAX_RETRY: 3                 // 最大重试次数
 };
 const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-streaming-v2';
+const LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES = 20 * 1024 * 1024;
 
 let importQueue = {
   tasks: [],                   // 待导入任务队列
@@ -1008,6 +1014,7 @@ function init() {
   renderExclusionTemplateEditor();
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
 
   // v1.4: Ensure Step4 entry button reflects readiness
   updateStep4EntryLock();
@@ -1295,6 +1302,49 @@ function shouldAllowWholeFileParseFallback(ext) {
   return !supportsIncrementalWorkerFormat(ext);
 }
 
+function isLocalFilePageContext() {
+  try {
+    return typeof window !== 'undefined'
+      && window.location
+      && window.location.protocol === 'file:';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function shouldAllowLocalFileWorkerFallback(file, ext) {
+  if (!isLocalFilePageContext() || !supportsIncrementalWorkerFormat(ext)) {
+    return false;
+  }
+
+  const fileSize = Number.isFinite(file?.size) ? file.size : 0;
+  return fileSize <= LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES;
+}
+
+async function parseFileWithLocalFileFallback(file, ext, onProgress = null) {
+  const text = await readBlobAsText(file);
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'read',
+      loadedBytes: file.size,
+      totalBytes: file.size
+    });
+  }
+
+  const records = parseFileContent(text, ext);
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'parse',
+      loadedBytes: file.size,
+      totalBytes: file.size,
+      parsed: records.length,
+      total: records.length,
+      complete: true
+    });
+  }
+  return records;
+}
+
 function createIncrementalWorkerFailureError(file, ext, cause) {
   const causeMessage = cause?.message || '未知 worker 错误';
   const formatLabel = ext || 'unknown';
@@ -1471,6 +1521,10 @@ async function parseFileInChunks(file, onProgress = null) {
     try {
       return await parseFileIncrementallyWithWorker(file, ext, onProgress);
     } catch (workerError) {
+      if (shouldAllowLocalFileWorkerFallback(file, ext)) {
+        console.warn('Incremental worker unavailable in file:// mode, using local main-thread parser:', workerError);
+        return parseFileWithLocalFileFallback(file, ext, onProgress);
+      }
       throw createIncrementalWorkerFailureError(file, ext, workerError);
     }
   }
@@ -3377,6 +3431,683 @@ function updateProjectManifestSafe(patch = {}, options = {}) {
   return projectManifest;
 }
 
+function upsertAiUsageRegistrySafe(entryInput, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.upsertAiUsageRegistry !== 'function') {
+    return [];
+  }
+
+  const { persist = true } = options;
+  const manifest = ensureProjectManifest() || {};
+  const registry = AUDIT_ENGINE.upsertAiUsageRegistry(manifest.aiUsageRegistry || [], {
+    projectId: ensureProjectId(),
+    aiMode: manifest.aiMode || 'off',
+    ...entryInput,
+  });
+  updateProjectManifestSafe({ aiUsageRegistry: registry }, { persist });
+  return registry;
+}
+
+function appendAiSuggestionEventsSafe(eventInputs, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.appendAiSuggestionEvent !== 'function') {
+    return [];
+  }
+
+  const { persist = true } = options;
+  ensureProjectManifest();
+  const inputs = Array.isArray(eventInputs) ? eventInputs : [eventInputs];
+  const normalizedInputs = inputs.filter(Boolean).map((eventInput) => ({
+    projectId: ensureProjectId(),
+    ...eventInput,
+  }));
+
+  if (normalizedInputs.length === 0) return aiSuggestionEvents;
+
+  aiSuggestionEvents = AUDIT_ENGINE.appendAiSuggestionEvent(aiSuggestionEvents, normalizedInputs);
+  if (persist) persistAuditState();
+  return aiSuggestionEvents;
+}
+
+function updateAiSuggestionEventSafe(suggestionId, patch = {}, options = {}) {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.createAiSuggestionEvent !== 'function') {
+    return null;
+  }
+
+  const { persist = true } = options;
+  const index = aiSuggestionEvents.findIndex((entry) => String(entry?.suggestionId || '') === String(suggestionId || ''));
+  if (index < 0) return null;
+
+  const current = AUDIT_ENGINE.createAiSuggestionEvent(aiSuggestionEvents[index]);
+  const next = AUDIT_ENGINE.createAiSuggestionEvent({
+    ...current,
+    ...patch,
+    suggestionId: current.suggestionId,
+    projectId: current.projectId || ensureProjectId(),
+    createdAt: current.createdAt,
+  });
+  aiSuggestionEvents[index] = next;
+  if (persist) persistAuditState();
+  return next;
+}
+
+function getDefaultAiProviderConfig(aiMode = 'off') {
+  const mode = String(aiMode || 'off').trim();
+  return {
+    providerId: 'default-ai-provider',
+    providerType: mode === 'off' ? 'none' : 'local',
+    providerName: mode === 'off' ? '' : 'local_mock_provider',
+    modelName: mode === 'off' ? '' : 'mock-screening-assistant',
+    allowedStages: ['title_abstract'],
+    dataBoundary: 'local_only',
+    apiKeyPresent: false,
+    apiKeyStorage: 'not_configured',
+    requestPolicy: 'disabled',
+  };
+}
+
+function normalizeAiProviderConfigSafe(configInput = {}) {
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.normalizeProviderConfig === 'function') {
+    return AI_PROVIDER_ENGINE.normalizeProviderConfig(configInput);
+  }
+
+  return {
+    ...getDefaultAiProviderConfig(configInput.aiMode || 'off'),
+    ...configInput,
+    realProviderConnected: false,
+  };
+}
+
+function getCurrentAiProviderConfig(aiMode) {
+  const manifest = ensureProjectManifest() || {};
+  const configured = manifest?.settings?.aiProviderConfig || {};
+  return normalizeAiProviderConfigSafe({
+    ...getDefaultAiProviderConfig(aiMode || manifest.aiMode || 'off'),
+    ...configured,
+  });
+}
+
+function getAiProviderControlValue(id, fallback = '') {
+  if (typeof document === 'undefined') return fallback;
+  const element = document.getElementById(id);
+  return element ? String(element.value || '').trim() : fallback;
+}
+
+function getAiProviderCheckboxValue(id) {
+  if (typeof document === 'undefined') return false;
+  const element = document.getElementById(id);
+  return Boolean(element && element.checked);
+}
+
+function buildAiProviderConfigFromControls() {
+  const providerType = getAiProviderControlValue('aiProviderType', 'local');
+  const allowedStages = ['title_abstract'];
+  if (getAiProviderCheckboxValue('aiProviderStageFullText')) allowedStages.push('full_text');
+  if (getAiProviderCheckboxValue('aiProviderStageQuality')) allowedStages.push('quality_appraisal');
+  if (getAiProviderCheckboxValue('aiProviderStageReporting')) allowedStages.push('reporting');
+
+  return normalizeAiProviderConfigSafe({
+    providerId: 'default-ai-provider',
+    providerType,
+    providerName: getAiProviderControlValue('aiProviderName', providerType === 'local' ? 'local_mock_provider' : ''),
+    modelName: getAiProviderControlValue('aiProviderModel', providerType === 'local' ? 'mock-screening-assistant' : ''),
+    endpointUrl: getAiProviderControlValue('aiProviderEndpoint', ''),
+    allowedStages,
+    dataBoundary: getAiProviderControlValue('aiProviderDataBoundary', providerType === 'local' ? 'local_only' : 'hash_only'),
+    apiKeyPresent: false,
+    apiKeyStorage: 'not_configured',
+    requestPolicy: 'disabled',
+  });
+}
+
+function saveAiProviderConfig() {
+  const config = buildAiProviderConfigFromControls();
+  const manifest = ensureProjectManifest() || {};
+  const settings = {
+    ...(manifest.settings || {}),
+    aiProviderConfig: config,
+  };
+
+  updateProjectManifestSafe({ settings }, { persist: false });
+  upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(manifest.aiMode || 'off', {
+    enabledAt: new Date().toISOString(),
+  }), { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_provider_config_updated',
+    recordId: '',
+    after: {
+      providerType: config.providerType,
+      providerName: config.providerName,
+      modelName: config.modelName,
+      endpointOrigin: config.endpointOrigin || '',
+      allowedStages: config.allowedStages,
+      dataBoundary: config.dataBoundary,
+      requestPolicy: config.requestPolicy,
+      realProviderConnected: config.realProviderConnected,
+    },
+    source: 'human',
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderAiProviderConfigPanel();
+  renderAiSuggestionPanel();
+  const toastLang = typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en';
+  showToast(toastLang === 'zh'
+    ? 'AI 服务边界已保存；真实服务请求仍然关闭'
+    : 'AI provider boundary saved. Real API dispatch remains disabled.', 'success');
+  return config;
+}
+
+function renderAiProviderConfigPanel() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('aiProviderConfigPanel');
+  if (!container) return;
+
+  const manifest = ensureProjectManifest() || {};
+  const config = getCurrentAiProviderConfig(manifest.aiMode || 'off');
+  const panelLang = getAiSuggestionPanelLang();
+  const isZh = panelLang === 'zh';
+  const providerOptions = [
+    ['local', isZh ? '本地示例服务' : 'Local mock provider'],
+    ['user_provided_endpoint', isZh ? '用户自带兼容服务（仅记录）' : 'User-provided OpenAI-compatible endpoint'],
+    ['hosted', isZh ? '托管服务（仅记录）' : 'Hosted provider (record only)'],
+  ].map(([value, label]) => `<option value="${value}" ${config.providerType === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
+  const boundaryOptions = [
+    ['local_only', isZh ? '仅本地' : 'Local only'],
+    ['hash_only', isZh ? '仅记录摘要指纹和服务边界' : 'Hash and endpoint boundary only'],
+    ['cloud_submitted', isZh ? '未来云端提交（当前仍关闭）' : 'Future cloud submission (currently disabled)'],
+  ].map(([value, label]) => `<option value="${value}" ${config.dataBoundary === value ? 'selected' : ''}>${escapeHTML(label)}</option>`).join('');
+  const stageChecked = (stage) => config.allowedStages.includes(stage) ? 'checked' : '';
+
+  container.innerHTML = `
+    <details class="ai-provider-config-card">
+      <summary>
+        <span>${escapeHTML(isZh ? 'AI 服务边界记录' : 'AI Provider Configuration Record')}</span>
+        <small>${escapeHTML(isZh ? '只保存边界，不保存密钥，不发送请求' : 'Boundary only. No API key storage. No dispatch.')}</small>
+      </summary>
+      <div class="ai-provider-config-grid">
+        <label>
+          <span>${escapeHTML(isZh ? '服务类型' : 'Provider type')}</span>
+          <select id="aiProviderType">${providerOptions}</select>
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '服务名称' : 'Provider name')}</span>
+          <input id="aiProviderName" type="text" value="${escapeHTML(config.providerName || '')}" placeholder="local_mock_provider">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '模型名称' : 'Model name')}</span>
+          <input id="aiProviderModel" type="text" value="${escapeHTML(config.modelName || '')}" placeholder="mock-screening-assistant">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '服务地址（可选，仅记录脱敏边界）' : 'Endpoint URL (optional, redacted boundary only)')}</span>
+          <input id="aiProviderEndpoint" type="url" value="${escapeHTML(config.endpointUrl || '')}" placeholder="https://api.example.com/v1/responses">
+        </label>
+        <label>
+          <span>${escapeHTML(isZh ? '数据边界' : 'Data boundary')}</span>
+          <select id="aiProviderDataBoundary">${boundaryOptions}</select>
+        </label>
+      </div>
+      <fieldset class="ai-provider-stage-list">
+        <legend>${escapeHTML(isZh ? '允许阶段（仅记录，不触发请求）' : 'Allowed stages (record only)')}</legend>
+        <label><input type="checkbox" checked disabled> ${escapeHTML(isZh ? '标题摘要筛选' : 'Title and abstract')}</label>
+        <label><input id="aiProviderStageFullText" type="checkbox" ${stageChecked('full_text')}> ${escapeHTML(isZh ? '全文复核' : 'Full text')}</label>
+        <label><input id="aiProviderStageQuality" type="checkbox" ${stageChecked('quality_appraisal')}> ${escapeHTML(isZh ? '质量评价' : 'Quality appraisal')}</label>
+        <label><input id="aiProviderStageReporting" type="checkbox" ${stageChecked('reporting')}> ${escapeHTML(isZh ? '报告辅助' : 'Reporting')}</label>
+      </fieldset>
+      <div class="ai-provider-safety-note">
+        ${escapeHTML(isZh
+          ? '当前请求策略固定为关闭；页面不提供密钥输入框，也不会把密钥写入导出文件。'
+          : 'requestPolicy is fixed to disabled; API keys have no input field and are never written to exports.')}
+      </div>
+      <div class="button-group ai-provider-actions">
+        <button type="button" class="btn btn-secondary" onclick="saveAiProviderConfig()">${escapeHTML(isZh ? '保存服务边界' : 'Save provider boundary')}</button>
+      </div>
+    </details>
+  `;
+}
+
+function buildAiUsageRegistryEntrySafe(aiMode, context = {}) {
+  const providerConfig = getCurrentAiProviderConfig(aiMode);
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.buildAuditRegistryEntry === 'function') {
+    return AI_PROVIDER_ENGINE.buildAuditRegistryEntry(providerConfig, {
+      usageId: 'default-ai-mode',
+      projectId: ensureProjectId(),
+      aiMode,
+      userAcknowledged: aiMode === 'off',
+      ...context,
+    });
+  }
+
+  return {
+    usageId: 'default-ai-mode',
+    projectId: ensureProjectId(),
+    aiMode,
+    providerType: providerConfig.providerType,
+    providerName: providerConfig.providerName,
+    modelName: providerConfig.modelName,
+    allowedStages: providerConfig.allowedStages || ['title_abstract'],
+    dataBoundary: providerConfig.dataBoundary || 'local_only',
+    userAcknowledged: aiMode === 'off',
+    ...context,
+  };
+}
+
+function buildAiSuggestionTraceSafe(record, stage = 'title_abstract') {
+  const providerConfig = getCurrentAiProviderConfig('assistive');
+  const recordId = getRecordAuditId(record, 0);
+  const title = String(record?.title || record?.TI || record?.T1 || '').trim();
+  const abstractText = String(record?.abstract || record?.AB || record?.N2 || '').trim();
+  const fallbackTrace = {
+    modelName: providerConfig.modelName || 'mock-screening-assistant',
+    promptHash: `mock-prompt-title-abstract-v1`,
+    inputHash: `mock-input-${recordId}`,
+    inputSummary: title ? title.slice(0, 140) : `Record ${recordId}`,
+    metadata: {
+      providerConfig,
+      providerSchemaVersion: 'ai-provider.fallback',
+      requestStatus: 'not_dispatched',
+      requestReason: 'provider_engine_unavailable',
+      rawPayloadIncluded: false,
+      realProviderConnected: false,
+    },
+  };
+
+  if (AI_PROVIDER_ENGINE && typeof AI_PROVIDER_ENGINE.buildSuggestionTrace === 'function') {
+    return AI_PROVIDER_ENGINE.buildSuggestionTrace({
+      providerConfig,
+      stage,
+      prompt: {
+        promptId: 'mock-title-abstract-screening',
+        promptVersion: 'v1',
+        template: 'Local mock heuristic for title and abstract screening. Output include, exclude, or uncertain for human confirmation only.',
+      },
+      input: {
+        recordId,
+        title,
+        abstract: abstractText,
+      },
+    });
+  }
+
+  return fallbackTrace;
+}
+
+function ensureDefaultAiUsageRegistry(options = {}) {
+  const manifest = ensureProjectManifest();
+  if (!manifest) return [];
+  if (Array.isArray(manifest.aiUsageRegistry) && manifest.aiUsageRegistry.length > 0) {
+    return manifest.aiUsageRegistry;
+  }
+
+  return upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(manifest.aiMode || 'off'), options);
+}
+
+function setAiModeSafe(nextMode, options = {}) {
+  const mode = String(nextMode || 'off').trim();
+  if (!AUDIT_ENGINE || !['off', 'assistive', 'experimental'].includes(mode)) {
+    return ensureProjectManifest();
+  }
+
+  const manifest = updateProjectManifestSafe({ aiMode: mode }, options);
+  upsertAiUsageRegistrySafe(buildAiUsageRegistryEntrySafe(mode, {
+    enabledAt: manifest?.updatedAt || new Date().toISOString(),
+    disabledAt: mode === 'off' ? manifest?.updatedAt || new Date().toISOString() : '',
+  }), options);
+
+  if (typeof appendAuditEventsSafe === 'function') {
+    appendAuditEventsSafe({
+      eventType: 'ai_mode_updated',
+      recordId: '',
+      after: {
+        aiMode: mode,
+      },
+      source: 'human',
+    }, { persist: false });
+  }
+
+  if (options.persist !== false) {
+    persistCurrentProjectState();
+  }
+
+  return ensureProjectManifest();
+}
+
+function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
+  const recordId = getRecordAuditId(record, 0);
+  const title = String(record?.title || record?.TI || record?.T1 || '').trim();
+  const abstractText = String(record?.abstract || record?.AB || record?.N2 || '').trim();
+  const combined = `${title}\n${abstractText}`.toLowerCase();
+  const looksRelevant = /trial|cohort|random|systematic|meta|干预|研究|队列|随机/.test(combined);
+  const suggestedDecision = looksRelevant ? 'include' : 'uncertain';
+  const confidence = looksRelevant ? 0.74 : 0.41;
+  const trace = buildAiSuggestionTraceSafe(record, stage);
+
+  return {
+    projectId: ensureProjectId(),
+    recordId,
+    stage,
+    mode: 'suggest_only',
+    modelName: trace.modelName || 'mock-screening-assistant',
+    promptHash: trace.promptHash || 'mock-prompt-title-abstract-v1',
+    inputHash: trace.inputHash || `mock-input-${recordId}`,
+    inputSummary: trace.inputSummary || (title ? title.slice(0, 140) : `Record ${recordId}`),
+    suggestedDecision,
+    rationale: looksRelevant
+      ? 'Mock pathway flagged study-like design terms and kept the record for human confirmation.'
+      : 'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.',
+    confidence,
+    humanAction: 'pending',
+    metadata: {
+      ...(trace.metadata || {}),
+      mock: true,
+      source: 'local_demo',
+    },
+  };
+}
+
+function getAiSuggestionIdentity(entry) {
+  return [
+    String(entry?.recordId || entry?.record_id || '').trim(),
+    String(entry?.stage || 'title_abstract').trim(),
+    String(entry?.modelName || entry?.model_name || '').trim(),
+    String(entry?.promptHash || entry?.prompt_hash || '').trim(),
+  ].join('::');
+}
+
+function hasAiSuggestionForIdentity(suggestionInput) {
+  const identity = getAiSuggestionIdentity(suggestionInput);
+  if (!identity || identity.startsWith('::')) return false;
+
+  return aiSuggestionEvents.some((entry) => getAiSuggestionIdentity(entry) === identity);
+}
+
+function generateMockAiSuggestions(limit = 3) {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传或加载示例数据，再生成本地示例 AI 建议', 'warning');
+    return [];
+  }
+
+  const manifest = setAiModeSafe('assistive', { persist: false });
+  const registry = ensureDefaultAiUsageRegistry({ persist: false });
+  const selected = uploadedData.slice(0, Math.max(1, limit));
+  const candidates = selected.map((record) => buildMockAiSuggestionForRecord(record, 'title_abstract'));
+  const suggestions = candidates.filter((suggestion) => !hasAiSuggestionForIdentity(suggestion));
+  const skippedCount = candidates.length - suggestions.length;
+
+  if (suggestions.length > 0) {
+    appendAiSuggestionEventsSafe(suggestions, { persist: false });
+  }
+
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_generated',
+    recordId: '',
+    after: {
+      suggestionCount: suggestions.length,
+      skippedExistingSuggestionCount: skippedCount,
+      aiMode: manifest?.aiMode || 'assistive',
+    },
+    source: 'system',
+    metadata: {
+      mock: true,
+      registryCount: registry.length,
+    },
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
+  const toastType = suggestions.length > 0 ? 'success' : 'info';
+  showToast(`已生成 ${suggestions.length} 条本地示例 AI 建议${skippedMessage}，仍需人工确认`, toastType);
+  return suggestions;
+}
+
+function getAiSuggestionById(suggestionId) {
+  return aiSuggestionEvents.find((entry) => String(entry?.suggestionId || '') === String(suggestionId || '')) || null;
+}
+
+function normalizeAiHumanDecision(decision) {
+  const normalized = String(decision || '').trim().toLowerCase();
+  return ['include', 'exclude', 'uncertain'].includes(normalized) ? normalized : '';
+}
+
+function getAiSuggestionControlId(suggestionId, controlName) {
+  const safeId = String(suggestionId || '').replace(/[^a-z0-9_-]/gi, '_') || 'unknown';
+  return `ai-suggestion-${controlName}-${safeId}`;
+}
+
+function toggleAiSuggestionEditReason(suggestionId) {
+  const decisionSelect = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-decision'));
+  const reasonWrapper = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-reason-wrapper'));
+  const reasonSelect = document.getElementById(getAiSuggestionControlId(suggestionId, 'edit-reason'));
+  const isExclude = decisionSelect?.value === 'exclude';
+
+  if (reasonWrapper) reasonWrapper.hidden = !isExclude;
+  if (reasonSelect) reasonSelect.disabled = !isExclude;
+}
+
+const AI_SUGGESTION_STAGE_LABELS = Object.freeze({
+  title_abstract: { zh: '标题摘要筛选', en: 'Title and abstract' },
+  full_text: { zh: '全文复核', en: 'Full text' },
+  quality_appraisal: { zh: '质量评价', en: 'Quality appraisal' },
+});
+
+const AI_SUGGESTION_DECISION_LABELS = Object.freeze({
+  include: { zh: '纳入', en: 'include' },
+  exclude: { zh: '排除', en: 'exclude' },
+  uncertain: { zh: '暂不确定', en: 'uncertain' },
+});
+
+const AI_SUGGESTION_ACTION_LABELS = Object.freeze({
+  pending: { zh: '待人工确认', en: 'pending' },
+  accepted: { zh: '已接受', en: 'accepted' },
+  rejected: { zh: '已拒绝', en: 'rejected' },
+  edited: { zh: '已改写', en: 'edited' },
+  ignored: { zh: '已忽略', en: 'ignored' },
+});
+
+const AI_SUGGESTION_RATIONALE_LABELS = Object.freeze({
+  'Mock pathway flagged study-like design terms and kept the record for human confirmation.': {
+    zh: '本地示例规则识别到研究设计相关线索，建议保留给人工确认。',
+    en: 'Mock pathway flagged study-like design terms and kept the record for human confirmation.',
+  },
+  'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.': {
+    zh: '本地示例规则未找到足够相关线索，因此交由人工继续判断。',
+    en: 'Mock pathway could not find enough relevance signals and leaves the record for human confirmation.',
+  },
+});
+
+function getAiSuggestionPanelLang() {
+  return typeof document !== 'undefined' && document.documentElement?.lang === 'en' ? 'en' : 'zh';
+}
+
+function getAiSuggestionLocalizedLabel(labels, key, fallback = '') {
+  const lang = getAiSuggestionPanelLang();
+  const normalized = String(key || '').trim();
+  return labels?.[normalized]?.[lang] || labels?.[normalized]?.en || fallback || normalized;
+}
+
+function getAiSuggestionStageLabel(stage) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_STAGE_LABELS, stage, stage || 'title_abstract');
+}
+
+function getAiSuggestionDecisionLabel(decision) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_DECISION_LABELS, decision, decision || 'uncertain');
+}
+
+function getAiSuggestionActionLabel(action) {
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_ACTION_LABELS, action, action || 'pending');
+}
+
+function getAiSuggestionRationaleText(entry) {
+  const rationale = String(entry?.rationale || '').trim();
+  return getAiSuggestionLocalizedLabel(AI_SUGGESTION_RATIONALE_LABELS, rationale, rationale);
+}
+
+function applyAiSuggestionPanelLangVisibility() {
+  if (typeof applyLangVisibility === 'function') {
+    applyLangVisibility();
+  }
+}
+
+function buildHumanConfirmedDecisionFromSuggestion(suggestion, overrideDecision, options = {}) {
+  const normalizedDecision = normalizeAiHumanDecision(overrideDecision || suggestion?.suggestedDecision) || 'uncertain';
+  const originalExclusionReason = String(options.exclusionReason || options.exclusion_reason || '').trim();
+  const exclusionReason = normalizedDecision === 'exclude'
+    ? normalizeAuditExclusionReason(originalExclusionReason)
+    : '';
+  const record = uploadedData.find((entry, index) => getRecordAuditId(entry, index) === suggestion.recordId) || null;
+  const actor = getAuditActorContext();
+
+  return upsertScreeningDecisionSafe({
+    recordId: suggestion.recordId,
+    stage: suggestion.stage || 'title_abstract',
+    decision: normalizedDecision,
+    exclusionReason,
+    reviewerId: `${actor.actorId}_ai_confirmed`,
+    sourceFile: record?._sourceFile || '',
+    sourceDatabase: record?._source || '',
+    source: 'human_ai_confirmation',
+    aiAssistanceUsed: true,
+    aiModel: suggestion.modelName || 'mock-screening-assistant',
+    aiPromptHash: suggestion.promptHash || '',
+    aiOutputSummary: suggestion.rationale || '',
+    notes: options.notes || `Human confirmation from AI suggestion ${suggestion.suggestionId}`,
+    metadata: {
+      aiSuggestionId: suggestion.suggestionId,
+      mock: suggestion.metadata?.mock === true,
+      humanEditedDecision: options.humanEditedDecision || '',
+      originalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+    },
+  }, { persist: false });
+}
+
+function acceptAiSuggestion(suggestionId) {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  const decision = buildHumanConfirmedDecisionFromSuggestion(suggestion, suggestion.suggestedDecision);
+  const reviewedAt = new Date().toISOString();
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'accepted',
+    linkedDecisionId: decision?.decisionId || '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      reviewedAt,
+      reviewNote: 'Human accepted AI suggestion and created a linked ScreeningDecision.',
+    },
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'accepted',
+      linkedDecisionId: decision?.decisionId || '',
+      reviewedAt,
+    },
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast('已接受 AI 建议，并生成对应的人类确认 decision', 'success');
+}
+
+function rejectAiSuggestion(suggestionId) {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  const reviewedAt = new Date().toISOString();
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'rejected',
+    linkedDecisionId: '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      reviewedAt,
+      reviewNote: 'Human rejected AI suggestion; no ScreeningDecision was created from this suggestion.',
+    },
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'rejected',
+      linkedDecisionId: '',
+      reviewedAt,
+    },
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast('已拒绝 AI 建议，未改动最终筛选 decision', 'info');
+}
+
+function editAiSuggestion(suggestionId, editedDecision, exclusionReason = '') {
+  const suggestion = getAiSuggestionById(suggestionId);
+  if (!suggestion) {
+    showToast('未找到对应的 AI 建议', 'warning');
+    return;
+  }
+
+  const normalizedDecision = normalizeAiHumanDecision(editedDecision);
+  if (!normalizedDecision) {
+    showToast('请选择纳入、排除或暂不确定后再改写', 'warning');
+    return;
+  }
+
+  const originalExclusionReason = String(exclusionReason || '').trim();
+  if (normalizedDecision === 'exclude' && !originalExclusionReason) {
+    showToast('请选择排除理由后再改写为排除', 'warning');
+    return;
+  }
+
+  const normalizedExclusionReason = normalizedDecision === 'exclude'
+    ? normalizeAuditExclusionReason(originalExclusionReason)
+    : '';
+  const decision = buildHumanConfirmedDecisionFromSuggestion(suggestion, normalizedDecision, {
+    exclusionReason: originalExclusionReason,
+    humanEditedDecision: normalizedDecision,
+    notes: normalizedDecision === 'exclude'
+      ? `Human-edited AI suggestion ${suggestion.suggestionId}; exclusion reason: ${normalizedExclusionReason}`
+      : `Human-edited AI suggestion ${suggestion.suggestionId}`,
+  });
+  const reviewedAt = new Date().toISOString();
+  updateAiSuggestionEventSafe(suggestionId, {
+    humanAction: 'edited',
+    linkedDecisionId: decision?.decisionId || '',
+    metadata: {
+      ...(suggestion.metadata || {}),
+      reviewedAt,
+      humanEditedDecision: normalizedDecision,
+      humanEditedExclusionReason: normalizedExclusionReason,
+      humanEditedOriginalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+      reviewNote: 'Human rewrote AI suggestion and created a linked ScreeningDecision.',
+    },
+  }, { persist: false });
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_reviewed',
+    recordId: suggestion.recordId,
+    after: {
+      suggestionId,
+      humanAction: 'edited',
+      linkedDecisionId: decision?.decisionId || '',
+      reviewedAt,
+      editedDecision: normalizedDecision,
+      exclusionReason: normalizedExclusionReason,
+      originalExclusionReason: normalizedDecision === 'exclude' ? originalExclusionReason : '',
+    },
+    reason: normalizedExclusionReason,
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  showToast(`已改写 AI 建议，并按人工决定记录为 ${normalizedDecision}`, 'success');
+}
+
 function persistAuditState() {
   if (typeof localStorage === 'undefined' || !currentProjectId) return;
 
@@ -3388,6 +4119,7 @@ function persistAuditState() {
       projectManifest,
       auditEvents,
       screeningDecisions,
+      aiSuggestionEvents,
     }));
   } catch (error) {
     console.warn('Failed to persist audit state:', error);
@@ -3507,21 +4239,25 @@ function startNewProjectSession() {
   importJobs = [];
   auditEvents = [];
   screeningDecisions = [];
+  aiSuggestionEvents = [];
   projectManifest = null;
   ensureProjectManifest();
+  ensureDefaultAiUsageRegistry({ persist: false });
 
   persistCurrentProjectState();
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
+  renderAiSuggestionPanel();
   updateStep4EntryLock();
 }
 
 function persistCurrentProjectState() {
   const projectId = ensureProjectId();
   const snapshot = {
-    version: '2.2-audit-shell',
+    version: '2.3-prisma-traice-release',
     timestamp: new Date().toISOString(),
     projectId,
     uploadedData,
@@ -3537,7 +4273,8 @@ function persistCurrentProjectState() {
     importJobs,
     projectManifest: ensureProjectManifest(),
     auditEvents,
-    screeningDecisions
+    screeningDecisions,
+    aiSuggestionEvents,
   };
   try {
     localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
@@ -3564,7 +4301,9 @@ function restoreProjectState(snapshot) {
   projectManifest = snapshot.projectManifest || null;
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
+  aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
   ensureProjectManifest();
+  ensureDefaultAiUsageRegistry({ persist: false });
 
   // v1.4: template
   if (Array.isArray(snapshot.exclusionReasons) && snapshot.exclusionReasons.length > 0) {
@@ -3575,6 +4314,148 @@ function restoreProjectState(snapshot) {
 
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderAiProviderConfigPanel();
+  renderAiSuggestionPanel();
+}
+
+function renderAiSuggestionPanel() {
+  const container = document.getElementById('aiSuggestionPanel');
+  if (!container) return;
+  const panelLang = getAiSuggestionPanelLang();
+  const chooseDecisionText = panelLang === 'zh' ? '请选择' : 'Choose';
+  const chooseReasonText = panelLang === 'zh' ? '请选择排除理由' : 'Choose a reason';
+  const decisionOptions = ['include', 'exclude', 'uncertain']
+    .map((decision) => `<option value="${decision}">${escapeHTML(getAiSuggestionDecisionLabel(decision))}</option>`)
+    .join('');
+  const ui = panelLang === 'zh'
+    ? {
+        totalSuggestions: '建议总数',
+        pending: '待确认',
+        reviewed: '已复核',
+        linkedHumanDecisions: '关联人工决定',
+        advisoryOnlyReviews: '仅建议日志',
+        summaryNote: '待确认、已拒绝或已忽略的 AI 建议不会直接进入 PRISMA 计数；只有关联的人工筛选决定会影响最终计数。',
+        empty: '当前还没有 AI 建议。可以先生成本地示例建议，再由人工接受、拒绝或改写。',
+        linkedDecision: '关联人工决定：',
+        rewriteDecision: '人工改写决定',
+        exclusionReason: '排除理由',
+        confidence: '置信度：',
+        promptHash: '提示词 hash：',
+        accept: '接受',
+        edit: '改写',
+        reject: '拒绝',
+      }
+    : {
+        totalSuggestions: 'Total suggestions',
+        pending: 'Pending',
+        reviewed: 'Reviewed',
+        linkedHumanDecisions: 'Linked human decisions',
+        advisoryOnlyReviews: 'Advisory-only reviews',
+        summaryNote: 'Pending, rejected, or ignored suggestions do not enter PRISMA counts directly; only linked human ScreeningDecision records affect final counts.',
+        empty: 'There are no AI suggestions yet. Generate local mock suggestions first, then accept, reject, or edit them manually.',
+        linkedDecision: 'Linked decision:',
+        rewriteDecision: 'Human rewrite decision',
+        exclusionReason: 'Exclusion reason',
+        confidence: 'Confidence:',
+        promptHash: 'Prompt hash:',
+        accept: 'Accept',
+        edit: 'Edit',
+        reject: 'Reject',
+      };
+  const summary = AUDIT_ENGINE.summarizeAiSuggestions(aiSuggestionEvents);
+  const summaryHtml = `
+    <div class="surface-panel ai-suggestion-summary" style="margin-bottom: 12px;">
+      <div class="ai-suggestion-summary-grid">
+        <div><div class="muted-text">${escapeHTML(ui.totalSuggestions)}</div><strong>${summary.totalSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.pending)}</div><strong>${summary.pendingSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.reviewed)}</div><strong>${summary.reviewedSuggestions}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.linkedHumanDecisions)}</div><strong>${summary.linkedHumanDecisionCount}</strong></div>
+        <div><div class="muted-text">${escapeHTML(ui.advisoryOnlyReviews)}</div><strong>${summary.advisoryOnlyReviewedSuggestionCount}</strong></div>
+      </div>
+      <div class="muted-text ai-suggestion-summary-note">
+        ${escapeHTML(ui.summaryNote)}
+      </div>
+    </div>
+  `;
+
+  if (!Array.isArray(aiSuggestionEvents) || aiSuggestionEvents.length === 0) {
+    container.innerHTML = `
+      ${summaryHtml}
+      <div class="muted-text ai-suggestion-empty">
+        ${escapeHTML(ui.empty)}
+      </div>
+    `;
+    applyAiSuggestionPanelLangVisibility();
+    return;
+  }
+
+  const template = sanitizeExclusionTemplate(exclusionReasons);
+  const reasonOptions = template
+    .map((reason) => `<option value="${escapeHTML(reason)}">${escapeHTML(reason)}</option>`)
+    .join('');
+
+  const rows = aiSuggestionEvents.slice().reverse().map((entry) => {
+    const isPending = entry.humanAction === 'pending';
+    const editDecisionId = getAiSuggestionControlId(entry.suggestionId, 'edit-decision');
+    const editReasonWrapperId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason-wrapper');
+    const editReasonId = getAiSuggestionControlId(entry.suggestionId, 'edit-reason');
+    const suggestionId = escapeHTML(entry.suggestionId);
+    const rationaleText = getAiSuggestionRationaleText(entry);
+    const linkedDecision = entry.linkedDecisionId
+      ? `<div class="muted-text" style="margin-top: 6px;">${escapeHTML(ui.linkedDecision)} <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
+      : '';
+    const editControls = isPending
+      ? `
+        <div class="ai-suggestion-edit-grid">
+          <label class="form-label" style="margin-bottom: 0;">
+            ${escapeHTML(ui.rewriteDecision)}
+            <select id="${editDecisionId}" class="form-input" onchange="toggleAiSuggestionEditReason('${suggestionId}')" style="margin-top: 4px;">
+              <option value="">${chooseDecisionText}</option>
+              ${decisionOptions}
+            </select>
+          </label>
+          <label id="${editReasonWrapperId}" class="form-label" style="margin-bottom: 0;" hidden>
+            ${escapeHTML(ui.exclusionReason)}
+            <select id="${editReasonId}" class="form-input" style="margin-top: 4px;" disabled>
+              <option value="">${chooseReasonText}</option>
+              ${reasonOptions}
+            </select>
+          </label>
+        </div>
+      `
+      : '';
+
+    return `
+      <div class="surface-panel ai-suggestion-card" style="margin-bottom: 12px;">
+        <div class="ai-suggestion-card-layout">
+          <div class="ai-suggestion-card-main">
+            <div class="ai-suggestion-chip-row">
+              <span class="status-chip">${escapeHTML(getAiSuggestionStageLabel(entry.stage || 'title_abstract'))}</span>
+              <span class="status-chip">${escapeHTML(getAiSuggestionDecisionLabel(entry.suggestedDecision || 'uncertain'))}</span>
+              <span class="status-chip">${escapeHTML(getAiSuggestionActionLabel(entry.humanAction || 'pending'))}</span>
+            </div>
+            <div class="ai-suggestion-title">${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId)}</div>
+            <div class="muted-text ai-suggestion-rationale">${escapeHTML(rationaleText)}</div>
+            <div class="muted-text ai-suggestion-meta">
+              ${escapeHTML(ui.confidence)} ${entry.confidence ?? '-'}
+              <span aria-hidden="true"> | </span>
+              ${escapeHTML(ui.promptHash)} <code>${escapeHTML(entry.promptHash || '-')}</code>
+            </div>
+            ${linkedDecision}
+            ${editControls}
+          </div>
+          <div class="button-group ai-suggestion-actions">
+            <button type="button" class="btn btn-secondary" onclick="acceptAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.accept)}</button>
+            <button type="button" class="btn btn-secondary" onclick="editAiSuggestion('${suggestionId}', document.getElementById('${editDecisionId}')?.value, document.getElementById('${editReasonId}')?.value)" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.edit)}</button>
+            <button type="button" class="btn btn-secondary" onclick="rejectAiSuggestion('${suggestionId}')" ${!isPending ? 'disabled' : ''}>${escapeHTML(ui.reject)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = summaryHtml + rows;
+  applyAiSuggestionPanelLangVisibility();
 }
 
 function shouldAutoRestoreProjectState() {
@@ -3957,6 +4838,8 @@ function setStep(step) {
   }
   if (nextStep === 6 || (!FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT && nextStep === 5)) {
     renderImportJobShell();
+    renderAiProviderConfigPanel();
+    renderAiSuggestionPanel();
   }
 }
 
@@ -5287,7 +6170,17 @@ function buildAuditExportContent(type) {
     case 'audit_prisma_counts':
       return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
     case 'audit_summary':
-      return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions);
+      return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions, {
+        language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
+      });
+    case 'ai_usage_registry':
+      return JSON.stringify(AUDIT_ENGINE.buildAiUsageRegistryExport(manifest), null, 2);
+    case 'ai_suggestions':
+      return AUDIT_ENGINE.serializeAiSuggestionEventsJsonl(aiSuggestionEvents);
+    case 'prisma_traice_report':
+      return AUDIT_ENGINE.buildPrismaTraiceReportMarkdown(manifest, aiSuggestionEvents, {
+        language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
+      });
     default:
       return '';
   }
@@ -5387,6 +6280,18 @@ function downloadFile(type) {
       filename = 'audit_summary.md';
       mimeType = 'text/markdown;charset=utf-8';
       break;
+    case 'ai_usage_registry':
+      filename = 'ai_usage_registry.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
+    case 'ai_suggestions':
+      filename = 'ai_suggestions.jsonl';
+      mimeType = 'application/x-ndjson;charset=utf-8';
+      break;
+    case 'prisma_traice_report':
+      filename = 'PRISMA_TRAICE_REPORT.md';
+      mimeType = 'text/markdown;charset=utf-8';
+      break;
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
@@ -5447,7 +6352,10 @@ function downloadAllFiles() {
     'audit_exclusion_reasons',
     'audit_prisma_counts',
     'audit_summary',
-    'audit_events'
+    'audit_events',
+    'ai_usage_registry',
+    'ai_suggestions',
+    'prisma_traice_report',
   ];
   
   files.forEach((fileType, index) => {
@@ -5825,6 +6733,7 @@ function loadSampleData() {
       return response.json();
     })
     .then(sampleData => {
+      startNewProjectSession();
       uploadedData = sampleData.data;
       uploadedFiles = [{
         name: '示例数据.json',
@@ -5832,7 +6741,6 @@ function loadSampleData() {
         recordCount: sampleData.data.length,
         source: '系统内置'
       }];
-      startNewProjectSession();
       fileFormat = 'JSON';
       formatSource = '示例数据（中医治疗高血压）';
       
@@ -7625,6 +8533,10 @@ function saveProjectData() {
   projectData.exclusionReasons = sanitizeExclusionTemplate(exclusionReasons);
   projectData.qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
   projectData.importJobs = normalizeImportJobsState(importJobs);
+  projectData.projectManifest = ensureProjectManifest();
+  projectData.auditEvents = auditEvents;
+  projectData.screeningDecisions = screeningDecisions;
+  projectData.aiSuggestionEvents = aiSuggestionEvents;
   projectData.lastSync = new Date().toISOString();
   
   // Save to shared storage

@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.2 audit-ready local-first evidence screening workspace with import, conservative deduplication, full-text review, quality appraisal, and audit package export.">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.3 local-first evidence screening workspace with import, conservative deduplication, full-text review, quality appraisal, audit package export, and AI transparency records.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
-  <title>PRISMA Literature Screening v2.2</title>
+  <title>PRISMA Literature Screening v2.3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,12 +26,11 @@
           </span>
           <span class="brand-copy">
             <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级工作台 v2.2 audit-ready</span><span class="en">Research-grade workspace v2.2 audit-ready</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.3</span><span class="en">Research-grade workspace v2.3 audit-ready</span></span>
           </span>
         </a>
         <div class="nav-actions">
           <a class="ghost-link" href="index.html" data-lang-link="index.html"><span class="zh">首页</span><span class="en">Home</span></a>
-          <a class="ghost-link" href="login.html" data-lang-link="login.html"><span class="zh">双人复核</span><span class="en">Dual Review</span></a>
           <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</button>
         </div>
       </header>
@@ -162,7 +161,7 @@
 
         <div id="importJobShellPanel" class="info-box workspace-info-panel" style="margin-top: var(--space-20); border-left-color: var(--color-info);">
           <h3><span class="zh">导入任务</span><span class="en">Import Jobs</span></h3>
-          <p><span class="zh">V2.2 保留后台导入任务状态，并为常用格式启用真正的增量解析；审计事件会记录导入、解析和后续导出节点。</span><span class="en">V2.2 keeps import-job state and real incremental parsing for common formats; audit events record import, parsing, and later export milestones.</span></p>
+          <p><span class="zh">V2.3 保留后台导入任务状态，并为常用格式启用真正的增量解析；审计事件会记录导入、解析和后续导出节点。</span><span class="en">V2.3 keeps import-job state and real incremental parsing for common formats; audit events record import, parsing, and later export milestones.</span></p>
           <div id="importJobSummary" class="muted-text"></div>
           <div id="importJobList" style="margin-top: 12px;"></div>
         </div>
@@ -639,7 +638,7 @@
 
         <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
           <h3><span class="zh">当前版本如何处理质量评价</span><span class="en">How this version handles quality assessment</span></h3>
-          <p><span class="zh">V2.2 会先为最终纳入研究生成可审计的质量评价队列，自动给出研究设计、建议工具和证据等级基线。研究者可以先核对这些基础判断，后续版本再继续补充更细的领域问卷。</span><span class="en">V2.2 starts by creating an audit-ready quality queue for included studies, with suggested study design, appraisal tool, and baseline evidence level. Reviewers can verify these baseline judgments now while deeper domain forms remain planned.</span></p>
+          <p><span class="zh">V2.3 会先为最终纳入研究生成可审计的质量评价队列，自动给出研究设计、建议工具和证据等级基线。研究者可以先核对这些基础判断，后续版本再继续补充更细的领域问卷。</span><span class="en">V2.3 starts by creating an audit-ready quality queue for included studies, with suggested study design, appraisal tool, and baseline evidence level. Reviewers can verify these baseline judgments now while deeper domain forms remain planned.</span></p>
         </div>
 
         <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
@@ -741,7 +740,7 @@
             </div>
           </div>
 
-          <div class="surface-panel workspace-side-panel secondary-info-zone">
+          <div class="surface-panel workspace-side-panel secondary-info-zone export-files-panel">
             <h3 style="margin-top: 0;"><span class="zh">导出文件</span><span class="en">Export Files</span></h3>
             <div class="button-group">
               <button type="button" class="btn btn-primary" onclick="downloadFile('included')"><span class="zh">下载纳入研究</span><span class="en">Download Included</span></button>
@@ -754,13 +753,16 @@
             </div>
             <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
             <p class="section-subtitle" style="margin-bottom: 10px;"><span class="zh">审计包记录完整的筛选过程证据，全部在浏览器本地生成，不会自动上传。可用于方法学附录、审稿回复或研究团队内部分享。</span><span class="en">The audit package captures the full screening evidence chain. Everything is generated locally in your browser and never uploaded automatically. Use it for methodology appendices, reviewer responses, or team sharing.</span></p>
-            <div class="button-group">
+            <div class="button-group audit-package-downloads">
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_manifest')"><span class="zh">项目清单 JSON</span><span class="en">Project Manifest</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_events')"><span class="zh">事件日志 JSONL</span><span class="en">Event Log JSONL</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_screening_decisions')"><span class="zh">筛选决策 CSV</span><span class="en">Decisions CSV</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_exclusion_reasons')"><span class="zh">排除理由 CSV</span><span class="en">Exclusion Reasons</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_prisma_counts')"><span class="zh">PRISMA 计数 JSON</span><span class="en">PRISMA Counts</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_summary')"><span class="zh">审计摘要 MD</span><span class="en">Audit Summary</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_usage_registry')"><span class="zh">AI 使用登记 JSON</span><span class="en">AI Usage Registry</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_suggestions')"><span class="zh">AI 建议日志 JSONL</span><span class="en">AI Suggestion Log</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">PRISMA-trAIce MD</span><span class="en">PRISMA-trAIce MD</span></button>
             </div>
             <details style="margin-top: 10px; font-size: 13px; color: var(--text-muted, #666);">
               <summary style="cursor: pointer;"><span class="zh">每个文件是什么？</span><span class="en">What is each file?</span></summary>
@@ -796,10 +798,47 @@
                     <td style="padding: 4px 8px;"><code>audit_summary.md</code></td>
                     <td style="padding: 4px 8px;"><span class="zh">可读的审计摘要：事件数量、决策数量、PRISMA 计数、AI 模式、数据边界和风险提示</span><span class="en">Human-readable audit summary: event counts, decision counts, PRISMA counts, AI mode, data boundary, and risk notes</span></td>
                   </tr>
+                  <tr style="border-top: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>ai_usage_registry.json</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">AI 模式、服务边界、允许阶段、数据边界和用户确认记录；这是配置证据，不是最终筛选决定</span><span class="en">AI mode, provider, allowed stages, data boundary, and user acknowledgement log; configuration evidence, not a final decision ledger</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>ai_suggestions.jsonl</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">AI 建议、理由、置信度、输入指纹、人工处理结果、复核时间、人工改写字段、关联的人类筛选决定和计数边界；被拒绝的建议不会进入 PRISMA 计数</span><span class="en">AI suggestions, rationale, confidence, input hashes, human handling outcomes, reviewed_at, human edit fields, linked human decisions, and prisma_count_boundary; rejected suggestions do not enter PRISMA counts</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 8px;"><code>PRISMA_TRAICE_REPORT.md</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">V2.3 透明报告：说明是否使用 AI、如何使用、No-AI 状态，以及“最终计数来自人工 ScreeningDecision”的边界</span><span class="en">V2.3 transparency report covering AI usage, No-AI state, and the boundary that final counts come from human ScreeningDecision records</span></td>
+                  </tr>
                 </tbody>
               </table>
             </details>
             <p class="muted-text" style="margin-top: 12px;"><span class="zh">当前主题：</span><span class="en">Current theme:</span> <span id="currentThemeLabelFinal">柔和版</span></p>
+          </div>
+
+          <div class="info-box ai-readiness-box ai-transparency-panel">
+            <h4><span class="zh">V2.3 PRISMA-trAIce 透明记录</span><span class="en">V2.3 PRISMA-trAIce Readiness</span></h4>
+            <p class="ai-readiness-copy"><span class="zh">PRISMA-trAIce 是面向“系统综述中使用 AI”的透明报告要求：需要说明 AI 用在什么环节、是否影响筛选决定，以及人工如何复核。</span><span class="en">PRISMA-trAIce is a transparency checklist for AI use in systematic reviews: where AI is used, whether it affects screening decisions, and how humans review it.</span></p>
+            <div class="ai-readiness-steps">
+              <div><strong><span class="zh">为什么做</span><span class="en">Why</span></strong><span><span class="zh">让审稿人和团队看清 AI 只提供建议，不直接改变最终计数。</span><span class="en">Reviewers can see that AI only suggests and never changes final counts directly.</span></span></div>
+              <div><strong><span class="zh">怎么做</span><span class="en">How</span></strong><span><span class="zh">记录 AI 模式、建议日志、人工接受/拒绝/改写，以及关联的人类筛选决定。</span><span class="en">Record AI mode, suggestion logs, human accept/reject/edit actions, and linked human screening decisions.</span></span></div>
+            </div>
+            <div class="ai-mode-options">
+              <label class="checkbox-label"><input type="radio" name="aiMode" value="off" checked onclick="setAiModeSafe('off')"><span><span class="zh">关闭 AI：导出未使用 AI 的透明声明</span><span class="en">AI off: export a No-AI transparency statement</span></span></label>
+              <label class="checkbox-label"><input type="radio" name="aiMode" value="assistive" onclick="setAiModeSafe('assistive')"><span><span class="zh">辅助记录：只保存建议和人工复核结果</span><span class="en">Assistive mode: log suggestions and human review only</span></span></label>
+              <label class="checkbox-label"><input type="radio" name="aiMode" value="experimental" onclick="setAiModeSafe('experimental')"><span><span class="zh">完整记录：额外保留模型和提示词追踪信息</span><span class="en">Trace mode: keep fuller model and prompt records</span></span></label>
+            </div>
+            <div class="button-group ai-transparency-actions">
+              <button type="button" class="btn btn-secondary" onclick="generateMockAiSuggestions()"><span class="zh">生成本地示例 AI 建议</span><span class="en">Generate Local Example AI Suggestions</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">下载 PRISMA-trAIce 报告</span><span class="en">Download PRISMA-trAIce Report</span></button>
+            </div>
+            <p class="muted-text ai-transparency-note"><span class="zh">当前不连接真实 AI 服务，只用本地示例建议验证“AI 建议必须由人工确认”的审计闭环。</span><span class="en">This stage does not connect to a real AI provider; local mock suggestions verify the human-confirmation audit loop.</span></p>
+            <div class="ai-provider-boundary">
+              <strong><span class="zh">服务接入边界</span><span class="en">Provider boundary</span></strong>
+              <span><span class="zh">已准备服务抽象、摘要指纹和脱敏记录；真实服务请求仍然关闭，不会自动发送文献内容或密钥。</span><span class="en">Provider abstraction, hashes, and redacted trace records are ready; real API dispatch remains disabled and never sends record content or API keys automatically.</span></span>
+            </div>
+            <div id="aiProviderConfigPanel"></div>
+            <div id="aiSuggestionPanel"></div>
           </div>
         </div>
 
@@ -842,16 +881,18 @@
       const isZh = lang === 'zh';
       document.querySelectorAll('.zh').forEach((el) => {
         el.hidden = !isZh;
+        el.style.display = isZh ? '' : 'none';
       });
       document.querySelectorAll('.en').forEach((el) => {
         el.hidden = isZh;
+        el.style.display = isZh ? 'none' : '';
       });
-      document.title = isZh ? 'PRISMA Workbench v2.2 工作台' : 'PRISMA Workbench v2.2 Workspace';
+      document.title = isZh ? 'PRISMA Workbench v2.3 工作台' : 'PRISMA Workbench v2.3 Workspace';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? 'PRISMA Workbench v2.2 audit-ready 本地优先工作台，支持导入、保守去重、全文复核、质量评价和审计包导出。'
-          : 'PRISMA Workbench v2.2 audit-ready local-first workspace for import, conservative deduplication, full-text review, quality appraisal, and audit package export.';
+          ? 'PRISMA Workbench v2.3 本地优先审计工作台，支持导入、保守去重、全文复核、质量评价、AI 透明记录和审计包导出。'
+          : 'PRISMA Workbench v2.3 audit-ready local-first workspace for import, conservative deduplication, full-text review, quality appraisal, AI transparency records, and audit package export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
@@ -871,6 +912,9 @@
       document.documentElement.lang = nextLang;
       localStorage.setItem('prisma_lang', nextLang);
       applyLangVisibility();
+      if (typeof renderAiSuggestionPanel === 'function') {
+        renderAiSuggestionPanel();
+      }
     };
 
     document.documentElement.lang = getCurrentLang();
@@ -880,13 +924,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
   <script src="virtual-list.js"></script>
   <script>
+    const isLocalFileMode = window.location.protocol === 'file:';
     /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
-    const dbWorker = new Worker('db-worker.js?v=20260427-v22-audit');
+    const dbWorker = isLocalFileMode ? null : new Worker('db-worker.js?v=20260427-v22-audit');
     /* biome-ignore lint/correctness/noUnusedVariables: required global worker references preserved in original order */
-    const parserWorker = new Worker('parser-worker.js?v=20260422-streaming-v2');
+    const parserWorker = isLocalFileMode ? null : new Worker('parser-worker.js?v=20260422-streaming-v2');
     /* biome-ignore lint/correctness/noUnusedVariables: helper preserved for app.js compatibility */
     function workerSend(worker, message) {
       return new Promise((resolve, _reject) => {
+        if (!worker) {
+          resolve({ type: 'WORKER_UNAVAILABLE', localFileMode: isLocalFileMode });
+          return;
+        }
         const handler = (event) => {
           worker.removeEventListener('message', handler);
           resolve(event.data);
@@ -900,7 +949,8 @@
   <script src="quality-engine.js?v=20260422-v21-shell"></script>
   <script src="import-job-runtime.js?v=20260422-v21-shell"></script>
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
-  <script src="app.js?v=20260428-v22-quality-ui"></script>
+  <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
+  <script src="app.js?v=20260508-v23-local-file-import"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>
 </html>
