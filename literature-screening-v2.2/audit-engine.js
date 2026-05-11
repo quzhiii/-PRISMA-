@@ -37,6 +37,7 @@
   const VALID_CONFLICT_STATUSES = new Set(['none', 'pending', 'resolved']);
   const VALID_QUALITY_APPRAISAL_STATUSES = new Set(['not_started', 'queued', 'in_progress', 'complete']);
   const VALID_FINAL_EXPORT_STATUSES = new Set(['not_exported', 'included', 'excluded', 'warning']);
+  const RESOLVER_REVIEWER_IDS = new Set(['resolver', 'resolver_1', 'resolver-1', 'consensus', 'final', 'final_decision']);
   const EVENT_TYPE_ALIASES = Object.freeze({
     dedup_auto_removed: 'hard_duplicate_removed',
     dedup_candidate_flagged: 'candidate_duplicate_flagged',
@@ -414,7 +415,7 @@
   }
 
   function calculatePrismaCountsFromDecisions(decisions, events) {
-    const latestDecisions = getLatestDecisions(decisions);
+    const latestDecisions = getCountableDecisions(decisions);
     const titleAbstract = latestDecisions.filter((decision) => decision.stage === 'title_abstract');
     const fullText = latestDecisions.filter((decision) => decision.stage === 'full_text');
     const eventList = Array.isArray(events) ? events : [];
@@ -447,6 +448,105 @@
     });
 
     return Array.from(byKey.values());
+  }
+
+  function getCountableDecisions(decisions) {
+    const latestDecisions = getLatestDecisions(decisions);
+    const grouped = new Map();
+
+    latestDecisions.forEach((decision) => {
+      const key = `${decision.recordId}::${decision.stage}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(decision);
+    });
+
+    const countable = [];
+    grouped.forEach((group) => {
+      const resolverDecision = group
+        .filter(isResolverDecision)
+        .sort(compareDecisionTime)
+        .pop();
+
+      if (resolverDecision) {
+        countable.push(resolverDecision);
+        return;
+      }
+
+      const humanReviewerDecisions = group.filter((decision) => !isResolverDecision(decision));
+      const reviewerA = pickReviewerSlotDecision(humanReviewerDecisions, 'A');
+      const reviewerB = pickReviewerSlotDecision(humanReviewerDecisions, 'B');
+
+      if (reviewerA && reviewerB) {
+        if (getDecisionSignature(reviewerA) === getDecisionSignature(reviewerB)) {
+          countable.push(compareDecisionTime(reviewerA, reviewerB) >= 0 ? reviewerA : reviewerB);
+        }
+        return;
+      }
+
+      const manualDecision = humanReviewerDecisions
+        .filter((decision) => !isRuleDecision(decision))
+        .sort(compareDecisionTime)
+        .pop();
+      if (manualDecision) {
+        countable.push(manualDecision);
+        return;
+      }
+
+      const ruleDecision = humanReviewerDecisions
+        .filter(isRuleDecision)
+        .sort(compareDecisionTime)
+        .pop();
+      if (ruleDecision) {
+        countable.push(ruleDecision);
+      }
+    });
+
+    return countable;
+  }
+
+  function pickReviewerSlotDecision(decisions, slot) {
+    return (Array.isArray(decisions) ? decisions : [])
+      .filter((decision) => getDecisionReviewerSlot(decision.reviewerId) === slot)
+      .sort(compareDecisionTime)
+      .pop() || null;
+  }
+
+  function getDecisionReviewerSlot(reviewerId) {
+    const normalized = normalizeString(reviewerId, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (['reviewera', 'reviewer1', 'a', 'primary', 'main', 'reviewermain'].includes(normalized)) return 'A';
+    if (['reviewerb', 'reviewer2', 'b', 'secondary', 'deputy', 'reviewersecondary'].includes(normalized)) return 'B';
+    return '';
+  }
+
+  function getDecisionSignature(decisionInput) {
+    const decision = createScreeningDecision(decisionInput);
+    return decision.decision === 'exclude'
+      ? `${decision.decision}:${decision.exclusionReason || 'other'}`
+      : decision.decision;
+  }
+
+  function isRuleDecision(decisionInput) {
+    const decision = createScreeningDecision(decisionInput);
+    const reviewerId = normalizeString(decision.reviewerId, '').toLowerCase();
+    const source = normalizeString(decision.source, '').toLowerCase();
+    return source === 'rule' || reviewerId === 'system_rule';
+  }
+
+  function isResolverDecision(decisionInput) {
+    const decision = createScreeningDecision(decisionInput);
+    const metadata = normalizeObject(decision.metadata);
+    const reviewerId = normalizeString(decision.reviewerId, '').toLowerCase();
+
+    return RESOLVER_REVIEWER_IDS.has(reviewerId)
+      || reviewerId.includes('resolver')
+      || reviewerId.includes('consensus')
+      || reviewerId.includes('final')
+      || metadata.resolverAction === true
+      || metadata.resolver_action === true
+      || metadata.finalDecision === true
+      || metadata.final_decision === true
+      || metadata.resolutionSource === 'resolver'
+      || metadata.resolution_source === 'resolver';
   }
 
   function compareDecisionTime(left, right) {

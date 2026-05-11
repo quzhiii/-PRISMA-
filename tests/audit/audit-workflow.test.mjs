@@ -23,6 +23,7 @@ test('v2.2 app persists audit state in project snapshots', async () => {
   assert.match(source, /let auditEvents = \[\];/);
   assert.match(source, /let screeningDecisions = \[\];/);
   assert.match(source, /let aiSuggestionEvents = \[\];/);
+  assert.match(source, /let dualReviewConflictState =/);
   assert.match(source, /function appendAuditEventsSafe/);
   assert.match(source, /function upsertScreeningDecisionSafe/);
   assert.match(source, /function appendAiSuggestionEventsSafe/);
@@ -31,6 +32,8 @@ test('v2.2 app persists audit state in project snapshots', async () => {
   assert.match(source, /auditEvents,/);
   assert.match(source, /screeningDecisions/);
   assert.match(source, /aiSuggestionEvents/);
+  assert.match(source, /dualReviewResults/);
+  assert.match(source, /dualReviewConflictState/);
 });
 
 test('v2.2 app records audit events across the review workflow', async () => {
@@ -87,6 +90,8 @@ test('v2.2 app supports reviewer-editable item-level quality forms with audit tr
   assert.match(source, /getQualityDomainInputId\(recordId, domainId, 'judgement'\)/);
   assert.match(source, /supporting_quote: readQualityInputValue/);
   assert.match(source, /reviewer_note: readQualityInputValue/);
+  assert.match(source, /reviewer_assessments/);
+  assert.match(source, /reviewer_id: reviewerId/);
   assert.match(source, /overall_judgement: readQualityInputValue/);
   assert.match(source, /eventType: 'quality_appraisal_updated'/);
   assert.match(source, /before,/);
@@ -147,6 +152,27 @@ test('v2.2 app writes durable screening decisions for rule and full-text stages'
   assert.match(source, /source: 'rule'/);
   assert.match(source, /source: 'human'/);
   assert.match(source, /normalizeAuditExclusionReason/);
+});
+
+test('v2.2 app wires V2.5 dual-review conflict workflow without changing local-first defaults', async () => {
+  const source = await readV22App();
+  const workspaceHtml = await readV22File('workspace.html');
+
+  assert.match(workspaceHtml, /dual-review-engine\.js/);
+  assert.match(source, /const DUAL_REVIEW_ENGINE/);
+  assert.match(source, /function recordFulltextReviewerDecision/);
+  assert.match(source, /reviewer_A/);
+  assert.match(source, /reviewer_B/);
+  assert.match(source, /function refreshDualReviewConflictState/);
+  assert.match(source, /function getQualityReviewConflictInputs/);
+  assert.match(source, /buildScreeningConflictQueue/);
+  assert.match(source, /buildQualityConflictQueue/);
+  assert.match(source, /createResolverScreeningDecision/);
+  assert.match(source, /review_conflict_resolved/);
+  assert.match(source, /export_conflict_warning/);
+  assert.match(source, /maybeWarnUnresolvedConflictsBeforeExport/);
+  assert.match(source, /__uncertain__/);
+  assert.doesNotMatch(source, /fetch\([^)]*openai/i);
 });
 
 test('v2.2 app keeps mock AI suggestions separate from final screening decisions', async () => {
