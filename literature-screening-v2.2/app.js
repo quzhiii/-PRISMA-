@@ -6189,6 +6189,16 @@ function buildQualityAppraisalExportContent() {
   return QUALITY_ENGINE.serializeQualityAppraisalCsv(qualityAssessments);
 }
 
+function buildEvidenceTableExportContent() {
+  if (!QUALITY_ENGINE || typeof QUALITY_ENGINE.serializeEvidenceTableCsv !== 'function') {
+    return 'record_id,title,authors,year,study_design,population,intervention,comparison,outcome,effect_measure,effect_estimate,quality_judgement,certainty_of_evidence,notes\n';
+  }
+
+  const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  return QUALITY_ENGINE.serializeEvidenceTableCsv(includedRecords, qualityAssessments);
+}
+
 function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
@@ -6303,6 +6313,11 @@ function downloadFile(type) {
       filename = 'quality_appraisal.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
+    case 'evidence_table':
+      content = buildEvidenceTableExportContent();
+      filename = 'evidence_table.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
     case 'audit_manifest':
       filename = 'project_manifest.json';
       mimeType = 'application/json;charset=utf-8';
@@ -6342,7 +6357,11 @@ function downloadFile(type) {
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
-    const eventType = type === 'quality_appraisal' ? 'quality_export_generated' : 'export_generated';
+    const eventType = type === 'quality_appraisal'
+      ? 'quality_export_generated'
+      : type === 'evidence_table'
+        ? 'evidence_table_export_generated'
+        : 'export_generated';
     appendAuditEventsSafe({
       eventType,
       recordId: '',
@@ -6397,6 +6416,7 @@ function downloadAllFiles() {
     'svg-subtle',
     'report',
     'quality_appraisal',
+    'evidence_table',
     'audit_manifest',
     'audit_screening_decisions',
     'audit_exclusion_reasons',

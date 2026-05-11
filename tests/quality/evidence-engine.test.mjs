@@ -119,3 +119,36 @@ test('quality engine serializes quality_appraisal.csv with domain rows and escap
   assert.match(csv, /allocation_concealment,not_assessed/);
   assert.match(csv, /some_concerns,in_progress,2026-05-11T00:00:00.000Z/);
 });
+
+test('quality engine serializes evidence_table.csv from included records and quality assessments', () => {
+  const record = {
+    id: 'record-evidence',
+    title: 'Cohort study of hospital payment reform',
+    authors: 'Chen A; Li B',
+    year: '2024',
+    abstract: 'A cohort study evaluated policy exposure and patient outcomes.',
+    population: 'Tertiary hospital patients',
+    exposure: 'Payment reform',
+    comparator: 'Usual payment',
+    primary_outcome: 'Length of stay',
+    effect_measure: 'mean difference',
+    effect_estimate: '-1.2 days',
+  };
+  const assessment = QualityEngine.createQualityAssessment(record, {
+    recordId: 'record-evidence',
+    overallJudgement: 'some_concerns',
+    evidenceFinal: QualityEngine.EVIDENCE_LEVELS.LOW,
+    notes: 'Needs manual GRADE confirmation.',
+    updatedAt: '2026-05-11T00:00:00.000Z',
+  });
+
+  const csv = QualityEngine.serializeEvidenceTableCsv([record], [assessment]);
+  const lines = csv.split('\n');
+
+  assert.equal(
+    lines[0],
+    'record_id,title,authors,year,study_design,population,intervention,comparison,outcome,effect_measure,effect_estimate,quality_judgement,certainty_of_evidence,notes'
+  );
+  assert.equal(lines.length, 2);
+  assert.match(csv, /record-evidence,Cohort study of hospital payment reform,Chen A; Li B,2024,cohort,Tertiary hospital patients,Payment reform,Usual payment,Length of stay,mean difference,-1\.2 days,some_concerns,low,Needs manual GRADE confirmation\./);
+});

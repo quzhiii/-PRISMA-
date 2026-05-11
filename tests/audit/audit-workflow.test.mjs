@@ -54,14 +54,18 @@ test('v2.2 app records audit events across the review workflow', async () => {
   assert.match(source, /quality_export_generated/);
 });
 
-test('v2.2 app wires V2.4-alpha quality appraisal export without changing AI provider defaults', async () => {
+test('v2.2 app wires V2.4 quality and evidence exports without changing AI provider defaults', async () => {
   const source = await readV22App();
 
   assert.match(source, /function buildQualityAppraisalExportContent/);
   assert.match(source, /serializeQualityAppraisalCsv/);
   assert.match(source, /case 'quality_appraisal':/);
   assert.match(source, /filename = 'quality_appraisal\.csv'/);
-  assert.match(source, /const eventType = type === 'quality_appraisal' \? 'quality_export_generated' : 'export_generated'/);
+  assert.match(source, /function buildEvidenceTableExportContent/);
+  assert.match(source, /serializeEvidenceTableCsv/);
+  assert.match(source, /case 'evidence_table':/);
+  assert.match(source, /filename = 'evidence_table\.csv'/);
+  assert.match(source, /evidence_table_export_generated/);
   assert.match(source, /qualityAssessmentCount: qualityAssessments\.length/);
   assert.doesNotMatch(source, /apiKey\s*:/i);
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);

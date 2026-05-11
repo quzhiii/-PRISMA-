@@ -357,7 +357,7 @@ test('builds a PRISMA-trAIce report with a No-AI statement by default', () => {
   assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
 });
 
-test('v2.4-alpha workspace loads audit engine before app.js', async () => {
+test('v2.4-beta workspace loads audit engine before app.js', async () => {
   const workspaceHtml = await fs.readFile(
     path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
     'utf8'
@@ -367,7 +367,7 @@ test('v2.4-alpha workspace loads audit engine before app.js', async () => {
 
   assert.ok(auditIndex > 0);
   assert.ok(appIndex > auditIndex);
-  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4-alpha/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4-beta/);
 });
 
 test('v2.2 db worker declares audit stores and message handlers', async () => {

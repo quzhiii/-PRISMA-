@@ -78,6 +78,23 @@
     'status',
     'updated_at',
   ]);
+  const EVIDENCE_TABLE_SCHEMA_VERSION = 'evidence_table.v2.4-beta';
+  const EVIDENCE_TABLE_COLUMNS = Object.freeze([
+    'record_id',
+    'title',
+    'authors',
+    'year',
+    'study_design',
+    'population',
+    'intervention',
+    'comparison',
+    'outcome',
+    'effect_measure',
+    'effect_estimate',
+    'quality_judgement',
+    'certainty_of_evidence',
+    'notes',
+  ]);
 
   const EVIDENCE_ORDER = [
     EVIDENCE_LEVELS.VERY_LOW,
@@ -648,7 +665,75 @@
       template_id: normalizeStringValue(assessment.template_id || assessment.templateId || template.template_id),
       domain_scores: domainScores,
       overall_judgement: normalizeJudgement(assessment.overall_judgement || assessment.overallJudgement || assessment.overall_risk || assessment.overallRisk),
+      evidence_final: normalizeEvidenceLevel(assessment.evidence_final || assessment.evidenceFinal),
+      certainty_of_evidence: normalizeEvidenceLevel(assessment.certainty_of_evidence || assessment.certaintyOfEvidence),
+      notes: normalizeStringValue(assessment.notes),
       updated_at: normalizeStringValue(assessment.updated_at || assessment.updatedAt),
+    };
+  }
+
+  function serializeEvidenceTableCsv(records, assessments) {
+    const rows = flattenEvidenceTableRows(records, assessments);
+    const header = EVIDENCE_TABLE_COLUMNS.join(',');
+    const body = rows.map((row) => EVIDENCE_TABLE_COLUMNS.map((column) => csvCell(row[column])).join(','));
+    return [header, ...body].join('\n');
+  }
+
+  function flattenEvidenceTableRows(records, assessments) {
+    const recordList = Array.isArray(records) ? records : [];
+    const assessmentList = Array.isArray(assessments) ? assessments : [];
+    const assessmentsByRecordId = new Map();
+
+    assessmentList.forEach((assessmentInput, index) => {
+      const assessment = normalizeQualityAssessmentForExport(assessmentInput, index);
+      assessmentsByRecordId.set(assessment.record_id, assessment);
+    });
+
+    if (recordList.length === 0) {
+      return assessmentList.map((assessmentInput, index) => {
+        const assessment = normalizeQualityAssessmentForExport(assessmentInput, index);
+        return buildEvidenceTableRow({}, assessment, index);
+      });
+    }
+
+    return recordList.map((record, index) => {
+      const recordId = getAssessmentRecordId(record, index);
+      const assessment = assessmentsByRecordId.get(recordId)
+        || normalizeQualityAssessmentForExport(createQualityAssessment(record, { recordId, fallbackIndex: index }), index);
+      return buildEvidenceTableRow(record, assessment, index);
+    });
+  }
+
+  function buildEvidenceTableRow(record, assessment, index) {
+    const source = record && typeof record === 'object' ? record : {};
+    const normalizedAssessment = assessment || normalizeQualityAssessmentForExport({}, index);
+    const recordId = normalizeStringValue(normalizedAssessment.record_id || getAssessmentRecordId(source, index));
+    const studyDesign = normalizeStudyDesignFamily(
+      normalizedAssessment.study_design
+      || getRecordStudyDesign(source)
+      || detectStudyDesignFamily(source)
+    );
+
+    return {
+      record_id: recordId,
+      title: readEvidenceSourceField(source, ['title', 'TI', 'T1', 'dc:title', 'dcterms:title']) || normalizedAssessment.title,
+      authors: readEvidenceSourceField(source, ['authors', 'AU', 'author', 'Author', 'dc:creator', 'dcterms:creator']),
+      year: readEvidenceSourceField(source, ['year', 'PY', 'DP', 'Publication Year', 'publication_year', 'dcterms:issued', 'dc:date', 'prism:publicationDate']),
+      study_design: studyDesign,
+      population: readEvidenceSourceField(source, ['population', 'Population', 'participants', 'sample', 'patients', 'PICOS_population']),
+      intervention: readEvidenceSourceField(source, ['intervention', 'Intervention', 'exposure', 'treatment', 'index_test', 'PICOS_intervention']),
+      comparison: readEvidenceSourceField(source, ['comparison', 'Comparison', 'comparator', 'control', 'PICOS_comparison']),
+      outcome: readEvidenceSourceField(source, ['outcome', 'Outcome', 'outcomes', 'primary_outcome', 'endpoint', 'PICOS_outcome']),
+      effect_measure: readEvidenceSourceField(source, ['effect_measure', 'effectMeasure', 'measure', 'effect_size_type', 'statistic']),
+      effect_estimate: readEvidenceSourceField(source, ['effect_estimate', 'effectEstimate', 'estimate', 'effect_size', 'result', 'results']),
+      quality_judgement: normalizeJudgement(normalizedAssessment.overall_judgement || normalizedAssessment.overallJudgement),
+      certainty_of_evidence: normalizeEvidenceLevel(
+        normalizedAssessment.certainty_of_evidence
+        || normalizedAssessment.certaintyOfEvidence
+        || normalizedAssessment.evidence_final
+        || normalizedAssessment.evidenceFinal
+      ),
+      notes: normalizeStringValue(normalizedAssessment.notes || source.notes || source.note || ''),
     };
   }
 
@@ -680,6 +765,10 @@
     }
 
     return '';
+  }
+
+  function readEvidenceSourceField(record, fields) {
+    return readRecordField(record, fields);
   }
 
   function normalizeRecordFieldValue(value) {
@@ -724,6 +813,15 @@
     return 'unclear';
   }
 
+  function normalizeEvidenceLevel(value) {
+    const normalized = normalizeText(value);
+    return Object.keys(EVIDENCE_LEVELS)
+      .map((key) => EVIDENCE_LEVELS[key])
+      .includes(normalized)
+      ? normalized
+      : '';
+  }
+
   function lowerEvidence(level, steps) {
     const currentIndex = Math.max(EVIDENCE_ORDER.indexOf(level), 0);
     const nextIndex = Math.max(currentIndex - steps, 0);
@@ -762,6 +860,8 @@
     QUALITY_TEMPLATE_VERSION,
     QUALITY_JUDGEMENT_OPTIONS,
     QUALITY_EXPORT_COLUMNS,
+    EVIDENCE_TABLE_SCHEMA_VERSION,
+    EVIDENCE_TABLE_COLUMNS,
     QUALITY_APPRAISAL_TEMPLATES,
     getQualityTemplate,
     listQualityTemplates,
@@ -773,6 +873,8 @@
     summarizeQualityAssessments,
     flattenQualityAppraisalRows,
     serializeQualityAppraisalCsv,
+    flattenEvidenceTableRows,
+    serializeEvidenceTableCsv,
     getAssessmentRecordId,
   };
 });
