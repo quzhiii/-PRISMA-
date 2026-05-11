@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.4-beta local-first evidence screening workspace with import, conservative deduplication, full-text review, structured quality appraisal, evidence table export, audit package export, and AI transparency records.">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.4 local-first evidence screening workspace with import, conservative deduplication, full-text review, structured quality appraisal, evidence table and GRADE summary exports, audit package export, and AI transparency records.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
-  <title>PRISMA Literature Screening v2.4-beta</title>
+  <title>PRISMA Literature Screening v2.4</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
           </span>
           <span class="brand-copy">
             <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.4-beta</span><span class="en">Research-grade workspace v2.4-beta</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.4</span><span class="en">Research-grade workspace v2.4</span></span>
           </span>
         </a>
         <div class="nav-actions">
@@ -638,7 +638,7 @@
 
         <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
           <h3><span class="zh">当前版本如何处理质量评价</span><span class="en">How this version handles quality assessment</span></h3>
-          <p><span class="zh">V2.4-beta 会为最终纳入研究生成结构化质量评价记录和 evidence_table.csv，包含研究设计、正式模板、建议工具族、领域条目、PICOS、效应量和证据等级基线。研究者仍需人工核对和填写判断；真实 AI provider 不会默认接入。</span><span class="en">V2.4-beta creates structured quality appraisal records and evidence_table.csv for included studies, including study design, template, recommended tool family, domain items, PICOS, effect fields, and baseline evidence level. Reviewers still make the human judgements; no real AI provider is connected by default.</span></p>
+          <p><span class="zh">V2.4 会为最终纳入研究生成结构化质量评价记录、evidence_table.csv 和 GRADE summary 骨架，包含研究设计、正式模板、建议工具族、领域条目、PICOS、效应量和证据等级基线。研究者仍需人工核对和确认最终 GRADE；真实 AI provider 不会默认接入。</span><span class="en">V2.4 creates structured quality appraisal records, evidence_table.csv, and a GRADE summary scaffold for included studies, including study design, template, recommended tool family, domain items, PICOS, effect fields, and baseline evidence level. Reviewers still confirm final GRADE manually; no real AI provider is connected by default.</span></p>
         </div>
 
         <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
@@ -751,6 +751,7 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('report')"><span class="zh">下载报告</span><span class="en">Download Report</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('quality_appraisal')"><span class="zh">质量评价 CSV</span><span class="en">Quality Appraisal CSV</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('evidence_table')"><span class="zh">证据表 CSV</span><span class="en">Evidence Table CSV</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('grade_summary')"><span class="zh">GRADE 摘要 CSV</span><span class="en">GRADE Summary CSV</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadAllFiles()"><span class="zh">下载全部</span><span class="en">Download All</span></button>
             </div>
             <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
@@ -803,6 +804,10 @@
                   <tr style="border-bottom: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>evidence_table.csv</code></td>
                     <td style="padding: 4px 8px;"><span class="zh">V2.4-beta 证据表导出：每条纳入研究的 PICOS、效应量、质量判断、证据确定性和备注；GRADE 仍需人工确认</span><span class="en">V2.4-beta evidence table export: PICOS, effect measure, quality judgement, certainty of evidence, and notes for each included study; GRADE remains human-confirmed</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>grade_summary.csv</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">V2.4 GRADE 摘要骨架：按 outcome / PICOS 聚合研究、效应摘要、质量判断摘要和基线确定性；最终 GRADE 和降级理由保留给人工确认</span><span class="en">V2.4 GRADE summary scaffold: groups studies by outcome / PICOS with effect summary, quality judgement summary, and baseline certainty; final GRADE and downgrade reasons stay human-confirmed</span></td>
                   </tr>
                   <tr>
                     <td style="padding: 4px 8px;"><code>audit_summary.md</code></td>
@@ -899,12 +904,12 @@
         el.hidden = isZh;
         el.style.display = isZh ? 'none' : '';
       });
-      document.title = isZh ? 'PRISMA Workbench v2.4-beta 工作台' : 'PRISMA Workbench v2.4-beta Workspace';
+      document.title = isZh ? 'PRISMA Workbench v2.4 工作台' : 'PRISMA Workbench v2.4 Workspace';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? 'PRISMA Workbench v2.4-beta 本地优先审计工作台，支持导入、保守去重、全文复核、结构化质量评价、证据表导出、AI 透明记录和审计包导出。'
-          : 'PRISMA Workbench v2.4-beta audit-ready local-first workspace for import, conservative deduplication, full-text review, structured quality appraisal, evidence table export, AI transparency records, and audit package export.';
+          ? 'PRISMA Workbench v2.4 本地优先审计工作台，支持导入、保守去重、全文复核、结构化质量评价、证据表和 GRADE 摘要导出、AI 透明记录和审计包导出。'
+          : 'PRISMA Workbench v2.4 audit-ready local-first workspace for import, conservative deduplication, full-text review, structured quality appraisal, evidence table and GRADE summary exports, AI transparency records, and audit package export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {

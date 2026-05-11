@@ -322,10 +322,15 @@ test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit t
   assert.match(source, /evidence_table\.csv/);
   assert.match(source, /buildEvidenceTableExportContent/);
   assert.match(source, /evidence_table_export_generated/);
+  assert.match(source, /'grade_summary'/);
+  assert.match(source, /grade_summary\.csv/);
+  assert.match(source, /buildGradeSummaryExportContent/);
+  assert.match(source, /grade_summary_export_generated/);
   const auditExportTypesBlock = source.match(/const AUDIT_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
   assert.ok(auditExportTypesBlock);
   assert.doesNotMatch(auditExportTypesBlock[1], /'quality_appraisal'/);
   assert.doesNotMatch(auditExportTypesBlock[1], /'evidence_table'/);
+  assert.doesNotMatch(auditExportTypesBlock[1], /'grade_summary'/);
 });
 
 test('v2.2 workspace includes the audit package export buttons', async () => {
@@ -348,6 +353,8 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /quality_appraisal\.csv/);
   assert.match(workspaceHtml, /downloadFile\('evidence_table'\)/);
   assert.match(workspaceHtml, /evidence_table\.csv/);
+  assert.match(workspaceHtml, /downloadFile\('grade_summary'\)/);
+  assert.match(workspaceHtml, /grade_summary\.csv/);
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
   assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);
@@ -359,9 +366,10 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);
-  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4-beta/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4/);
   assert.match(workspaceHtml, /no real AI provider is connected by default/i);
   assert.match(workspaceHtml, /GRADE remains human-confirmed/i);
+  assert.match(workspaceHtml, /final GRADE and downgrade reasons stay human-confirmed/i);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

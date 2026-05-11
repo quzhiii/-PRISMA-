@@ -66,6 +66,11 @@ test('v2.2 app wires V2.4 quality and evidence exports without changing AI provi
   assert.match(source, /case 'evidence_table':/);
   assert.match(source, /filename = 'evidence_table\.csv'/);
   assert.match(source, /evidence_table_export_generated/);
+  assert.match(source, /function buildGradeSummaryExportContent/);
+  assert.match(source, /serializeGradeSummaryCsv/);
+  assert.match(source, /case 'grade_summary':/);
+  assert.match(source, /filename = 'grade_summary\.csv'/);
+  assert.match(source, /grade_summary_export_generated/);
   assert.match(source, /qualityAssessmentCount: qualityAssessments\.length/);
   assert.doesNotMatch(source, /apiKey\s*:/i);
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);

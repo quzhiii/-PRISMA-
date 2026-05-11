@@ -152,3 +152,45 @@ test('quality engine serializes evidence_table.csv from included records and qua
   assert.equal(lines.length, 2);
   assert.match(csv, /record-evidence,Cohort study of hospital payment reform,Chen A; Li B,2024,cohort,Tertiary hospital patients,Payment reform,Usual payment,Length of stay,mean difference,-1\.2 days,some_concerns,low,Needs manual GRADE confirmation\./);
 });
+
+test('quality engine serializes grade_summary.csv as a human-confirmed GRADE scaffold', () => {
+  const records = [
+    {
+      id: 'record-grade-1',
+      title: 'Randomized trial of exercise for pain',
+      abstract: 'A randomized trial evaluated structured exercise.',
+      population: 'Adults with chronic pain',
+      intervention: 'Structured exercise',
+      comparison: 'Usual care',
+      outcome: 'Pain intensity',
+      effect_measure: 'mean difference',
+      effect_estimate: '-1.4 points',
+    },
+    {
+      id: 'record-grade-2',
+      title: 'Second randomized trial of exercise for pain',
+      abstract: 'A randomized controlled trial evaluated supervised exercise.',
+      population: 'Adults with chronic pain',
+      intervention: 'Structured exercise',
+      comparison: 'Usual care',
+      outcome: 'Pain intensity',
+      effect_measure: 'mean difference',
+      effect_estimate: '-0.9 points',
+    },
+  ];
+  const assessments = records.map((record) => QualityEngine.createQualityAssessment(record, {
+    recordId: record.id,
+    overallRisk: 'high',
+    overallJudgement: 'some_concerns',
+  }));
+
+  const csv = QualityEngine.serializeGradeSummaryCsv(records, assessments);
+  const lines = csv.split('\n');
+
+  assert.equal(
+    lines[0],
+    'outcome,population,intervention,comparison,study_count,record_ids,study_designs,effect_summary,quality_judgement_summary,baseline_certainty,manual_grade_certainty,grade_status,downgrade_reasons,notes'
+  );
+  assert.equal(lines.length, 2);
+  assert.match(csv, /Pain intensity,Adults with chronic pain,Structured exercise,Usual care,2,record-grade-1; record-grade-2,rct,mean difference -1\.4 points; mean difference -0\.9 points,some_concerns: 2,moderate,,needs_confirmation,,Human GRADE confirmation required\./);
+});

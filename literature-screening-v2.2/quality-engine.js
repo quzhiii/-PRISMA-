@@ -95,6 +95,23 @@
     'certainty_of_evidence',
     'notes',
   ]);
+  const GRADE_SUMMARY_SCHEMA_VERSION = 'grade_summary.v2.4';
+  const GRADE_SUMMARY_COLUMNS = Object.freeze([
+    'outcome',
+    'population',
+    'intervention',
+    'comparison',
+    'study_count',
+    'record_ids',
+    'study_designs',
+    'effect_summary',
+    'quality_judgement_summary',
+    'baseline_certainty',
+    'manual_grade_certainty',
+    'grade_status',
+    'downgrade_reasons',
+    'notes',
+  ]);
 
   const EVIDENCE_ORDER = [
     EVIDENCE_LEVELS.VERY_LOW,
@@ -679,6 +696,13 @@
     return [header, ...body].join('\n');
   }
 
+  function serializeGradeSummaryCsv(records, assessments) {
+    const rows = flattenGradeSummaryRows(records, assessments);
+    const header = GRADE_SUMMARY_COLUMNS.join(',');
+    const body = rows.map((row) => GRADE_SUMMARY_COLUMNS.map((column) => csvCell(row[column])).join(','));
+    return [header, ...body].join('\n');
+  }
+
   function flattenEvidenceTableRows(records, assessments) {
     const recordList = Array.isArray(records) ? records : [];
     const assessmentList = Array.isArray(assessments) ? assessments : [];
@@ -735,6 +759,100 @@
       ),
       notes: normalizeStringValue(normalizedAssessment.notes || source.notes || source.note || ''),
     };
+  }
+
+  function flattenGradeSummaryRows(records, assessments) {
+    const evidenceRows = flattenEvidenceTableRows(records, assessments);
+    const groups = new Map();
+
+    evidenceRows.forEach((row) => {
+      const key = buildGradeSummaryGroupKey(row);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(row);
+    });
+
+    return Array.from(groups.values()).map((rows) => buildGradeSummaryRow(rows));
+  }
+
+  function buildGradeSummaryGroupKey(row) {
+    return [
+      row && row.outcome,
+      row && row.population,
+      row && row.intervention,
+      row && row.comparison,
+    ].map((value) => normalizeText(value)).join('\u001f');
+  }
+
+  function buildGradeSummaryRow(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const first = list[0] || {};
+
+    return {
+      outcome: normalizeStringValue(first.outcome),
+      population: normalizeStringValue(first.population),
+      intervention: normalizeStringValue(first.intervention),
+      comparison: normalizeStringValue(first.comparison),
+      study_count: String(list.length),
+      record_ids: joinUniqueValues(list.map((row) => row.record_id)),
+      study_designs: joinUniqueValues(list.map((row) => row.study_design)),
+      effect_summary: joinUniqueValues(list.map((row) => buildEffectSummaryCell(row))),
+      quality_judgement_summary: summarizeQualityJudgements(list),
+      baseline_certainty: getLowestEvidenceLevel(list.map((row) => row.certainty_of_evidence)),
+      manual_grade_certainty: '',
+      grade_status: 'needs_confirmation',
+      downgrade_reasons: '',
+      notes: 'Human GRADE confirmation required.',
+    };
+  }
+
+  function buildEffectSummaryCell(row) {
+    const measure = normalizeStringValue(row && row.effect_measure);
+    const estimate = normalizeStringValue(row && row.effect_estimate);
+    return [measure, estimate].filter(Boolean).join(' ');
+  }
+
+  function summarizeQualityJudgements(rows) {
+    const counts = {};
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const judgement = normalizeJudgement(row && row.quality_judgement);
+      counts[judgement] = (counts[judgement] || 0) + 1;
+    });
+
+    return QUALITY_JUDGEMENT_OPTIONS
+      .filter((judgement) => counts[judgement])
+      .map((judgement) => `${judgement}: ${counts[judgement]}`)
+      .join('; ');
+  }
+
+  function getLowestEvidenceLevel(values) {
+    const indexes = (Array.isArray(values) ? values : [])
+      .map((value) => EVIDENCE_ORDER.indexOf(normalizeEvidenceLevel(value)))
+      .filter((index) => index >= 0);
+
+    if (indexes.length === 0) {
+      return '';
+    }
+
+    return EVIDENCE_ORDER[Math.min.apply(null, indexes)];
+  }
+
+  function joinUniqueValues(values) {
+    const seen = new Set();
+    const output = [];
+
+    (Array.isArray(values) ? values : []).forEach((value) => {
+      const normalized = normalizeStringValue(value);
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+
+      seen.add(normalized);
+      output.push(normalized);
+    });
+
+    return output.join('; ');
   }
 
   function buildSearchText(recordOrText) {
@@ -862,6 +980,8 @@
     QUALITY_EXPORT_COLUMNS,
     EVIDENCE_TABLE_SCHEMA_VERSION,
     EVIDENCE_TABLE_COLUMNS,
+    GRADE_SUMMARY_SCHEMA_VERSION,
+    GRADE_SUMMARY_COLUMNS,
     QUALITY_APPRAISAL_TEMPLATES,
     getQualityTemplate,
     listQualityTemplates,
@@ -875,6 +995,8 @@
     serializeQualityAppraisalCsv,
     flattenEvidenceTableRows,
     serializeEvidenceTableCsv,
+    flattenGradeSummaryRows,
+    serializeGradeSummaryCsv,
     getAssessmentRecordId,
   };
 });

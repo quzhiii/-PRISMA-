@@ -46,12 +46,15 @@ Implemented in `literature-screening-v2.2/` on the V2.4 quality-appraisal featur
 - V2.4-beta adds `evidence_table.v2.4-beta`, `EVIDENCE_TABLE_COLUMNS`, and `evidence_table.csv` with record id, title, authors, year, study design, PICOS fields, effect measure, effect estimate, quality judgement, certainty of evidence, and notes.
 - `downloadFile('evidence_table')` exports `evidence_table.csv` without changing the frozen V2.3 audit export trio.
 - `evidence_table_export_generated` records the V2.4-beta evidence table export boundary in audit events.
+- V2.4 adds `grade_summary.v2.4`, `GRADE_SUMMARY_COLUMNS`, and `grade_summary.csv` grouped by outcome / PICOS with study count, record ids, study designs, effect summary, quality judgement summary, and baseline certainty.
+- `grade_summary.csv` intentionally leaves `manual_grade_certainty`, `downgrade_reasons`, and final GRADE status human-controlled.
+- `grade_summary_export_generated` records the V2.4 GRADE summary export boundary in audit events.
 - Regression tests cover template schema, diagnostic accuracy detection, CSV serialization, export wiring, and audit boundaries.
 
 Remaining V2.4 work before V2.5:
 
 - Reviewer-editable item-level forms.
-- GRADE summary foundation with human-controlled certainty.
+- End-to-end browser verification for reviewer-facing quality exports.
 
 ## 3. 模板 schema
 
@@ -195,7 +198,22 @@ assessment_id,record_id,title,study_type,tool_family,template_id,domain,judgemen
 record_id,title,authors,year,study_design,population,intervention,comparison,outcome,effect_measure,effect_estimate,quality_judgement,certainty_of_evidence,notes
 ```
 
-### 7.3 report summary
+### 7.3 grade_summary.csv
+
+Recommended columns:
+
+```text
+outcome,population,intervention,comparison,study_count,record_ids,study_designs,effect_summary,quality_judgement_summary,baseline_certainty,manual_grade_certainty,grade_status,downgrade_reasons,notes
+```
+
+Rules:
+
+- Rows are grouped by outcome / population / intervention / comparison.
+- `baseline_certainty` is derived from existing quality/evidence baseline fields.
+- `manual_grade_certainty` and `downgrade_reasons` are left blank for human confirmation.
+- `grade_status` starts as `needs_confirmation`.
+
+### 7.4 report summary
 
 报告中应包含：
 

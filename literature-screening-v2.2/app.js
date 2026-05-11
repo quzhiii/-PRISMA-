@@ -6199,6 +6199,16 @@ function buildEvidenceTableExportContent() {
   return QUALITY_ENGINE.serializeEvidenceTableCsv(includedRecords, qualityAssessments);
 }
 
+function buildGradeSummaryExportContent() {
+  if (!QUALITY_ENGINE || typeof QUALITY_ENGINE.serializeGradeSummaryCsv !== 'function') {
+    return 'outcome,population,intervention,comparison,study_count,record_ids,study_designs,effect_summary,quality_judgement_summary,baseline_certainty,manual_grade_certainty,grade_status,downgrade_reasons,notes\n';
+  }
+
+  const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  return QUALITY_ENGINE.serializeGradeSummaryCsv(includedRecords, qualityAssessments);
+}
+
 function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
@@ -6318,6 +6328,11 @@ function downloadFile(type) {
       filename = 'evidence_table.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
+    case 'grade_summary':
+      content = buildGradeSummaryExportContent();
+      filename = 'grade_summary.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
     case 'audit_manifest':
       filename = 'project_manifest.json';
       mimeType = 'application/json;charset=utf-8';
@@ -6361,7 +6376,9 @@ function downloadFile(type) {
       ? 'quality_export_generated'
       : type === 'evidence_table'
         ? 'evidence_table_export_generated'
-        : 'export_generated';
+        : type === 'grade_summary'
+          ? 'grade_summary_export_generated'
+          : 'export_generated';
     appendAuditEventsSafe({
       eventType,
       recordId: '',
@@ -6417,6 +6434,7 @@ function downloadAllFiles() {
     'report',
     'quality_appraisal',
     'evidence_table',
+    'grade_summary',
     'audit_manifest',
     'audit_screening_decisions',
     'audit_exclusion_reasons',
