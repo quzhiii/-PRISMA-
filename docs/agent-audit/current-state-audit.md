@@ -1,8 +1,8 @@
 # Current State Audit
 
-Date: 2026-05-09
+Date: 2026-05-11
 
-Target iteration: V2.3 PRISMA-trAIce release-ready checkpoint
+Target iteration: V2.4-alpha quality appraisal closeout checkpoint
 
 ## 1. Repository Structure
 
@@ -10,11 +10,11 @@ The repository is a static browser application with historical version folders a
 
 Important paths:
 
-- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.3 release-ready line.
+- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.3 release-ready public line.
 - `index.html`, `login.html`, `app.js`, `parser-worker.js`, `db-worker.js`, `style.css`: root-level legacy/current shared entry files.
 - `dedup-engine.js`: shared conservative deduplication engine used by root and versioned workspaces.
 - `literature-screening-v2.0/`: current V2.1 workspace implementation and GitHub Pages-compatible version path.
-- `literature-screening-v2.2/`: current audit-ready and PRISMA-trAIce readiness workspace.
+- `literature-screening-v2.2/`: current compatibility workspace. It presents the V2.3 public release surface and now carries the V2.4-alpha quality-appraisal slice on the feature branch.
 - `tests/`: Node `node:test` regression coverage for deduplication, import hardening, streaming parser behavior, and quality baseline behavior.
 - `docs/benchmarks/dedup/`: dedup benchmark evidence and reports.
 - `docs/plans/`: implementation plans and roadmap documents.
@@ -67,6 +67,14 @@ V2.3 checkpoint update:
 - `ProjectManifest`, `AuditEvent`, and `ScreeningDecision` now exist in `literature-screening-v2.2/audit-engine.js`.
 - AI audit state now includes AI mode, AI usage registry entries, and `AISuggestionEvent` records.
 - AI suggestions remain advisory until a human accept/edit action creates a linked `ScreeningDecision`.
+
+V2.4-alpha checkpoint update:
+
+- `quality-engine.js` now defines `QUALITY_APPRAISAL_SCHEMA_VERSION`, `QUALITY_APPRAISAL_TEMPLATES`, priority study-design templates, judgement options, and CSV export columns.
+- Priority templates cover RCT, cohort, case-control, cross-sectional, diagnostic accuracy, and systematic review records.
+- Quality assessment records now carry template id, template version, schema version, domain rows, overall judgement, reviewer id, and status fields.
+- `quality_appraisal.csv` is available as a V2.4-alpha export without adding it to the frozen V2.3 audit export trio.
+- `quality_export_generated` records the quality-appraisal export boundary in audit events.
 
 ## 4. Current Import / Parsing Pipeline
 
@@ -141,7 +149,7 @@ Export functions:
 - `generateReport(results)`
 - `generatePRISMASVG(counts, theme, mode)`
 
-Current exports include PRISMA diagram, result tables, candidate duplicate details, screening report, audit package files, and PRISMA-trAIce readiness files.
+Current exports include PRISMA diagram, result tables, candidate duplicate details, screening report, audit package files, PRISMA-trAIce readiness files, and the V2.4-alpha `quality_appraisal.csv`.
 
 Current audit package exports:
 
@@ -154,6 +162,10 @@ Current audit package exports:
 - `ai_usage_registry.json`
 - `ai_suggestions.jsonl`
 - `PRISMA_TRAICE_REPORT.md`
+
+V2.4-alpha quality export:
+
+- `quality_appraisal.csv`
 
 V2.3 checkpoint update: `ai_suggestions.jsonl` includes human action, linked decision id, `reviewed_at`, human edit fields, and `prisma_count_boundary`. Rejected suggestions stay advisory-only and do not change PRISMA counts.
 
@@ -172,14 +184,14 @@ Sandbox behavior:
 
 Latest verified result:
 
-- 104 tests passed.
+- 111 tests passed.
 - 0 tests failed.
 
 Existing test areas:
 
 - `tests/dedup/`: dedup engine, candidate output, benchmark regression, app integration and legacy paths.
 - `tests/import/`: import hardening, import job state and parser chunk boundaries.
-- `tests/quality/`: evidence engine and study-design classifier.
+- `tests/quality/`: evidence engine, study-design classifier, priority quality-appraisal templates, and `quality_appraisal.csv` serialization.
 - `tests/audit/`: audit model, PRISMA count replay, audit export, PRISMA-trAIce report, and workflow source checks.
 - `tests/ai/`: AI suggestion panel, mock suggestion generation, human accept/reject/edit review flow, and JSONL trace boundaries.
 
@@ -193,19 +205,22 @@ Benchmark evidence:
 2. `app.js` audit hooks are now present, but the file still mixes UI, workflow, persistence, and export responsibilities.
 3. PRISMA counts can be replayed from decisions/events, but reviewer conflict gates are not yet strict final-export blockers.
 4. Exclusion reason taxonomy exports exist, but before/after changes to reason choices still need deeper audit events.
-5. Quality assessment exists as a baseline queue, but not formal tool-specific appraisal forms.
+5. Quality assessment now has a V2.4-alpha schema and priority templates, but the reviewer editing UI, `evidence_table.csv`, and GRADE summary still need beta/final V2.4 work.
 6. Dual-review support exists, but reviewer isolation, conflict gates and final resolver records need formalization.
 7. AI usage registry, provider abstraction, and AI suggestion log now exist for V2.3 readiness. Real AI provider dispatch remains disabled until the audit/reporting boundaries and API-key handling are release-stable.
 8. RDF/BibTeX/TXT import fallback behavior remains a future stability concern for large files.
 
 ## 10. Recommended Next Patch
 
-V2.3 release-readiness is now satisfied and tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
+V2.3 release-readiness is satisfied and tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
 
-Start the next pass with provider-integration hardening or V2.4 preparation:
+V2.4-alpha quality-appraisal readiness is satisfied on the feature branch and tracked in `docs/checklists/V2.4_ALPHA_QUALITY_APPRAISAL_CHECKLIST.md`.
+
+Start the next pass with V2.4-beta, not V2.5 yet:
 
 1. Keep V2.3 as a mock/local audit layer; provider request drafts may exist, but no real provider dispatch should occur yet.
 2. Use the V2.3 checklist as the export and behavior freeze for PRISMA-trAIce readiness.
 3. For AI, add the OpenAI-compatible configuration UI only after API key storage warnings, redacted export checks, and manual-dispatch gates are in place.
-4. For V2.4, move to quality appraisal structure: template schema, `quality_appraisal.csv`, and evidence table planning.
-5. Preserve the current full regression gate before each slice.
+4. For V2.4-beta, add `evidence_table.csv` with PICOS, effect measure, outcome, quality judgement, certainty-of-evidence, and notes fields.
+5. For V2.4 final, add the GRADE summary foundation and keep final certainty human-controlled.
+6. Preserve the current full regression gate before each slice.

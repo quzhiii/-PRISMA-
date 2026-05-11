@@ -1,6 +1,6 @@
 # Quality Appraisal Module Design
 
-Last updated: 2026-04-28
+Last updated: 2026-05-11
 
 ## 1. 设计目标
 
@@ -32,6 +32,24 @@ V2.2 已有：
 - 缺正式 `quality_appraisal.csv`。
 - 缺 evidence table。
 - 缺 GRADE summary。
+
+## 2.1 V2.4-alpha implementation baseline
+
+Implemented in `literature-screening-v2.2/` on the V2.4-alpha feature branch:
+
+- `quality-engine.js` defines `quality_appraisal.v2.4-alpha`, template version `v2.4-alpha`, judgement options, and the `quality_appraisal.csv` export columns.
+- Priority template families cover `rct`, `cohort`, `case_control`, `cross_sectional`, `diagnostic_accuracy`, and `systematic_review`.
+- Tool-family mapping covers RoB 2, ROBINS-I, Newcastle-Ottawa Scale, JBI, QUADAS-2, and AMSTAR 2.
+- `QualityAssessmentRecord` carries template id, template version, schema version, domain rows, overall judgement, reviewer id, status, and updated timestamp fields.
+- `downloadFile('quality_appraisal')` exports `quality_appraisal.csv` without changing the frozen V2.3 audit export trio.
+- `quality_export_generated` records the V2.4-alpha quality export boundary in audit events.
+- Regression tests cover template schema, diagnostic accuracy detection, CSV serialization, export wiring, and audit boundaries.
+
+Remaining V2.4 work before V2.5:
+
+- Reviewer-editable item-level forms.
+- `evidence_table.csv`.
+- GRADE summary foundation with human-controlled certainty.
 
 ## 3. 模板 schema
 
