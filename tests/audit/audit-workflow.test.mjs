@@ -12,6 +12,10 @@ async function readV22App() {
   return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
 }
 
+async function readV22File(filename) {
+  return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2', filename), 'utf8');
+}
+
 test('v2.2 app persists audit state in project snapshots', async () => {
   const source = await readV22App();
 
@@ -39,7 +43,6 @@ test('v2.2 app records audit events across the review workflow', async () => {
     'manual_screening_decision',
     'quality_appraisal_started',
     'quality_appraisal_updated',
-    'export_generated',
     'ai_mode_updated',
     'ai_suggestion_generated',
   ];
@@ -47,6 +50,57 @@ test('v2.2 app records audit events across the review workflow', async () => {
   requiredEventTypes.forEach((eventType) => {
     assert.match(source, new RegExp(`eventType: '${eventType}'`));
   });
+  assert.match(source, /: 'export_generated'/);
+  assert.match(source, /quality_export_generated/);
+});
+
+test('v2.2 app wires V2.4-alpha quality appraisal export without changing AI provider defaults', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function buildQualityAppraisalExportContent/);
+  assert.match(source, /serializeQualityAppraisalCsv/);
+  assert.match(source, /case 'quality_appraisal':/);
+  assert.match(source, /filename = 'quality_appraisal\.csv'/);
+  assert.match(source, /const eventType = type === 'quality_appraisal' \? 'quality_export_generated' : 'export_generated'/);
+  assert.match(source, /qualityAssessmentCount: qualityAssessments\.length/);
+  assert.doesNotMatch(source, /apiKey\s*:/i);
+  assert.doesNotMatch(source, /fetch\([^)]*openai/i);
+});
+
+test('workspace language visibility has CSS fallback for local file mode', async () => {
+  const [styleCss, workspaceHtml, indexHtml] = await Promise.all([
+    readV22File('style.css'),
+    readV22File('workspace.html'),
+    readV22File('index.html'),
+  ]);
+
+  assert.match(styleCss, /html\[lang="zh"\]\s+\.en/);
+  assert.match(styleCss, /html\[data-lang="zh"\]\s+\.en/);
+  assert.match(styleCss, /html\[lang="en"\]\s+\.zh/);
+  assert.match(styleCss, /html\[data-lang="en"\]\s+\.zh/);
+  assert.match(workspaceHtml, /document\.documentElement\.dataset\.lang = document\.documentElement\.lang/);
+  assert.match(workspaceHtml, /try \{ localStorage\.setItem\('prisma_lang', paramLang\); \} catch \(_\) \{\}/);
+  assert.match(indexHtml, /document\.documentElement\.dataset\.lang = document\.documentElement\.lang/);
+  assert.match(indexHtml, /try \{ storedLang = localStorage\.getItem\('prisma_lang'\); \} catch \(_\) \{\}/);
+});
+
+test('workspace upload and sample data load stay usable from file URLs', async () => {
+  const [source, workspaceHtml] = await Promise.all([
+    readV22App(),
+    readV22File('workspace.html'),
+  ]);
+
+  assert.match(workspaceHtml, /id="uploadFilesButton" onclick="openFilePicker\(\)"/);
+  assert.match(workspaceHtml, /id="uploadArea"[^>]*onclick="openFilePicker\(\)"/);
+  assert.match(source, /window\.openFilePicker = openFilePicker/);
+  assert.match(source, /uploadFilesButton\.removeAttribute\('onclick'\)/);
+  assert.match(source, /uploadArea\.removeAttribute\('onclick'\)/);
+  assert.match(source, /function getBuiltInSampleDataPayload/);
+  assert.match(source, /function fetchSampleDataPayload/);
+  assert.match(source, /window\.location\?\.protocol === 'file:'/);
+  assert.match(source, /return getBuiltInSampleDataPayload\(\)/);
+  assert.match(source, /Falling back to built-in sample data/);
+  assert.match(source, /applySampleDataPayload\(payload\)/);
 });
 
 test('v2.2 app writes durable screening decisions for rule and full-text stages', async () => {

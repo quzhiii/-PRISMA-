@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const requireFromRepo = createRequire(import.meta.url);
-const QualityEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.0/quality-engine.js'));
+const QualityEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2/quality-engine.js'));
 
 async function loadFixtures() {
   const raw = await fs.readFile(path.join(repoRoot, 'tests/fixtures/quality/tier1-study-designs.json'), 'utf8');
@@ -25,10 +25,13 @@ test('quality engine creates Tier 1 baseline assessments', async () => {
   const reviewAssessment = QualityEngine.createQualityAssessment(review.record);
 
   assert.equal(rctAssessment.study_design, QualityEngine.STUDY_DESIGN_FAMILIES.RCT);
-  assert.equal(rctAssessment.tool_family, QualityEngine.TOOL_FAMILIES.ROB2_LITE);
+  assert.equal(rctAssessment.tool_family, QualityEngine.TOOL_FAMILIES.ROB2);
+  assert.equal(rctAssessment.template_id, 'rct_rob2_v24_alpha');
+  assert.equal(rctAssessment.domain_scores.length, 6);
   assert.equal(rctAssessment.evidence_initial, QualityEngine.EVIDENCE_LEVELS.HIGH);
   assert.equal(reviewAssessment.study_design, QualityEngine.STUDY_DESIGN_FAMILIES.SYSTEMATIC_REVIEW);
-  assert.equal(reviewAssessment.tool_family, QualityEngine.TOOL_FAMILIES.AMSTAR2_LITE);
+  assert.equal(reviewAssessment.tool_family, QualityEngine.TOOL_FAMILIES.AMSTAR_2);
+  assert.equal(reviewAssessment.template_id, 'systematic_review_amstar2_robis_v24_alpha');
 });
 
 test('quality engine downgrades evidence for high overall risk', () => {
@@ -78,6 +81,41 @@ test('quality engine hydrates assessment fields from import aliases', () => {
     assessment.study_design,
     QualityEngine.STUDY_DESIGN_FAMILIES.SYSTEMATIC_REVIEW
   );
-  assert.equal(assessment.tool_family, QualityEngine.TOOL_FAMILIES.AMSTAR2_LITE);
+  assert.equal(assessment.tool_family, QualityEngine.TOOL_FAMILIES.AMSTAR_2);
   assert.equal(assessment.evidence_initial, QualityEngine.EVIDENCE_LEVELS.HIGH);
+});
+
+test('quality engine serializes quality_appraisal.csv with domain rows and escaping', () => {
+  const assessment = QualityEngine.createQualityAssessment(
+    {
+      id: 'record-rct',
+      title: 'Randomized trial, with quote "marker"',
+      abstract: 'A randomized controlled trial with blinded outcome assessment.',
+    },
+    {
+      domainScores: [
+        {
+          domain_id: 'randomization',
+          judgement: 'low_risk',
+          supporting_quote: 'Random sequence generation described.',
+          reviewer_note: 'Checked protocol.',
+        },
+      ],
+      overallJudgement: 'some_concerns',
+      status: QualityEngine.ASSESSMENT_STATUS.IN_PROGRESS,
+      updatedAt: '2026-05-11T00:00:00.000Z',
+    }
+  );
+
+  const csv = QualityEngine.serializeQualityAppraisalCsv([assessment]);
+  const lines = csv.split('\n');
+
+  assert.equal(
+    lines[0],
+    'assessment_id,record_id,title,study_type,tool_family,template_id,domain,judgement,supporting_quote,reviewer_note,overall_judgement,status,updated_at'
+  );
+  assert.equal(lines.length, 7);
+  assert.match(csv, /qa-record-rct,record-rct,"Randomized trial, with quote ""marker""",rct,rob2,rct_rob2_v24_alpha,randomization,low_risk/);
+  assert.match(csv, /allocation_concealment,not_assessed/);
+  assert.match(csv, /some_concerns,in_progress,2026-05-11T00:00:00.000Z/);
 });

@@ -178,10 +178,11 @@
       const params = new URLSearchParams(window.location.search);
       const paramLang = params.get('lang');
       if (paramLang === 'zh' || paramLang === 'en') {
-        localStorage.setItem('prisma_lang', paramLang);
+        try { localStorage.setItem('prisma_lang', paramLang); } catch (_) {}
         return paramLang;
       }
-      const storedLang = localStorage.getItem('prisma_lang');
+      let storedLang = null;
+      try { storedLang = localStorage.getItem('prisma_lang'); } catch (_) {}
       if (storedLang === 'zh' || storedLang === 'en') {
         return storedLang;
       }
@@ -205,6 +206,7 @@
     function applyLangVisibility() {
       const lang = document.documentElement.lang;
       const isZh = lang === 'zh';
+      document.documentElement.dataset.lang = lang;
       document.querySelectorAll('.zh').forEach((el) => {
         el.hidden = !isZh;
         el.style.display = isZh ? '' : 'none';
@@ -229,11 +231,13 @@
       const isZh = document.documentElement.lang === 'zh';
       const nextLang = isZh ? 'en' : 'zh';
       document.documentElement.lang = nextLang;
-      localStorage.setItem('prisma_lang', nextLang);
+      document.documentElement.dataset.lang = nextLang;
+      try { localStorage.setItem('prisma_lang', nextLang); } catch (_) {}
       applyLangVisibility();
     };
 
     document.documentElement.lang = getCurrentLang();
+    document.documentElement.dataset.lang = document.documentElement.lang;
     applyLangVisibility();
   </script>
 </body>

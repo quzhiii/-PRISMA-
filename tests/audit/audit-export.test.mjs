@@ -311,6 +311,18 @@ test('v2.2 app exposes all audit export download types', async () => {
   assert.match(source, /buildPrismaCountsJson/);
 });
 
+test('v2.2 app exposes quality_appraisal.csv as a V2.4-alpha deliverable outside the frozen V2.3 audit trio', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+
+  assert.match(source, /'quality_appraisal'/);
+  assert.match(source, /quality_appraisal\.csv/);
+  assert.match(source, /buildQualityAppraisalExportContent/);
+  assert.match(source, /quality_export_generated/);
+  const auditExportTypesBlock = source.match(/const AUDIT_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
+  assert.ok(auditExportTypesBlock);
+  assert.doesNotMatch(auditExportTypesBlock[1], /'quality_appraisal'/);
+});
+
 test('v2.2 workspace includes the audit package export buttons', async () => {
   const workspaceHtml = await fs.readFile(
     path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
@@ -327,6 +339,8 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
+  assert.match(workspaceHtml, /downloadFile\('quality_appraisal'\)/);
+  assert.match(workspaceHtml, /quality_appraisal\.csv/);
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
   assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);
@@ -338,6 +352,8 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4-alpha/);
+  assert.match(workspaceHtml, /no real AI provider is connected by default/i);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

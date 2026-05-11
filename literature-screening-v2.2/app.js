@@ -30,8 +30,11 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
     not_started: { zh: '未开始', en: 'Not started' },
+    queued: { zh: '已排队', en: 'Queued' },
     in_progress: { zh: '进行中', en: 'In progress' },
+    complete: { zh: '已完成', en: 'Complete' },
     completed: { zh: '已完成', en: 'Completed' },
+    needs_full_text: { zh: '需全文确认', en: 'Needs full text' },
   },
   studyDesign: {
     rct: { zh: '随机对照试验', en: 'Randomized trial' },
@@ -39,12 +42,19 @@ const QUALITY_DISPLAY_LABELS = Object.freeze({
     cohort: { zh: '队列研究', en: 'Cohort study' },
     case_control: { zh: '病例对照研究', en: 'Case-control study' },
     cross_sectional: { zh: '横断面研究', en: 'Cross-sectional study' },
+    diagnostic_accuracy: { zh: '诊断准确性研究', en: 'Diagnostic accuracy study' },
     non_randomized_intervention: { zh: '非随机干预研究', en: 'Non-randomized intervention' },
     case_report: { zh: '病例报告', en: 'Case report' },
     case_series: { zh: '病例系列', en: 'Case series' },
     other: { zh: '其他 / 待确认', en: 'Other / needs review' },
   },
   toolFamily: {
+    rob2: { zh: 'RoB 2', en: 'RoB 2' },
+    robins_i: { zh: 'ROBINS-I', en: 'ROBINS-I' },
+    newcastle_ottawa_scale: { zh: 'Newcastle-Ottawa 量表', en: 'Newcastle-Ottawa Scale' },
+    jbi: { zh: 'JBI 清单', en: 'JBI checklist' },
+    quadas_2: { zh: 'QUADAS-2', en: 'QUADAS-2' },
+    amstar_2: { zh: 'AMSTAR 2', en: 'AMSTAR 2' },
     rob2_lite: { zh: 'RoB 2 简版', en: 'RoB 2 Lite' },
     amstar2_lite: { zh: 'AMSTAR 2 简版', en: 'AMSTAR 2 Lite' },
     jbi_nos_lite: { zh: 'JBI / NOS 简版', en: 'JBI / NOS Lite' },
@@ -312,7 +322,9 @@ function normalizeQualityAssessmentsState(list) {
             overallRisk: assessment.overall_risk || assessment.overallRisk,
             evidenceAdjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
             evidenceFinal: assessment.evidence_final || assessment.evidenceFinal,
+            overallJudgement: assessment.overall_judgement || assessment.overallJudgement,
             overrideReason: assessment.override_reason || assessment.overrideReason || '',
+            reviewerId: assessment.reviewer_id || assessment.reviewerId || '',
             notes: assessment.notes || '',
             updatedAt: assessment.updated_at || assessment.updatedAt,
           }
@@ -325,13 +337,19 @@ function normalizeQualityAssessmentsState(list) {
         record_id: assessment.record_id || assessment.recordId || `record-${index + 1}`,
         status: assessment.status || 'not_started',
         study_design: assessment.study_design || assessment.studyDesignFamily || 'other',
+        study_type: assessment.study_type || assessment.study_design || assessment.studyDesignFamily || 'other',
         tool_family: assessment.tool_family || assessment.toolFamily || 'generic_quality_shell',
+        template_id: assessment.template_id || assessment.templateId || '',
+        template_version: assessment.template_version || assessment.templateVersion || '',
         domain_scores: assessment.domain_scores || assessment.domainScores || [],
+        domains: assessment.domains || assessment.domain_scores || assessment.domainScores || [],
         overall_risk: assessment.overall_risk || assessment.overallRisk || 'unclear',
+        overall_judgement: assessment.overall_judgement || assessment.overallJudgement || assessment.overall_risk || assessment.overallRisk || 'unclear',
         evidence_initial: assessment.evidence_initial || assessment.evidenceInitial || 'very_low',
         evidence_adjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
         evidence_final: assessment.evidence_final || assessment.evidenceFinal || 'very_low',
         override_reason: assessment.override_reason || assessment.overrideReason || '',
+        reviewer_id: assessment.reviewer_id || assessment.reviewerId || '',
         notes: assessment.notes || '',
         updated_at: assessment.updated_at || assessment.updatedAt || new Date().toISOString(),
       };
@@ -459,9 +477,11 @@ function rehydrateQualityAssessmentFromSourceRecord(record, assessment, index) {
       status: assessment.status,
       domainScores: assessment.domain_scores || assessment.domainScores || [],
       overallRisk: assessment.overall_risk || assessment.overallRisk,
+      overallJudgement: assessment.overall_judgement || assessment.overallJudgement,
       evidenceAdjustments: assessment.evidence_adjustments || assessment.evidenceAdjustments || [],
       evidenceFinal: assessment.evidence_final || assessment.evidenceFinal,
       overrideReason: assessment.override_reason || assessment.overrideReason || '',
+      reviewerId: assessment.reviewer_id || assessment.reviewerId || '',
       notes: assessment.notes || '',
       updatedAt: assessment.updated_at || assessment.updatedAt,
     });
@@ -520,13 +540,16 @@ function prepareQualityAssessmentShell(options = {}) {
       eventType: 'quality_appraisal_updated',
       recordId: String(assessment.record_id || ''),
       after: {
+        templateId: assessment.template_id || '',
         studyDesign: assessment.study_design || '',
         toolFamily: assessment.tool_family || '',
+        domainCount: Array.isArray(assessment.domain_scores) ? assessment.domain_scores.length : 0,
         evidenceInitial: assessment.evidence_initial || '',
       },
       source: 'system',
       metadata: {
         status: assessment.status || '',
+        schemaVersion: assessment.schema_version || '',
       },
     })));
     appendAuditEventsSafe(qualityEvents, { persist: false });
@@ -725,6 +748,10 @@ function renderQualityAssessmentShell() {
           ${renderQualityMetaPill('研究设计', 'Design', 'studyDesign', assessment.study_design)}
           ${renderQualityMetaPill('评价工具', 'Tool', 'toolFamily', assessment.tool_family)}
           ${renderQualityMetaPill('证据基线', 'Evidence baseline', 'evidence', assessment.evidence_initial)}
+        </div>
+        <div class="muted-text" style="margin-top: 8px;">
+          <span class="zh">模板 ${escapeShellText(assessment.template_id || 'generic_quality_shell_v24_alpha')}，领域 ${Array.isArray(assessment.domain_scores) ? assessment.domain_scores.length : 0} 项。</span>
+          <span class="en">Template ${escapeShellText(assessment.template_id || 'generic_quality_shell_v24_alpha')}, ${Array.isArray(assessment.domain_scores) ? assessment.domain_scores.length : 0} domains.</span>
         </div>
       </div>
     `)
@@ -955,6 +982,10 @@ function openFilePicker() {
   fileInput.click();
 }
 
+if (typeof window !== 'undefined') {
+  window.openFilePicker = openFilePicker;
+}
+
 // Initialize
 function init() {
   runtimeMode = detectRuntimeMode();
@@ -973,8 +1004,10 @@ function init() {
 
   if (uploadFilesButton) {
     uploadFilesButton.addEventListener('click', openFilePicker);
+    uploadFilesButton.removeAttribute('onclick');
   }
   uploadArea.addEventListener('click', openFilePicker);
+  uploadArea.removeAttribute('onclick');
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -6147,6 +6180,15 @@ function getCandidateDuplicateExportData() {
   return flattenCandidateDuplicatesForExport(screeningResults.candidateDuplicates);
 }
 
+function buildQualityAppraisalExportContent() {
+  if (!QUALITY_ENGINE || typeof QUALITY_ENGINE.serializeQualityAppraisalCsv !== 'function') {
+    return 'assessment_id,record_id,title,study_type,tool_family,template_id,domain,judgement,supporting_quote,reviewer_note,overall_judgement,status,updated_at\n';
+  }
+
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  return QUALITY_ENGINE.serializeQualityAppraisalCsv(qualityAssessments);
+}
+
 function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
@@ -6256,6 +6298,11 @@ function downloadFile(type) {
       filename = 'screening_report.md';
       mimeType = 'text/markdown';
       break;
+    case 'quality_appraisal':
+      content = buildQualityAppraisalExportContent();
+      filename = 'quality_appraisal.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
     case 'audit_manifest':
       filename = 'project_manifest.json';
       mimeType = 'application/json;charset=utf-8';
@@ -6295,8 +6342,9 @@ function downloadFile(type) {
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
+    const eventType = type === 'quality_appraisal' ? 'quality_export_generated' : 'export_generated';
     appendAuditEventsSafe({
-      eventType: 'export_generated',
+      eventType,
       recordId: '',
       after: {
         exportType: type,
@@ -6308,6 +6356,7 @@ function downloadFile(type) {
         countSource: screeningDecisions.length > 0 ? 'screening_decisions' : 'legacy_screening_results',
         includedCount: screeningResults?.counts?.included ?? 0,
         excludedCount: screeningResults?.excluded?.length ?? 0,
+        qualityAssessmentCount: qualityAssessments.length,
       },
     }, { persist: true });
   }
@@ -6347,6 +6396,7 @@ function downloadAllFiles() {
     'svg-blackwhite',
     'svg-subtle',
     'report',
+    'quality_appraisal',
     'audit_manifest',
     'audit_screening_decisions',
     'audit_exclusion_reasons',
@@ -6723,43 +6773,78 @@ function resetApp() {
   showToast('已重置应用', 'success');
 }
 
+function cloneSampleRecords(records) {
+  return (Array.isArray(records) ? records : []).map((record) => ({ ...record }));
+}
+
+function getBuiltInSampleDataPayload() {
+  return {
+    description: 'Built-in sample literature records',
+    format: 'json',
+    data: cloneSampleRecords(sampleData),
+    source: 'built_in_sample',
+  };
+}
+
+function applySampleDataPayload(payload) {
+  const records = cloneSampleRecords(payload?.data);
+  if (records.length === 0) {
+    throw new Error('示例数据为空');
+  }
+
+  startNewProjectSession();
+  uploadedData = records;
+  uploadedFiles = [{
+    name: payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json',
+    format: 'JSON',
+    recordCount: records.length,
+    source: payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置',
+  }];
+  fileFormat = 'JSON';
+  formatSource = '示例数据';
+
+  detectColumns();
+  displayUploadInfo();
+  setStep(2);
+  syncFormToYAML();
+  displayRulesPreview();
+  persistCurrentProjectState();
+  updateStep4EntryLock();
+
+  showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
+
+  setTimeout(() => {
+    const step2 = document.getElementById('step2');
+    if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 300);
+}
+
+async function fetchSampleDataPayload() {
+  if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
+    return getBuiltInSampleDataPayload();
+  }
+
+  const response = await fetch('sample-data.json');
+  if (!response.ok) throw new Error('无法加载示例数据');
+  const payload = await response.json();
+  return {
+    ...payload,
+    source: 'sample-data.json',
+  };
+}
+
 // v4.0: Load sample data for new users
 function loadSampleData() {
   showLoading('正在加载示例数据...');
-  
-  fetch('sample-data.json')
-    .then(response => {
-      if (!response.ok) throw new Error('无法加载示例数据');
-      return response.json();
+
+  fetchSampleDataPayload()
+    .catch((error) => {
+      console.warn('Falling back to built-in sample data:', error);
+      return getBuiltInSampleDataPayload();
     })
-    .then(sampleData => {
-      startNewProjectSession();
-      uploadedData = sampleData.data;
-      uploadedFiles = [{
-        name: '示例数据.json',
-        format: 'JSON',
-        recordCount: sampleData.data.length,
-        source: '系统内置'
-      }];
-      fileFormat = 'JSON';
-      formatSource = '示例数据（中医治疗高血压）';
-      
-      detectColumns();
-      displayUploadInfo();
-      setStep(2);
-      syncFormToYAML();
-      displayRulesPreview();
-      persistCurrentProjectState();
-      updateStep4EntryLock();
+    .then((payload) => {
+      applySampleDataPayload(payload);
       hideLoading();
-      
-      showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
-      
-      // Auto scroll to preview
-      setTimeout(() => {
-        const step2 = document.getElementById('step2');
-        if (step2) step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 300);
     })
     .catch(error => {
       hideLoading();

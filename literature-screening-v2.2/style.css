@@ -80,6 +80,16 @@
 	display: none !important;
 }
 
+html[lang="zh"] .en,
+html[data-lang="zh"] .en {
+	display: none !important;
+}
+
+html[lang="en"] .zh,
+html[data-lang="en"] .zh {
+	display: none !important;
+}
+
 html {
 	scroll-behavior: smooth;
 }
