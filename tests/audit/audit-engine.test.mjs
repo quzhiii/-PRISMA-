@@ -439,7 +439,7 @@ test('PRISMA count replay keeps latest decision per record-stage-reviewer triple
   assert.equal(counts.titleAbstractIncluded, 0);
 });
 
-test('PRISMA count replay separates reviewers for the same record', () => {
+test('PRISMA count replay excludes unresolved dual-review conflicts from final counts', () => {
   const decisions = [
     AuditEngine.createScreeningDecision({
       recordId: 'record-Y',
@@ -457,8 +457,91 @@ test('PRISMA count replay separates reviewers for the same record', () => {
   ];
 
   const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
-  assert.equal(counts.titleAbstractIncluded, 1);
+  assert.equal(counts.titleAbstractIncluded, 0);
+  assert.equal(counts.titleAbstractExcluded, 0);
+});
+
+test('PRISMA count replay uses resolver decision for resolved dual-review conflicts', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Y',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-1',
+      decision: 'include',
+      conflictStatus: 'pending',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Y',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer-2',
+      decision: 'exclude',
+      exclusionReason: 'wrong_outcome',
+      conflictStatus: 'pending',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-Y',
+      stage: 'title_abstract',
+      reviewerId: 'resolver_1',
+      decision: 'exclude',
+      exclusionReason: 'wrong_outcome',
+      conflictStatus: 'resolved',
+      metadata: {
+        resolverAction: true,
+        finalDecision: true,
+      },
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.titleAbstractIncluded, 0);
   assert.equal(counts.titleAbstractExcluded, 1);
+});
+
+test('PRISMA count replay lets manual single-review decisions override rule decisions', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-rule-human',
+      stage: 'title_abstract',
+      reviewerId: 'system_rule',
+      decision: 'include',
+      source: 'rule',
+      decidedAt: '2026-01-01T10:00:00.000Z',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-rule-human',
+      stage: 'title_abstract',
+      reviewerId: 'reviewer_1',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      source: 'human',
+      decidedAt: '2026-01-01T10:01:00.000Z',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.titleAbstractIncluded, 0);
+  assert.equal(counts.titleAbstractExcluded, 1);
+});
+
+test('PRISMA count replay counts matching dual-review decisions once', () => {
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-agree',
+      stage: 'full_text',
+      reviewerId: 'reviewer_A',
+      decision: 'include',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-agree',
+      stage: 'full_text',
+      reviewerId: 'reviewer_B',
+      decision: 'include',
+    }),
+  ];
+
+  const counts = AuditEngine.calculatePrismaCountsFromDecisions(decisions, []);
+  assert.equal(counts.fullTextIncluded, 1);
+  assert.equal(counts.studiesIncluded, 1);
 });
 
 test('PRISMA count replay handles decisions across multiple stages for the same record', () => {

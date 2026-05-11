@@ -355,6 +355,7 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /evidence_table\.csv/);
   assert.match(workspaceHtml, /downloadFile\('grade_summary'\)/);
   assert.match(workspaceHtml, /grade_summary\.csv/);
+  assert.match(workspaceHtml, /dual-review-engine\.js/);
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
   assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);

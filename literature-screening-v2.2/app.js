@@ -15,6 +15,7 @@ const WORKFLOW_STEP_COUNT = FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT ? 6 : 5;
 const QUALITY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.QualityEngine || null : null;
 const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.ImportJobRuntime || null : null;
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
+const DUAL_REVIEW_ENGINE = typeof globalThis !== 'undefined' ? globalThis.DualReviewEngine || null : null;
 const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
@@ -100,6 +101,12 @@ let isDualReviewMode = false;
 let currentReviewer = 'A';
 let reviewerNames = { A: '审查员A', B: '审查员B' };
 let dualReviewResults = { A: {}, B: {}, final: {} };
+let dualReviewConflictState = {
+  screeningConflicts: [],
+  qualityConflicts: [],
+  agreementMetrics: null,
+  exportGate: null,
+};
 let projectData = null;
 let collaborationSyncInterval = null;
 const COLLAB_PROJECTS_KEY = 'prisma_projects';
@@ -673,8 +680,330 @@ function cloneQualityAssessmentForAudit(assessment) {
       }))
       : [],
     notes: assessment.notes || '',
+    reviewerId: assessment.reviewer_id || '',
     updatedAt: assessment.updated_at || '',
   };
+}
+
+function getCurrentReviewerId() {
+  if (currentUserSession?.role === 'reviewer-a') return 'reviewer_A';
+  if (currentUserSession?.role === 'reviewer-b') return 'reviewer_B';
+  return isDualReviewMode ? `reviewer_${currentReviewer}` : 'reviewer_1';
+}
+
+function getReviewerSlotFromRole(role) {
+  if (role === 'reviewer-a') return 'A';
+  if (role === 'reviewer-b') return 'B';
+  return currentReviewer === 'B' ? 'B' : 'A';
+}
+
+function normalizeFulltextSelection(value) {
+  if (DUAL_REVIEW_ENGINE && typeof DUAL_REVIEW_ENGINE.normalizeReviewSelection === 'function') {
+    return DUAL_REVIEW_ENGINE.normalizeReviewSelection(value);
+  }
+
+  const rawValue = String(value || '').trim();
+  if (rawValue === '__uncertain__') {
+    return { decision: 'uncertain', exclusionReason: '', originalValue: rawValue };
+  }
+  if (!rawValue) {
+    return { decision: 'include', exclusionReason: '', originalValue: rawValue };
+  }
+  return { decision: 'exclude', exclusionReason: rawValue, originalValue: rawValue };
+}
+
+function getFulltextSelectValueFromDecision(decisionInput) {
+  const decision = String(decisionInput?.decision || decisionInput?.human_decision || '').trim();
+  if (decision === 'uncertain') return '__uncertain__';
+  if (decision === 'exclude') return String(decisionInput?.exclusionReason || decisionInput?.exclusion_reason || decisionInput?.originalValue || '').trim() || '其他';
+  return '';
+}
+
+function getReviewerLabelForSlot(slot) {
+  return reviewerNames?.[slot] || (slot === 'B' ? '审查员B' : '审查员A');
+}
+
+function getAuditRecordIndexMap(records) {
+  const map = new Map();
+  (Array.isArray(records) ? records : []).forEach((record, index) => {
+    map.set(getRecordAuditId(record, index), index);
+  });
+  return map;
+}
+
+function syncDualReviewResultsFromDecisions() {
+  if (!DUAL_REVIEW_ENGINE || !Array.isArray(screeningDecisions)) return dualReviewResults;
+  const currentFinal = dualReviewResults?.final || {};
+
+  const latest = DUAL_REVIEW_ENGINE.getLatestScreeningDecisions(screeningDecisions);
+  const recordIndexMap = getAuditRecordIndexMap(screeningResults?.included || []);
+  const next = { A: {}, B: {}, final: { ...currentFinal } };
+
+  latest
+    .filter((decision) => decision.stage === 'full_text')
+    .forEach((decision) => {
+      const index = recordIndexMap.get(decision.recordId);
+      if (!Number.isFinite(index)) return;
+
+      if (DUAL_REVIEW_ENGINE.isResolverDecision(decision)) {
+        next.final[index] = {
+          finalDecision: getFulltextSelectValueFromDecision(decision),
+          decision: decision.decision,
+          exclusionReason: decision.exclusionReason,
+          discussion: decision.notes || decision.metadata?.resolutionNote || '',
+          reviewerAOriginal: decision.metadata?.reviewerA?.exclusionReason || decision.metadata?.reviewerA?.decision || '',
+          reviewerBOriginal: decision.metadata?.reviewerB?.exclusionReason || decision.metadata?.reviewerB?.decision || '',
+          resolvedBy: decision.reviewerId || 'resolver_1',
+          timestamp: decision.updatedAt || decision.decidedAt || '',
+        };
+        return;
+      }
+
+      const slot = DUAL_REVIEW_ENGINE.getReviewerSlot(decision.reviewerId);
+      if (slot !== 'A' && slot !== 'B') return;
+      next[slot][index] = {
+        decision: getFulltextSelectValueFromDecision(decision),
+        normalizedDecision: decision.decision,
+        exclusionReason: decision.exclusionReason,
+        timestamp: decision.updatedAt || decision.decidedAt || '',
+        reviewer: decision.reviewerId,
+      };
+    });
+
+  dualReviewResults = next;
+  return dualReviewResults;
+}
+
+function getReviewerDecisionEntry(slot, index) {
+  syncDualReviewResultsFromDecisions();
+  return dualReviewResults?.[slot]?.[index] || null;
+}
+
+function recordFulltextReviewerDecision(index, rawValue, options = {}) {
+  if (!screeningResults || !Array.isArray(screeningResults.included)) return null;
+  const record = screeningResults.included[index];
+  if (!record) return null;
+
+  const slot = options.slot || getReviewerSlotFromRole(currentUserSession?.role);
+  const reviewerId = options.reviewerId || (slot === 'B' ? 'reviewer_B' : 'reviewer_A');
+  const selection = normalizeFulltextSelection(rawValue);
+  const timestamp = new Date().toISOString();
+  const entry = {
+    decision: selection.originalValue,
+    normalizedDecision: selection.decision,
+    exclusionReason: selection.exclusionReason,
+    timestamp,
+    reviewer: reviewerId,
+  };
+  const recordId = getRecordAuditId(record, index);
+
+  if (!dualReviewResults[slot]) dualReviewResults[slot] = {};
+  dualReviewResults[slot][index] = entry;
+
+  if (currentUserSession && projectData) {
+    if (!projectData.reviewDecisions) projectData.reviewDecisions = {};
+    if (!projectData.reviewDecisions[currentUserSession.role]) {
+      projectData.reviewDecisions[currentUserSession.role] = {};
+    }
+    projectData.reviewDecisions[currentUserSession.role][index] = {
+      decision: selection.originalValue,
+      normalizedDecision: selection.decision,
+      exclusionReason: selection.exclusionReason,
+      timestamp,
+      reviewer: currentUserSession.username || reviewerId,
+      reviewerId,
+      recordId,
+    };
+  }
+
+  if (typeof upsertScreeningDecisionSafe === 'function') {
+    upsertScreeningDecisionSafe({
+      recordId,
+      stage: 'full_text',
+      decision: selection.decision,
+      exclusionReason: normalizeAuditExclusionReason(selection.exclusionReason),
+      reviewerId,
+      conflictStatus: 'none',
+      source: 'human',
+      notes: selection.exclusionReason,
+      metadata: {
+        originalReason: selection.exclusionReason,
+        originalSelection: selection.originalValue,
+        reviewIndex: index,
+        reviewerSlot: slot,
+      },
+    }, { persist: false });
+  }
+
+  return entry;
+}
+
+function getQualityReviewConflictInputs() {
+  const rows = [];
+  (Array.isArray(qualityAssessments) ? qualityAssessments : []).forEach((assessment) => {
+    if (!assessment || typeof assessment !== 'object') return;
+
+    const reviewerAssessments = assessment.reviewer_assessments && typeof assessment.reviewer_assessments === 'object'
+      ? assessment.reviewer_assessments
+      : {};
+
+    Object.keys(reviewerAssessments).forEach((reviewerId) => {
+      rows.push({
+        ...assessment,
+        ...reviewerAssessments[reviewerId],
+        reviewer_id: reviewerId,
+        assessment_id: `${assessment.assessment_id || assessment.id || assessment.record_id || 'qa'}-${reviewerId}`,
+        record_id: assessment.record_id,
+      });
+    });
+
+    if (assessment.reviewer_id) {
+      rows.push(assessment);
+    }
+  });
+
+  return rows;
+}
+
+function getFulltextReviewRecordsForConflictState() {
+  const included = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  const excluded = Array.isArray(screeningResults?.excluded)
+    ? screeningResults.excluded.filter((record) => record && record._exclude_stage === 'fulltext')
+    : [];
+  return included.concat(excluded);
+}
+
+function refreshDualReviewConflictState(options = {}) {
+  if (!DUAL_REVIEW_ENGINE) return dualReviewConflictState;
+
+  const records = getFulltextReviewRecordsForConflictState();
+  const screeningConflicts = DUAL_REVIEW_ENGINE.buildScreeningConflictQueue(screeningDecisions, records);
+  const qualityConflicts = DUAL_REVIEW_ENGINE.buildQualityConflictQueue(getQualityReviewConflictInputs());
+  const pendingScreeningConflicts = screeningConflicts.filter((conflict) => conflict.status !== 'resolved');
+  const reviewerADecisions = [];
+  const reviewerBDecisions = [];
+
+  screeningConflicts.forEach((conflict) => {
+    reviewerADecisions.push(conflict.reviewerA);
+    reviewerBDecisions.push(conflict.reviewerB);
+  });
+
+  if (screeningConflicts.length === 0) {
+    const byRecordStage = new Map();
+    if (typeof DUAL_REVIEW_ENGINE.getLatestScreeningDecisions === 'function') {
+      DUAL_REVIEW_ENGINE.getLatestScreeningDecisions(screeningDecisions)
+        .filter((decision) => decision.stage === 'full_text' && !DUAL_REVIEW_ENGINE.isResolverDecision(decision))
+        .forEach((decision) => {
+          const key = `${decision.recordId}::${decision.stage}`;
+          if (!byRecordStage.has(key)) byRecordStage.set(key, {});
+          const slot = DUAL_REVIEW_ENGINE.getReviewerSlot(decision.reviewerId);
+          if (slot === 'A' || slot === 'B') byRecordStage.get(key)[slot] = decision;
+        });
+    }
+
+    byRecordStage.forEach((pair) => {
+      if (pair.A && pair.B) {
+        reviewerADecisions.push(pair.A);
+        reviewerBDecisions.push(pair.B);
+      }
+    });
+  }
+
+  const agreementMetrics = reviewerADecisions.length > 0
+    ? DUAL_REVIEW_ENGINE.calculateAgreementMetrics(reviewerADecisions, reviewerBDecisions)
+    : null;
+  const exportGate = DUAL_REVIEW_ENGINE.buildExportGateStatus({ screeningConflicts, qualityConflicts });
+
+  dualReviewConflictState = {
+    screeningConflicts,
+    qualityConflicts,
+    agreementMetrics,
+    exportGate,
+  };
+
+  if (options.auditNewConflicts && typeof appendAuditEventsSafe === 'function') {
+    const existingDetected = new Set(
+      auditEvents
+        .filter((event) => event?.eventType === 'review_conflict_detected')
+        .map((event) => event?.payload?.conflictId || event?.after?.conflictId || event?.metadata?.conflictId)
+        .filter(Boolean)
+    );
+    const events = pendingScreeningConflicts
+      .filter((conflict) => !existingDetected.has(conflict.conflictId))
+      .map((conflict) => ({
+        eventType: 'review_conflict_detected',
+        recordId: conflict.recordId,
+        stage: conflict.stage,
+        after: {
+          conflictId: conflict.conflictId,
+          status: conflict.status,
+          reviewerA: conflict.signatures.reviewerA,
+          reviewerB: conflict.signatures.reviewerB,
+        },
+        source: 'system',
+        metadata: {
+          conflictId: conflict.conflictId,
+          conflictType: conflict.conflictType,
+          schemaVersion: conflict.schemaVersion,
+        },
+      }));
+    if (events.length > 0) appendAuditEventsSafe(events, { persist: false });
+  }
+
+  return dualReviewConflictState;
+}
+
+function getUnresolvedConflictGateStatus() {
+  return refreshDualReviewConflictState().exportGate || {
+    hasUnresolvedConflicts: false,
+    unresolvedConflictCount: 0,
+    warnings: [],
+  };
+}
+
+function maybeWarnUnresolvedConflictsBeforeExport(type) {
+  if (!DUAL_REVIEW_ENGINE) return true;
+  const finalExportTypes = new Set([
+    'included',
+    'excluded',
+    'svg-colorful',
+    'svg-blackwhite',
+    'svg-subtle',
+    'report',
+    'quality_appraisal',
+    'evidence_table',
+    'grade_summary',
+    'audit_prisma_counts',
+    'audit_summary',
+  ]);
+  if (!finalExportTypes.has(type)) return true;
+
+  const gate = getUnresolvedConflictGateStatus();
+  if (!gate.hasUnresolvedConflicts) return true;
+
+  const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。继续导出会带有风险提示，最终 PRISMA 计数应以 resolver/final human decision 为准。`;
+  showToast(message, 'warning');
+
+  if (typeof appendAuditEventsSafe === 'function') {
+    appendAuditEventsSafe({
+      eventType: 'export_conflict_warning',
+      recordId: '',
+      stage: 'export',
+      after: {
+        exportType: type,
+        unresolvedConflictCount: gate.unresolvedConflictCount,
+        unresolvedScreeningConflictCount: gate.unresolvedScreeningConflictCount,
+        unresolvedQualityConflictCount: gate.unresolvedQualityConflictCount,
+      },
+      source: 'system',
+      metadata: {
+        schemaVersion: gate.schemaVersion || '',
+        warningOnly: true,
+      },
+    }, { persist: false });
+  }
+
+  return true;
 }
 
 function upsertImportJobState(importJob, options = {}) {
@@ -926,6 +1255,7 @@ function saveQualityAssessmentEdits(recordId) {
 
   const before = cloneQualityAssessmentForAudit(qualityAssessments[index]);
   const current = qualityAssessments[index];
+  const reviewerId = getCurrentReviewerId();
   const domains = Array.isArray(current.domain_scores) ? current.domain_scores : [];
   const updatedDomains = domains.map((domain) => {
     const domainId = domain.domain_id || domain.domain || domain.label || '';
@@ -945,6 +1275,19 @@ function saveQualityAssessmentEdits(recordId) {
     overall_judgement: readQualityInputValue(getQualityAssessmentInputId(recordId, 'overall')) || 'not_assessed',
     status: readQualityInputValue(getQualityAssessmentInputId(recordId, 'status')) || 'not_started',
     notes: readQualityInputValue(getQualityAssessmentInputId(recordId, 'notes')),
+    reviewer_id: reviewerId,
+    reviewer_assessments: {
+      ...(current.reviewer_assessments || {}),
+      [reviewerId]: {
+        reviewer_id: reviewerId,
+        domain_scores: updatedDomains,
+        domains: updatedDomains,
+        overall_judgement: readQualityInputValue(getQualityAssessmentInputId(recordId, 'overall')) || 'not_assessed',
+        status: readQualityInputValue(getQualityAssessmentInputId(recordId, 'status')) || 'not_started',
+        notes: readQualityInputValue(getQualityAssessmentInputId(recordId, 'notes')),
+        updated_at: updatedAt,
+      },
+    },
     updated_at: updatedAt,
   };
   qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
@@ -1311,7 +1654,13 @@ function applyCollaborativeProjectState() {
     filterRules: projectData.filterRules || null,
     exclusionReasons: projectData.exclusionReasons || [...DEFAULT_EXCLUSION_REASONS],
     qualityAssessments: projectData.qualityAssessments || [],
-    importJobs: projectData.importJobs || []
+    importJobs: projectData.importJobs || [],
+    projectManifest: projectData.projectManifest || null,
+    auditEvents: projectData.auditEvents || [],
+    screeningDecisions: projectData.screeningDecisions || [],
+    aiSuggestionEvents: projectData.aiSuggestionEvents || [],
+    dualReviewResults: projectData.dualReviewResults || { A: {}, B: {}, final: {} },
+    dualReviewConflictState: projectData.dualReviewConflictState || null
   });
 
   if (uploadedData && uploadedData.length > 0) {
@@ -4463,6 +4812,13 @@ function startNewProjectSession() {
   auditEvents = [];
   screeningDecisions = [];
   aiSuggestionEvents = [];
+  dualReviewResults = { A: {}, B: {}, final: {} };
+  dualReviewConflictState = {
+    screeningConflicts: [],
+    qualityConflicts: [],
+    agreementMetrics: null,
+    exportGate: null,
+  };
   projectManifest = null;
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
@@ -4498,6 +4854,8 @@ function persistCurrentProjectState() {
     auditEvents,
     screeningDecisions,
     aiSuggestionEvents,
+    dualReviewResults,
+    dualReviewConflictState,
   };
   try {
     localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
@@ -4525,6 +4883,13 @@ function restoreProjectState(snapshot) {
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
+  dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
+  dualReviewConflictState = snapshot.dualReviewConflictState || dualReviewConflictState || {
+    screeningConflicts: [],
+    qualityConflicts: [],
+    agreementMetrics: null,
+    exportGate: null,
+  };
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
 
@@ -6409,6 +6774,7 @@ function buildAuditExportContent(type) {
   }
 
   const manifest = ensureProjectManifest();
+  refreshDualReviewConflictState();
 
   switch (type) {
     case 'audit_manifest':
@@ -6443,6 +6809,10 @@ function downloadFile(type) {
 
   if (!screeningResults && !isAuditExport) {
     showToast('没有可下载的结果', 'error');
+    return;
+  }
+
+  if (!maybeWarnUnresolvedConflictsBeforeExport(type)) {
     return;
   }
 
@@ -6583,6 +6953,7 @@ function downloadFile(type) {
         includedCount: screeningResults?.counts?.included ?? 0,
         excludedCount: screeningResults?.excluded?.length ?? 0,
         qualityAssessmentCount: qualityAssessments.length,
+        unresolvedConflictCount: dualReviewConflictState?.exportGate?.unresolvedConflictCount || 0,
       },
     }, { persist: true });
   }
@@ -7240,6 +7611,7 @@ function displayFulltextReviewUI() {
     const excludeSelect = `
       <select id="exclude-${idx}" class="form-input" onchange="updateFulltextStats()" style="width: 100%; padding: var(--space-8);">
         <option value="">保留</option>
+        <option value="__uncertain__">暂不确定</option>
         ${optionHTML}
       </select>
     `;
@@ -7292,6 +7664,14 @@ function displayFulltextReviewUI() {
       const d = projectData.reviewDecisions[currentUserSession.role]?.[idx]?.decision;
       if (typeof d === 'string') {
         select.value = d;
+        return;
+      }
+    }
+
+    if (isDualReviewMode) {
+      const decisionEntry = getReviewerDecisionEntry(currentReviewer, idx);
+      if (decisionEntry) {
+        select.value = decisionEntry.decision || getFulltextSelectValueFromDecision(decisionEntry);
         return;
       }
     }
@@ -7378,6 +7758,35 @@ function calculateKappa(decisions1, decisions2) {
 
 // v5.0: Calculate inter-reviewer reliability for different classification types
 function calculateReliabilityStats(reviewerADecisions, reviewerBDecisions) {
+  if (DUAL_REVIEW_ENGINE && typeof DUAL_REVIEW_ENGINE.calculateAgreementMetrics === 'function') {
+    const metrics = DUAL_REVIEW_ENGINE.calculateAgreementMetrics(reviewerADecisions, reviewerBDecisions);
+    return {
+      binary: {
+        kappa: metrics.kappa,
+        observedAgreement: metrics.observedAgreement,
+        expectedAgreement: metrics.expectedAgreement,
+        interpretation: interpretKappa(metrics.kappa),
+        confusionMatrix: metrics.confusionMatrix,
+        sampleSize: metrics.sampleSize,
+        categories: metrics.categories,
+      },
+      multiClass: {
+        kappa: metrics.kappa,
+        observedAgreement: metrics.observedAgreement,
+        expectedAgreement: metrics.expectedAgreement,
+        interpretation: interpretKappa(metrics.kappa),
+        confusionMatrix: metrics.confusionMatrix,
+        sampleSize: metrics.sampleSize,
+        categories: metrics.categories,
+      },
+      totalRecords: metrics.sampleSize,
+      agreements: metrics.agreementCount,
+      disagreements: metrics.disagreementCount,
+      percentAgreement: metrics.percentAgreement,
+      agreementMetrics: metrics,
+    };
+  }
+
   // Binary classification (Include/Exclude)
   const binaryA = reviewerADecisions.map(d => d === '' ? 'include' : 'exclude');
   const binaryB = reviewerBDecisions.map(d => d === '' ? 'include' : 'exclude');
@@ -7395,6 +7804,15 @@ function calculateReliabilityStats(reviewerADecisions, reviewerBDecisions) {
     agreements: reviewerADecisions.filter((d, i) => d === reviewerBDecisions[i]).length,
     disagreements: reviewerADecisions.filter((d, i) => d !== reviewerBDecisions[i]).length
   };
+}
+
+function interpretKappa(kappa) {
+  if (kappa < 0) return '一致性极差';
+  if (kappa < 0.20) return '一致性轻微';
+  if (kappa < 0.40) return '一致性一般';
+  if (kappa < 0.60) return '一致性中等';
+  if (kappa < 0.80) return '一致性良好';
+  return '一致性极佳';
 }
 
 // v4.1: Keyboard shortcuts handler
@@ -7453,32 +7871,38 @@ function updateFulltextStats() {
   let excludedCount = 0;
   
   // Store current user's decisions
-  if (currentUserSession && projectData) {
-    if (!projectData.reviewDecisions[currentUserSession.role]) {
-      projectData.reviewDecisions[currentUserSession.role] = {};
-    }
-    
-    fulltext.forEach((record, idx) => {
+  if (isDualReviewMode) {
+    const activeSelect = typeof document !== 'undefined' ? document.activeElement : null;
+    const activeIndex = activeSelect && activeSelect.id && activeSelect.id.startsWith('exclude-')
+      ? Number(activeSelect.id.replace('exclude-', ''))
+      : null;
+    const indexesToRecord = Number.isFinite(activeIndex)
+      ? [activeIndex]
+      : Array.from({ length: fulltext.length }, (_, index) => index);
+
+    indexesToRecord.forEach((idx) => {
       const select = document.getElementById(`exclude-${idx}`);
       if (select) {
-        projectData.reviewDecisions[currentUserSession.role][idx] = {
-          decision: select.value || '',
-          timestamp: new Date().toISOString(),
-          reviewer: currentUserSession.username
-        };
-        
-        if (select.value) {
+        const entry = recordFulltextReviewerDecision(idx, select.value || '', {
+          slot: currentUserSession ? getReviewerSlotFromRole(currentUserSession.role) : currentReviewer,
+          reviewerId: currentUserSession?.role === 'reviewer-b' ? 'reviewer_B' : `reviewer_${currentReviewer}`,
+        });
+
+        if (entry?.normalizedDecision === 'exclude') {
           excludedCount++;
         }
       }
     });
     
     // Auto-save decisions
-    saveProjectData();
+    if (currentUserSession && projectData) saveProjectData();
     
     // Update collaboration status
     updateCollaborationStatus();
     
+    refreshDualReviewConflictState({ auditNewConflicts: true });
+    persistCurrentProjectState();
+
     // Check if both reviewers have completed and calculate kappa
     checkAndCalculateKappa();
   } else {
@@ -7487,11 +7911,19 @@ function updateFulltextStats() {
       const select = document.getElementById(`exclude-${idx}`);
       if (select) {
         setManualReviewDraftDecision(idx, select.value || '');
-        if (select.value) excludedCount++;
+        const selection = normalizeFulltextSelection(select.value || '');
+        if (selection.decision === 'exclude') excludedCount++;
       }
     });
   }
   
+  if (isDualReviewMode) {
+    excludedCount = fulltext.reduce((count, _record, idx) => {
+      const entry = getReviewerDecisionEntry(currentReviewer, idx);
+      return count + (entry?.normalizedDecision === 'exclude' ? 1 : 0);
+    }, 0);
+  }
+
   const includedCount = fulltext.length - excludedCount;
   const rate = fulltext.length > 0 ? Math.round((excludedCount / fulltext.length) * 100) : 0;
   
@@ -7636,13 +8068,14 @@ function finalizeFulltextReview() {
 
   fulltext.forEach((record, idx) => {
     const select = document.getElementById(`exclude-${idx}`);
-    if (select && select.value) {
+    const selection = normalizeFulltextSelection(select ? select.value : '');
+    if (selection.decision === 'exclude') {
       excluded_ft.push({
         ...record,
-        _exclude_reason: select.value,
+        _exclude_reason: selection.exclusionReason,
         _exclude_stage: 'fulltext'
       });
-    } else {
+    } else if (selection.decision === 'include') {
       included.push(record);
     }
   });
@@ -7652,20 +8085,22 @@ function finalizeFulltextReview() {
     fulltext.forEach((record, idx) => {
       const select = document.getElementById(`exclude-${idx}`);
       const recordId = getRecordAuditId(record, idx);
-      const isExcluded = Boolean(select && select.value);
-      const exclusionReason = isExcluded ? normalizeAuditExclusionReason(select.value) : '';
-      const decision = isExcluded ? 'exclude' : 'include';
+      const selection = normalizeFulltextSelection(select ? select.value : '');
+      const isExcluded = selection.decision === 'exclude';
+      const exclusionReason = isExcluded ? normalizeAuditExclusionReason(selection.exclusionReason) : '';
+      const decision = selection.decision;
 
       upsertScreeningDecisionSafe({
         recordId,
         stage: 'full_text',
         decision,
         exclusionReason,
-        reviewerId: isDualReviewMode ? `reviewer_${currentReviewer}` : 'reviewer_1',
+        reviewerId: getCurrentReviewerId(),
         source: 'human',
-        notes: isExcluded ? select.value : '',
+        notes: isExcluded ? selection.exclusionReason : '',
         metadata: {
-          originalReason: isExcluded ? select.value : '',
+          originalReason: isExcluded ? selection.exclusionReason : '',
+          originalSelection: selection.originalValue,
           reviewIndex: idx,
         },
       }, { persist: false });
@@ -7680,7 +8115,8 @@ function finalizeFulltextReview() {
         reason: exclusionReason,
         source: 'human',
         metadata: {
-          originalReason: isExcluded ? select.value : '',
+          originalReason: isExcluded ? selection.exclusionReason : '',
+          originalSelection: selection.originalValue,
           reviewIndex: idx,
         },
       });
@@ -8130,7 +8566,13 @@ function saveProject() {
     exclusionReasons: safeTemplate,
     filterRules: filterRules || null,
     qualityAssessments: qualityAssessments,
-    importJobs: importJobs
+    importJobs: importJobs,
+    projectManifest: projectManifest,
+    auditEvents: auditEvents,
+    screeningDecisions: screeningDecisions,
+    aiSuggestionEvents: aiSuggestionEvents,
+    dualReviewResults: dualReviewResults,
+    dualReviewConflictState: dualReviewConflictState
   };
 
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -8180,6 +8622,12 @@ function loadProject() {
         filterRules = project.filterRules || null;
         qualityAssessments = normalizeQualityAssessmentsState(project.qualityAssessments || []);
         importJobs = normalizeImportJobsState(project.importJobs || []);
+        projectManifest = project.projectManifest || projectManifest || null;
+        auditEvents = Array.isArray(project.auditEvents) ? project.auditEvents : [];
+        screeningDecisions = Array.isArray(project.screeningDecisions) ? project.screeningDecisions : [];
+        aiSuggestionEvents = Array.isArray(project.aiSuggestionEvents) ? project.aiSuggestionEvents : [];
+        dualReviewResults = project.dualReviewResults || { A: {}, B: {}, final: {} };
+        dualReviewConflictState = project.dualReviewConflictState || dualReviewConflictState;
 
         // Backward compatible: old versions may store exclusionReasons as an object map
         let templateFromFile = project.exclusionReasons;
@@ -8254,7 +8702,13 @@ function autoSaveToggle() {
           exclusionReasons: sanitizeExclusionTemplate(exclusionReasons),
           filterRules: filterRules || null,
           qualityAssessments: qualityAssessments,
-          importJobs: importJobs
+          importJobs: importJobs,
+          projectManifest: projectManifest,
+          auditEvents: auditEvents,
+          screeningDecisions: screeningDecisions,
+          aiSuggestionEvents: aiSuggestionEvents,
+          dualReviewResults: dualReviewResults,
+          dualReviewConflictState: dualReviewConflictState
         }));
         
         const now = new Date().toLocaleString('zh-CN');
@@ -8425,6 +8879,7 @@ function switchReviewer(reviewer) {
 
 function loadReviewerDecisions() {
   if (!screeningResults || !isDualReviewMode) return;
+  syncDualReviewResultsFromDecisions();
   
   const fulltext = screeningResults.included;
   fulltext.forEach((record, idx) => {
@@ -8437,6 +8892,7 @@ function loadReviewerDecisions() {
 
 function updateDualReviewStats() {
   if (!isDualReviewMode) return;
+  syncDualReviewResultsFromDecisions();
   
   const fulltext = screeningResults.included;
   const reviewerADecisions = [];
@@ -8494,23 +8950,22 @@ function showDisagreements() {
   }
 
   if (!isDualReviewMode || !screeningResults) return;
-  
-  const fulltext = screeningResults.included;
-  const disagreements = [];
-  
-  fulltext.forEach((record, idx) => {
-    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].decision || '') : '';
-    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].decision || '') : '';
-    
-    if (aDecision !== bDecision) {
-      disagreements.push({
-        index: idx,
-        record: record,
-        reviewerA: aDecision,
-        reviewerB: bDecision
-      });
-    }
-  });
+
+  syncDualReviewResultsFromDecisions();
+  const state = refreshDualReviewConflictState({ auditNewConflicts: true });
+  const indexMap = getAuditRecordIndexMap(screeningResults.included || []);
+  const disagreements = state.screeningConflicts
+    .filter((conflict) => conflict.status !== 'resolved')
+    .map((conflict) => ({
+      index: indexMap.get(conflict.recordId),
+      record: conflict.record || (screeningResults.included || [])[indexMap.get(conflict.recordId)] || {},
+      reviewerA: getFulltextSelectValueFromDecision(conflict.reviewerA),
+      reviewerB: getFulltextSelectValueFromDecision(conflict.reviewerB),
+      reviewerADecision: conflict.reviewerA,
+      reviewerBDecision: conflict.reviewerB,
+      conflict,
+    }))
+    .filter((item) => Number.isFinite(item.index));
   
   displayDisagreementResolution(disagreements);
 }
@@ -8552,6 +9007,7 @@ function displayDisagreementResolution(disagreements) {
               <label class="form-label" style="font-weight: bold;">协商后的最终决定:</label>
               <select id="final-decision-${item.index}" class="form-input" style="margin-bottom: var(--space-8);">
                 <option value="">纳入</option>
+                <option value="__uncertain__">暂不确定</option>
                 <option value="人群不符">人群不符</option>
                 <option value="干预不符">干预不符</option>
                 <option value="对照不符">对照不符</option>
@@ -8598,6 +9054,8 @@ function applyFinalDecisions() {
   disagreements.forEach(item => {
     const finalDecision = document.getElementById(`final-decision-${item.index}`).value;
     const discussion = document.getElementById(`discussion-${item.index}`).value;
+    const selection = normalizeFulltextSelection(finalDecision);
+    let resolverDecision = null;
     
     // Apply final decision to the select element
     const select = document.getElementById(`exclude-${item.index}`);
@@ -8612,14 +9070,35 @@ function applyFinalDecisions() {
     }
     dualReviewResults.final[item.index] = {
       finalDecision: finalDecision,
+      decision: selection.decision,
+      exclusionReason: selection.exclusionReason,
       discussion: discussion,
       reviewerAOriginal: item.reviewerA,
       reviewerBOriginal: item.reviewerB,
       resolvedBy: 'consensus',
       timestamp: new Date().toISOString()
     };
+
+    if (DUAL_REVIEW_ENGINE && item.conflict) {
+      resolverDecision = DUAL_REVIEW_ENGINE.createResolverScreeningDecision(item.conflict, {
+        projectId: ensureProjectId(),
+        selection: finalDecision,
+        resolverId: currentUserSession?.username || 'resolver_1',
+        notes: discussion,
+      });
+      upsertScreeningDecisionSafe(resolverDecision, { persist: false });
+      appendAuditEventsSafe(
+        {
+          ...DUAL_REVIEW_ENGINE.createResolverAuditEvent(item.conflict, resolverDecision, { discussion }),
+          eventType: 'review_conflict_resolved',
+        },
+        { persist: false }
+      );
+    }
   });
   
+  refreshDualReviewConflictState();
+  persistCurrentProjectState();
   updateFulltextStats();
   closeDisagreementModal();
   
@@ -8642,8 +9121,8 @@ function calculatePostResolutionStats() {
   let totalRecords = fulltext.length;
   
   fulltext.forEach((record, idx) => {
-    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].decision || '') : '';
-    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].decision || '') : '';
+    const aDecision = dualReviewResults.A[idx] ? (dualReviewResults.A[idx].normalizedDecision || normalizeFulltextSelection(dualReviewResults.A[idx].decision || '').decision) : '';
+    const bDecision = dualReviewResults.B[idx] ? (dualReviewResults.B[idx].normalizedDecision || normalizeFulltextSelection(dualReviewResults.B[idx].decision || '').decision) : '';
     const finalDecision = dualReviewResults.final && dualReviewResults.final[idx] ? 
       dualReviewResults.final[idx].finalDecision : null;
     
@@ -8686,6 +9165,8 @@ function loadProjectData() {
       uploadedFiles: [],
       screeningResults: null,
       reviewDecisions: {},
+      dualReviewResults: { A: {}, B: {}, final: {} },
+      dualReviewConflictState: null,
       columnMapping: {},
       fileFormat: 'unknown',
       formatSource: 'Unknown',
@@ -8693,7 +9174,11 @@ function loadProjectData() {
       filterRules: null,
       exclusionReasons: [...DEFAULT_EXCLUSION_REASONS],
       qualityAssessments: [],
-      importJobs: []
+      importJobs: [],
+      projectManifest: null,
+      auditEvents: [],
+      screeningDecisions: [],
+      aiSuggestionEvents: [],
     };
     
     // Register current user
@@ -8724,6 +9209,12 @@ function loadProjectData() {
     exclusionReasons = sanitizeExclusionTemplate(projectData.exclusionReasons);
     qualityAssessments = normalizeQualityAssessmentsState(projectData.qualityAssessments || []);
     importJobs = normalizeImportJobsState(projectData.importJobs || []);
+    projectManifest = projectData.projectManifest || projectManifest || null;
+    auditEvents = Array.isArray(projectData.auditEvents) ? projectData.auditEvents : [];
+    screeningDecisions = Array.isArray(projectData.screeningDecisions) ? projectData.screeningDecisions : [];
+    aiSuggestionEvents = Array.isArray(projectData.aiSuggestionEvents) ? projectData.aiSuggestionEvents : [];
+    dualReviewResults = projectData.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
+    dualReviewConflictState = projectData.dualReviewConflictState || dualReviewConflictState || null;
 
     // Existing project - register current user
     if (!projectData.reviewers[currentUserSession.role]) {
@@ -8850,6 +9341,8 @@ function saveProjectData() {
   projectData.auditEvents = auditEvents;
   projectData.screeningDecisions = screeningDecisions;
   projectData.aiSuggestionEvents = aiSuggestionEvents;
+  projectData.dualReviewResults = dualReviewResults;
+  projectData.dualReviewConflictState = dualReviewConflictState;
   projectData.lastSync = new Date().toISOString();
   
   // Save to shared storage
