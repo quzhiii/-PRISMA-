@@ -326,11 +326,20 @@ test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit t
   assert.match(source, /grade_summary\.csv/);
   assert.match(source, /buildGradeSummaryExportContent/);
   assert.match(source, /grade_summary_export_generated/);
+  assert.match(source, /'dual_review_conflicts'/);
+  assert.match(source, /dual_review_conflicts\.csv/);
+  assert.match(source, /serializeDualReviewConflictsCsv/);
+  assert.match(source, /'dual_review_agreement'/);
+  assert.match(source, /dual_review_agreement\.json/);
+  assert.match(source, /serializeDualReviewAgreementJson/);
+  assert.match(source, /dual_review_export_generated/);
   const auditExportTypesBlock = source.match(/const AUDIT_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
   assert.ok(auditExportTypesBlock);
   assert.doesNotMatch(auditExportTypesBlock[1], /'quality_appraisal'/);
   assert.doesNotMatch(auditExportTypesBlock[1], /'evidence_table'/);
   assert.doesNotMatch(auditExportTypesBlock[1], /'grade_summary'/);
+  assert.doesNotMatch(auditExportTypesBlock[1], /'dual_review_conflicts'/);
+  assert.doesNotMatch(auditExportTypesBlock[1], /'dual_review_agreement'/);
 });
 
 test('v2.2 workspace includes the audit package export buttons', async () => {
@@ -355,6 +364,10 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /evidence_table\.csv/);
   assert.match(workspaceHtml, /downloadFile\('grade_summary'\)/);
   assert.match(workspaceHtml, /grade_summary\.csv/);
+  assert.match(workspaceHtml, /downloadFile\('dual_review_conflicts'\)/);
+  assert.match(workspaceHtml, /dual_review_conflicts\.csv/);
+  assert.match(workspaceHtml, /downloadFile\('dual_review_agreement'\)/);
+  assert.match(workspaceHtml, /dual_review_agreement\.json/);
   assert.match(workspaceHtml, /dual-review-engine\.js/);
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);

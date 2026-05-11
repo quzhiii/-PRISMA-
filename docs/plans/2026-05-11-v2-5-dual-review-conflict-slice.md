@@ -14,6 +14,7 @@ Covered:
 - Agreement metrics foundation: percent agreement and Cohen's kappa.
 - Minimal quality conflict detection for overall judgement, status, and domain judgement.
 - Warning-only export gate when unresolved conflicts remain.
+- V2.5 export evidence: `dual_review_conflicts.csv` and `dual_review_agreement.json`.
 
 Out of scope for this slice:
 
@@ -55,9 +56,19 @@ This prevents Reviewer A and Reviewer B from double-counting the same record.
 - records `review_conflict_detected` when pending conflicts are detected.
 - records `review_conflict_resolved` after resolver confirmation.
 - records `export_conflict_warning` when final exports proceed with unresolved conflicts.
+- records `dual_review_export_generated` when V2.5 conflict or agreement exports are downloaded.
 - persists `dualReviewResults` and `dualReviewConflictState` in project snapshots and project files.
 
 Quality forms now stamp `reviewer_id` on save so later V2.5 slices can compare reviewer-level quality appraisals without changing existing quality export columns.
+
+## Export Evidence
+
+This slice now exposes V2.5 dual-review artifacts outside the frozen V2.3 audit export type list:
+
+- `dual_review_conflicts.csv`: screening and quality conflict rows with reviewer A/B values, resolver/final values when present, conflict status, and a stable `dual_review.v2.5-alpha` schema marker.
+- `dual_review_agreement.json`: paired A/B screening decisions, percent agreement, Cohen's kappa, conflict summaries, and the warning-only unresolved-conflict export gate.
+
+The paired agreement calculation includes both agreement and disagreement pairs. This avoids undercounting agreement when a project contains a mix of matching A/B decisions and unresolved conflicts.
 
 ## Verification
 

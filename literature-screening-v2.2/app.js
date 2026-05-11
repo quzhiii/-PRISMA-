@@ -28,6 +28,10 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'ai_suggestions',
   'prisma_traice_report',
 ]);
+const DUAL_REVIEW_EXPORT_TYPES = Object.freeze([
+  'dual_review_conflicts',
+  'dual_review_agreement',
+]);
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
     not_started: { zh: '未开始', en: 'Not started' },
@@ -102,11 +106,22 @@ let currentReviewer = 'A';
 let reviewerNames = { A: '审查员A', B: '审查员B' };
 let dualReviewResults = { A: {}, B: {}, final: {} };
 let dualReviewConflictState = {
+  screeningPairs: [],
   screeningConflicts: [],
   qualityConflicts: [],
   agreementMetrics: null,
   exportGate: null,
 };
+
+function getEmptyDualReviewConflictState() {
+  return {
+    screeningPairs: [],
+    screeningConflicts: [],
+    qualityConflicts: [],
+    agreementMetrics: null,
+    exportGate: null,
+  };
+}
 let projectData = null;
 let collaborationSyncInterval = null;
 const COLLAB_PROJECTS_KEY = 'prisma_projects';
@@ -880,41 +895,21 @@ function refreshDualReviewConflictState(options = {}) {
   const screeningConflicts = DUAL_REVIEW_ENGINE.buildScreeningConflictQueue(screeningDecisions, records);
   const qualityConflicts = DUAL_REVIEW_ENGINE.buildQualityConflictQueue(getQualityReviewConflictInputs());
   const pendingScreeningConflicts = screeningConflicts.filter((conflict) => conflict.status !== 'resolved');
-  const reviewerADecisions = [];
-  const reviewerBDecisions = [];
-
-  screeningConflicts.forEach((conflict) => {
-    reviewerADecisions.push(conflict.reviewerA);
-    reviewerBDecisions.push(conflict.reviewerB);
-  });
-
-  if (screeningConflicts.length === 0) {
-    const byRecordStage = new Map();
-    if (typeof DUAL_REVIEW_ENGINE.getLatestScreeningDecisions === 'function') {
-      DUAL_REVIEW_ENGINE.getLatestScreeningDecisions(screeningDecisions)
-        .filter((decision) => decision.stage === 'full_text' && !DUAL_REVIEW_ENGINE.isResolverDecision(decision))
-        .forEach((decision) => {
-          const key = `${decision.recordId}::${decision.stage}`;
-          if (!byRecordStage.has(key)) byRecordStage.set(key, {});
-          const slot = DUAL_REVIEW_ENGINE.getReviewerSlot(decision.reviewerId);
-          if (slot === 'A' || slot === 'B') byRecordStage.get(key)[slot] = decision;
-        });
-    }
-
-    byRecordStage.forEach((pair) => {
-      if (pair.A && pair.B) {
-        reviewerADecisions.push(pair.A);
-        reviewerBDecisions.push(pair.B);
-      }
-    });
-  }
-
-  const agreementMetrics = reviewerADecisions.length > 0
-    ? DUAL_REVIEW_ENGINE.calculateAgreementMetrics(reviewerADecisions, reviewerBDecisions)
+  const screeningPairs = typeof DUAL_REVIEW_ENGINE.buildScreeningAgreementPairs === 'function'
+    ? DUAL_REVIEW_ENGINE.buildScreeningAgreementPairs(screeningDecisions, records)
+    : [];
+  const agreementMetrics = screeningPairs.length > 0
+    ? (typeof DUAL_REVIEW_ENGINE.calculateScreeningAgreementMetrics === 'function'
+      ? DUAL_REVIEW_ENGINE.calculateScreeningAgreementMetrics(screeningDecisions, records)
+      : DUAL_REVIEW_ENGINE.calculateAgreementMetrics(
+        screeningPairs.map((pair) => pair.reviewerA),
+        screeningPairs.map((pair) => pair.reviewerB)
+      ))
     : null;
   const exportGate = DUAL_REVIEW_ENGINE.buildExportGateStatus({ screeningConflicts, qualityConflicts });
 
   dualReviewConflictState = {
+    screeningPairs,
     screeningConflicts,
     qualityConflicts,
     agreementMetrics,
@@ -975,6 +970,8 @@ function maybeWarnUnresolvedConflictsBeforeExport(type) {
     'grade_summary',
     'audit_prisma_counts',
     'audit_summary',
+    'dual_review_conflicts',
+    'dual_review_agreement',
   ]);
   if (!finalExportTypes.has(type)) return true;
 
@@ -4813,12 +4810,7 @@ function startNewProjectSession() {
   screeningDecisions = [];
   aiSuggestionEvents = [];
   dualReviewResults = { A: {}, B: {}, final: {} };
-  dualReviewConflictState = {
-    screeningConflicts: [],
-    qualityConflicts: [],
-    agreementMetrics: null,
-    exportGate: null,
-  };
+  dualReviewConflictState = getEmptyDualReviewConflictState();
   projectManifest = null;
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
@@ -4884,11 +4876,9 @@ function restoreProjectState(snapshot) {
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
-  dualReviewConflictState = snapshot.dualReviewConflictState || dualReviewConflictState || {
-    screeningConflicts: [],
-    qualityConflicts: [],
-    agreementMetrics: null,
-    exportGate: null,
+  dualReviewConflictState = {
+    ...getEmptyDualReviewConflictState(),
+    ...(snapshot.dualReviewConflictState || dualReviewConflictState || {}),
   };
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
@@ -6768,6 +6758,40 @@ function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
 
+function isDualReviewExportType(type) {
+  return DUAL_REVIEW_EXPORT_TYPES.includes(type);
+}
+
+function buildDualReviewExportInput() {
+  const state = refreshDualReviewConflictState();
+  return {
+    screeningDecisions,
+    records: getFulltextReviewRecordsForConflictState(),
+    qualityAssessments: getQualityReviewConflictInputs(),
+    screeningPairs: state.screeningPairs || [],
+    screeningConflicts: state.screeningConflicts || [],
+    qualityConflicts: state.qualityConflicts || [],
+    screeningAgreementMetrics: state.agreementMetrics || null,
+    exportGate: state.exportGate || null,
+  };
+}
+
+function buildDualReviewExportContent(type) {
+  if (!DUAL_REVIEW_ENGINE) {
+    return '';
+  }
+
+  const input = buildDualReviewExportInput();
+  switch (type) {
+    case 'dual_review_conflicts':
+      return DUAL_REVIEW_ENGINE.serializeDualReviewConflictsCsv(input);
+    case 'dual_review_agreement':
+      return DUAL_REVIEW_ENGINE.serializeDualReviewAgreementJson(input);
+    default:
+      return '';
+  }
+}
+
 function buildAuditExportContent(type) {
   if (!AUDIT_ENGINE) {
     return '';
@@ -6806,8 +6830,9 @@ function buildAuditExportContent(type) {
 
 function downloadFile(type) {
   const isAuditExport = isAuditExportType(type);
+  const isDualReviewExport = isDualReviewExportType(type);
 
-  if (!screeningResults && !isAuditExport) {
+  if (!screeningResults && !isAuditExport && !isDualReviewExport) {
     showToast('没有可下载的结果', 'error');
     return;
   }
@@ -6818,6 +6843,11 @@ function downloadFile(type) {
 
   if (isAuditExport && !AUDIT_ENGINE) {
     showToast('审计导出模块尚未加载', 'error');
+    return;
+  }
+
+  if (isDualReviewExport && !DUAL_REVIEW_ENGINE) {
+    showToast('Dual-review export module is not loaded', 'error');
     return;
   }
 
@@ -6893,6 +6923,14 @@ function downloadFile(type) {
       filename = 'grade_summary.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
+    case 'dual_review_conflicts':
+      filename = 'dual_review_conflicts.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'dual_review_agreement':
+      filename = 'dual_review_agreement.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
     case 'audit_manifest':
       filename = 'project_manifest.json';
       mimeType = 'application/json;charset=utf-8';
@@ -6938,7 +6976,9 @@ function downloadFile(type) {
         ? 'evidence_table_export_generated'
         : type === 'grade_summary'
           ? 'grade_summary_export_generated'
-          : 'export_generated';
+          : type === 'dual_review_conflicts' || type === 'dual_review_agreement'
+            ? 'dual_review_export_generated'
+            : 'export_generated';
     appendAuditEventsSafe({
       eventType,
       recordId: '',
@@ -6954,12 +6994,17 @@ function downloadFile(type) {
         excludedCount: screeningResults?.excluded?.length ?? 0,
         qualityAssessmentCount: qualityAssessments.length,
         unresolvedConflictCount: dualReviewConflictState?.exportGate?.unresolvedConflictCount || 0,
+        dualReviewSchemaVersion: DUAL_REVIEW_ENGINE?.DUAL_REVIEW_SCHEMA_VERSION || '',
       },
     }, { persist: true });
   }
 
   if (isAuditExport) {
     content = buildAuditExportContent(type);
+  }
+
+  if (isDualReviewExport) {
+    content = buildDualReviewExportContent(type);
   }
 
   if (!filename) {
@@ -6996,6 +7041,8 @@ function downloadAllFiles() {
     'quality_appraisal',
     'evidence_table',
     'grade_summary',
+    'dual_review_conflicts',
+    'dual_review_agreement',
     'audit_manifest',
     'audit_screening_decisions',
     'audit_exclusion_reasons',
@@ -9166,7 +9213,7 @@ function loadProjectData() {
       screeningResults: null,
       reviewDecisions: {},
       dualReviewResults: { A: {}, B: {}, final: {} },
-      dualReviewConflictState: null,
+      dualReviewConflictState: getEmptyDualReviewConflictState(),
       columnMapping: {},
       fileFormat: 'unknown',
       formatSource: 'Unknown',

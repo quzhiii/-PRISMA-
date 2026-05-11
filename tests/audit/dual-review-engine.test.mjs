@@ -98,6 +98,53 @@ test('calculates percent agreement and Cohen kappa for reviewer decisions', () =
   assert.ok(metrics.categories.includes('include'));
 });
 
+test('builds screening agreement pairs from both agreements and conflicts', () => {
+  const decisions = [
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'agree-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_A',
+      decision: 'include',
+      updatedAt: '2026-05-11T01:00:00.000Z',
+    }),
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'agree-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_B',
+      decision: 'include',
+      updatedAt: '2026-05-11T01:01:00.000Z',
+    }),
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'conflict-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_A',
+      decision: 'include',
+      updatedAt: '2026-05-11T02:00:00.000Z',
+    }),
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'conflict-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_B',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      updatedAt: '2026-05-11T02:01:00.000Z',
+    }),
+  ];
+
+  const pairs = DualReviewEngine.buildScreeningAgreementPairs(decisions, [
+    { id: 'agree-1', title: 'Agreement trial' },
+    { id: 'conflict-1', title: 'Conflict trial' },
+  ]);
+  const metrics = DualReviewEngine.calculateScreeningAgreementMetrics(decisions);
+
+  assert.equal(pairs.length, 2);
+  assert.equal(pairs.filter((pair) => pair.agreement).length, 1);
+  assert.equal(metrics.sampleSize, 2);
+  assert.equal(metrics.agreementCount, 1);
+  assert.equal(metrics.disagreementPairCount, 1);
+  assert.equal(metrics.pendingDisagreementCount, 1);
+});
+
 test('detects minimal quality appraisal conflicts across overall, status, and domains', () => {
   const conflicts = DualReviewEngine.buildQualityConflictQueue([
     {
@@ -140,4 +187,64 @@ test('summarizes export gate warnings for unresolved conflicts', () => {
   assert.equal(gate.unresolvedScreeningConflictCount, 1);
   assert.equal(gate.unresolvedQualityConflictCount, 1);
   assert.equal(gate.warnings.length, 2);
+});
+
+test('serializes V2.5 dual-review conflict and agreement exports', () => {
+  const decisions = [
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'record-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_A',
+      decision: 'include',
+      updatedAt: '2026-05-12T01:00:00.000Z',
+    }),
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'record-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_B',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      updatedAt: '2026-05-12T01:01:00.000Z',
+    }),
+  ];
+  const records = [{ id: 'record-1', title: 'Dual review export trial' }];
+  const screeningConflicts = DualReviewEngine.buildScreeningConflictQueue(decisions, records);
+  const qualityConflicts = DualReviewEngine.buildQualityConflictQueue([
+    {
+      assessment_id: 'qa-a',
+      record_id: 'record-1',
+      reviewer_id: 'reviewer_A',
+      overall_judgement: 'low_risk',
+      status: 'complete',
+    },
+    {
+      assessment_id: 'qa-b',
+      record_id: 'record-1',
+      reviewer_id: 'reviewer_B',
+      overall_judgement: 'high_risk',
+      status: 'complete',
+    },
+  ]);
+
+  const csv = DualReviewEngine.serializeDualReviewConflictsCsv({
+    screeningConflicts,
+    qualityConflicts,
+  });
+  const agreement = JSON.parse(DualReviewEngine.serializeDualReviewAgreementJson({
+    screeningDecisions: decisions,
+    records,
+    screeningConflicts,
+    qualityConflicts,
+    generatedAt: '2026-05-12T02:00:00.000Z',
+  }));
+
+  assert.match(csv.split('\n')[0], /schema_version,conflict_id,conflict_type,status/);
+  assert.match(csv, /dual_review\.v2\.5-alpha/);
+  assert.match(csv, /conflict-full_text-record-1/);
+  assert.match(csv, /quality-conflict-record-1/);
+  assert.equal(agreement.schemaVersion, DualReviewEngine.DUAL_REVIEW_SCHEMA_VERSION);
+  assert.equal(agreement.exportType, 'dual_review_agreement');
+  assert.equal(agreement.screening.metrics.sampleSize, 1);
+  assert.equal(agreement.screening.pairs[0].recordId, 'record-1');
+  assert.equal(agreement.exportGate.hasUnresolvedConflicts, true);
 });
