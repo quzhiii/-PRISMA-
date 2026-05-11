@@ -120,6 +120,34 @@ test('quality engine serializes quality_appraisal.csv with domain rows and escap
   assert.match(csv, /some_concerns,in_progress,2026-05-11T00:00:00.000Z/);
 });
 
+test('quality_appraisal.csv reflects reviewer item-level edits', () => {
+  const assessment = QualityEngine.createQualityAssessment(
+    {
+      id: 'record-editable',
+      title: 'Cohort study with reviewer edits',
+      abstract: 'A cohort study followed exposed and unexposed patients.',
+    },
+    {
+      domainScores: [
+        {
+          domain_id: 'cohort_selection',
+          judgement: 'high_risk',
+          supporting_quote: 'Baseline imbalance reported on page 4.',
+          reviewer_note: 'Reviewer changed from not_assessed after full-text check.',
+        },
+      ],
+      overallJudgement: 'high_risk',
+      status: QualityEngine.ASSESSMENT_STATUS.COMPLETED,
+      updatedAt: '2026-05-11T08:00:00.000Z',
+    }
+  );
+
+  const csv = QualityEngine.serializeQualityAppraisalCsv([assessment]);
+
+  assert.match(csv, /cohort_selection,high_risk,Baseline imbalance reported on page 4\.,Reviewer changed from not_assessed after full-text check\.,high_risk,completed,2026-05-11T08:00:00\.000Z/);
+  assert.match(csv, /comparability,not_assessed/);
+});
+
 test('quality engine serializes evidence_table.csv from included records and quality assessments', () => {
   const record = {
     id: 'record-evidence',

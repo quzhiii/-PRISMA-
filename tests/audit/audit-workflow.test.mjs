@@ -76,6 +76,33 @@ test('v2.2 app wires V2.4 quality and evidence exports without changing AI provi
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);
 });
 
+test('v2.2 app supports reviewer-editable item-level quality forms with audit trace', async () => {
+  const source = await readV22App();
+  const styleCss = await readV22File('style.css');
+
+  assert.match(source, /function saveQualityAssessmentEdits\(recordId\)/);
+  assert.match(source, /function cloneQualityAssessmentForAudit/);
+  assert.match(source, /data-quality-record-id=/);
+  assert.match(source, /saveQualityAssessmentEdits\(this\.dataset\.qualityRecordId\)/);
+  assert.match(source, /getQualityDomainInputId\(recordId, domainId, 'judgement'\)/);
+  assert.match(source, /supporting_quote: readQualityInputValue/);
+  assert.match(source, /reviewer_note: readQualityInputValue/);
+  assert.match(source, /overall_judgement: readQualityInputValue/);
+  assert.match(source, /eventType: 'quality_appraisal_updated'/);
+  assert.match(source, /before,/);
+  assert.match(source, /after,/);
+  assert.match(source, /source: 'human'/);
+  assert.match(source, /editor: 'item_level_quality_form'/);
+  assert.match(source, /填写领域判断与引用证据/);
+  assert.match(source, /支持性原文 \/ 页码/);
+  assert.match(source, /审稿备注/);
+  assert.match(source, /保存质量评价/);
+  assert.match(source, /质量评价已保存，导出的质量表会使用这些人工填写内容。/);
+  assert.match(styleCss, /\.quality-editor-panel/);
+  assert.match(styleCss, /\.quality-domain-row/);
+  assert.match(styleCss, /\.quality-editor-actions/);
+});
+
 test('workspace language visibility has CSS fallback for local file mode', async () => {
   const [styleCss, workspaceHtml, indexHtml] = await Promise.all([
     readV22File('style.css'),

@@ -68,6 +68,14 @@ const QUALITY_DISPLAY_LABELS = Object.freeze({
     low: { zh: '低', en: 'Low' },
     very_low: { zh: '很低', en: 'Very low' },
   },
+  judgement: {
+    low_risk: { zh: '低风险', en: 'Low risk' },
+    some_concerns: { zh: '有一些顾虑', en: 'Some concerns' },
+    high_risk: { zh: '高风险', en: 'High risk' },
+    unclear: { zh: '信息不清', en: 'Unclear' },
+    not_applicable: { zh: '不适用', en: 'Not applicable' },
+    not_assessed: { zh: '未评价', en: 'Not assessed' },
+  },
 });
 let qualityAssessments = [];
 let importJobs = [];
@@ -612,6 +620,63 @@ function renderQualityDistribution(entries, labelGroup) {
     .join('');
 }
 
+function getQualityStatusOptions(selectedValue) {
+  const selected = String(selectedValue || '');
+  return ['not_started', 'queued', 'in_progress', 'complete', 'completed', 'needs_full_text']
+    .map((status) => `<option value="${status}" ${status === selected ? 'selected' : ''}>${escapeShellText(getQualityDisplayLabel('status', status, 'zh'))} / ${escapeShellText(getQualityDisplayLabel('status', status, 'en'))}</option>`)
+    .join('');
+}
+
+function getQualityJudgementOptions(selectedValue) {
+  const selected = String(selectedValue || '');
+  return ['not_assessed', 'low_risk', 'some_concerns', 'high_risk', 'unclear', 'not_applicable']
+    .map((judgement) => `<option value="${judgement}" ${judgement === selected ? 'selected' : ''}>${escapeShellText(getQualityDisplayLabel('judgement', judgement, 'zh'))} / ${escapeShellText(getQualityDisplayLabel('judgement', judgement, 'en'))}</option>`)
+    .join('');
+}
+
+function getQualityDomainInputId(recordId, domainId, field) {
+  const encodedRecordId = encodeURIComponent(String(recordId || ''));
+  const encodedDomainId = encodeURIComponent(String(domainId || ''));
+  return `quality-domain-${encodedRecordId}-${encodedDomainId}-${field}`;
+}
+
+function getQualityAssessmentInputId(recordId, field) {
+  return `quality-assessment-${encodeURIComponent(String(recordId || ''))}-${field}`;
+}
+
+function readQualityInputValue(id) {
+  const element = document.getElementById(id);
+  return element ? String(element.value || '').trim() : '';
+}
+
+function findQualityAssessmentIndex(recordId) {
+  const normalizedRecordId = String(recordId || '');
+  return qualityAssessments.findIndex((assessment) => String(assessment.record_id || '') === normalizedRecordId);
+}
+
+function cloneQualityAssessmentForAudit(assessment) {
+  if (!assessment || typeof assessment !== 'object') {
+    return null;
+  }
+
+  return {
+    assessmentId: assessment.assessment_id || assessment.id || '',
+    recordId: assessment.record_id || '',
+    status: assessment.status || '',
+    overallJudgement: assessment.overall_judgement || '',
+    domainScores: Array.isArray(assessment.domain_scores)
+      ? assessment.domain_scores.map((domain) => ({
+        domainId: domain.domain_id || '',
+        judgement: domain.judgement || '',
+        supportingQuote: domain.supporting_quote || '',
+        reviewerNote: domain.reviewer_note || '',
+      }))
+      : [],
+    notes: assessment.notes || '',
+    updatedAt: assessment.updated_at || '',
+  };
+}
+
 function upsertImportJobState(importJob, options = {}) {
   const { persist = true, render = true } = options;
   const normalized = normalizeImportJobsState([importJob])[0];
@@ -738,7 +803,43 @@ function renderQualityAssessmentShell() {
 
   queueEl.innerHTML = qualityAssessments
     .slice(0, 8)
-    .map((assessment) => `
+    .map((assessment) => {
+      const recordId = String(assessment.record_id || '');
+      const domains = Array.isArray(assessment.domain_scores) ? assessment.domain_scores : [];
+      const domainRows = domains.map((domain) => {
+        const domainId = domain.domain_id || domain.domain || domain.label || '';
+        const judgementId = getQualityDomainInputId(recordId, domainId, 'judgement');
+        const quoteId = getQualityDomainInputId(recordId, domainId, 'quote');
+        const noteId = getQualityDomainInputId(recordId, domainId, 'note');
+
+        return `
+          <div class="quality-domain-row">
+            <div class="quality-domain-title">
+              <strong>${escapeShellText(domain.label || domainId)}</strong>
+              <span>${escapeShellText(domainId)}</span>
+            </div>
+            <label>
+              <span class="zh">领域判断</span><span class="en">Domain judgement</span>
+              <select id="${judgementId}" class="form-input quality-domain-select">
+                ${getQualityJudgementOptions(domain.judgement || 'not_assessed')}
+              </select>
+            </label>
+            <label>
+              <span class="zh">支持性原文 / 页码</span><span class="en">Supporting quote / page</span>
+              <textarea id="${quoteId}" class="form-input quality-domain-textarea" rows="2" placeholder="原文证据或页码">${escapeShellText(domain.supporting_quote || '')}</textarea>
+            </label>
+            <label>
+              <span class="zh">审稿备注</span><span class="en">Reviewer note</span>
+              <textarea id="${noteId}" class="form-input quality-domain-textarea" rows="2" placeholder="判断理由、待确认信息或分歧点">${escapeShellText(domain.reviewer_note || '')}</textarea>
+            </label>
+          </div>
+        `;
+      }).join('');
+      const overallId = getQualityAssessmentInputId(recordId, 'overall');
+      const statusId = getQualityAssessmentInputId(recordId, 'status');
+      const notesId = getQualityAssessmentInputId(recordId, 'notes');
+
+      return `
       <div class="surface-panel quality-assessment-card">
         <div class="quality-assessment-card-head">
           <strong>${escapeShellText(assessment.title || assessment.record_id)}</strong>
@@ -753,8 +854,42 @@ function renderQualityAssessmentShell() {
           <span class="zh">模板 ${escapeShellText(assessment.template_id || 'generic_quality_shell_v24_alpha')}，领域 ${Array.isArray(assessment.domain_scores) ? assessment.domain_scores.length : 0} 项。</span>
           <span class="en">Template ${escapeShellText(assessment.template_id || 'generic_quality_shell_v24_alpha')}, ${Array.isArray(assessment.domain_scores) ? assessment.domain_scores.length : 0} domains.</span>
         </div>
+        <details class="quality-editor-panel">
+          <summary>
+            <span class="zh">填写领域判断与引用证据</span>
+            <span class="en">Edit domain judgements and evidence</span>
+          </summary>
+          <div class="quality-editor-body">
+            <div class="quality-editor-toolbar">
+              <label>
+                <span class="zh">总体判断</span><span class="en">Overall judgement</span>
+                <select id="${overallId}" class="form-input">
+                  ${getQualityJudgementOptions(assessment.overall_judgement || 'not_assessed')}
+                </select>
+              </label>
+              <label>
+                <span class="zh">评价状态</span><span class="en">Status</span>
+                <select id="${statusId}" class="form-input">
+                  ${getQualityStatusOptions(assessment.status || 'not_started')}
+                </select>
+              </label>
+            </div>
+            <div class="quality-domain-list">
+              ${domainRows || '<span class="muted-text"><span class="zh">当前模板没有可填写领域。</span><span class="en">This template has no editable domains.</span></span>'}
+            </div>
+            <label class="quality-assessment-notes">
+              <span class="zh">评价备注</span><span class="en">Assessment notes</span>
+              <textarea id="${notesId}" class="form-input quality-domain-textarea" rows="3" placeholder="记录总体判断依据、需要全文核对的信息或后续 GRADE 注意事项">${escapeShellText(assessment.notes || '')}</textarea>
+            </label>
+            <div class="quality-editor-actions">
+              <button type="button" class="btn btn-primary" data-quality-record-id="${escapeShellText(recordId)}" onclick="saveQualityAssessmentEdits(this.dataset.qualityRecordId)"><span class="zh">保存质量评价</span><span class="en">Save appraisal</span></button>
+              <span class="muted-text"><span class="zh">保存后会更新本地项目状态，并写入可追踪的审计事件。</span><span class="en">Saving updates local project state and writes a traceable audit event.</span></span>
+            </div>
+          </div>
+        </details>
       </div>
-    `)
+    `;
+    })
     .join('');
 
   const toolFamilyEntries = Object.entries(summary.byToolFamily || {});
@@ -778,6 +913,61 @@ function renderQualityAssessmentShell() {
   if (typeof applyLangVisibility === 'function') {
     applyLangVisibility();
   }
+}
+
+function saveQualityAssessmentEdits(recordId) {
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  const index = findQualityAssessmentIndex(recordId);
+
+  if (index < 0) {
+    showToast('未找到对应的质量评价记录，请重新生成队列后再试。', 'warning');
+    return;
+  }
+
+  const before = cloneQualityAssessmentForAudit(qualityAssessments[index]);
+  const current = qualityAssessments[index];
+  const domains = Array.isArray(current.domain_scores) ? current.domain_scores : [];
+  const updatedDomains = domains.map((domain) => {
+    const domainId = domain.domain_id || domain.domain || domain.label || '';
+    return {
+      ...domain,
+      judgement: readQualityInputValue(getQualityDomainInputId(recordId, domainId, 'judgement')) || 'not_assessed',
+      supporting_quote: readQualityInputValue(getQualityDomainInputId(recordId, domainId, 'quote')),
+      reviewer_note: readQualityInputValue(getQualityDomainInputId(recordId, domainId, 'note')),
+    };
+  });
+  const updatedAt = new Date().toISOString();
+
+  qualityAssessments[index] = {
+    ...current,
+    domain_scores: updatedDomains,
+    domains: updatedDomains,
+    overall_judgement: readQualityInputValue(getQualityAssessmentInputId(recordId, 'overall')) || 'not_assessed',
+    status: readQualityInputValue(getQualityAssessmentInputId(recordId, 'status')) || 'not_started',
+    notes: readQualityInputValue(getQualityAssessmentInputId(recordId, 'notes')),
+    updated_at: updatedAt,
+  };
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  const after = cloneQualityAssessmentForAudit(qualityAssessments[index]);
+
+  if (typeof appendAuditEventsSafe === 'function') {
+    appendAuditEventsSafe({
+      eventType: 'quality_appraisal_updated',
+      recordId,
+      before,
+      after,
+      source: 'human',
+      metadata: {
+        domainCount: updatedDomains.length,
+        editor: 'item_level_quality_form',
+        schemaVersion: qualityAssessments[index].schema_version || '',
+      },
+    }, { persist: false });
+  }
+
+  persistCurrentProjectState();
+  renderQualityAssessmentShell();
+  showToast('质量评价已保存，导出的质量表会使用这些人工填写内容。', 'success');
 }
 
 function updateQualityAssessmentCounters(summary) {

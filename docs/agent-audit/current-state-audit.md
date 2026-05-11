@@ -2,7 +2,7 @@
 
 Date: 2026-05-11
 
-Target iteration: V2.4 GRADE summary foundation checkpoint
+Target iteration: V2.4 item-level quality appraisal closeout
 
 ## 1. Repository Structure
 
@@ -88,6 +88,9 @@ V2.4 checkpoint update:
 - GRADE summary rows group included evidence by outcome / PICOS and expose study count, record ids, study designs, effect summary, quality judgement summary, and baseline certainty.
 - Final GRADE certainty, downgrade reasons, and confirmation status remain human-controlled.
 - `grade_summary_export_generated` records the GRADE summary export boundary in audit events.
+- Step 5 includes single-review, reviewer-editable item-level quality forms for domain judgement, supporting quote/page, reviewer note, overall judgement, status, and assessment notes.
+- Saving quality form edits updates `qualityAssessments`, persists local project state, and records a human-sourced `quality_appraisal_updated` audit event with before/after snapshots.
+- `quality_appraisal.csv` reflects the saved human-entered item-level quality fields.
 
 ## 4. Current Import / Parsing Pipeline
 
@@ -162,7 +165,7 @@ Export functions:
 - `generateReport(results)`
 - `generatePRISMASVG(counts, theme, mode)`
 
-Current exports include PRISMA diagram, result tables, candidate duplicate details, screening report, audit package files, PRISMA-trAIce readiness files, the V2.4-alpha `quality_appraisal.csv`, the V2.4-beta `evidence_table.csv`, and the V2.4 `grade_summary.csv`.
+Current exports include PRISMA diagram, result tables, candidate duplicate details, screening report, audit package files, PRISMA-trAIce readiness files, the V2.4 `quality_appraisal.csv`, the V2.4 `evidence_table.csv`, and the V2.4 `grade_summary.csv`.
 
 Current audit package exports:
 
@@ -178,7 +181,7 @@ Current audit package exports:
 
 V2.4-alpha quality export:
 
-- `quality_appraisal.csv`
+- `quality_appraisal.csv`, including human-entered domain judgement, supporting quote/page, reviewer note, overall judgement, status, and updated timestamp.
 
 V2.4-beta evidence export:
 
@@ -205,15 +208,17 @@ Sandbox behavior:
 
 Latest verified result:
 
-- 113 tests passed after the GRADE summary foundation slice.
+- 115 tests passed after the V2.4 item-level quality form closeout.
 - 0 tests failed.
+- Syntax checks passed for `literature-screening-v2.2\app.js` and `literature-screening-v2.2\quality-engine.js`.
+- In-app browser automation was attempted but timed out while connecting to the browser; repeat a manual Step 5 smoke check before public tagging.
 
 Existing test areas:
 
 - `tests/dedup/`: dedup engine, candidate output, benchmark regression, app integration and legacy paths.
 - `tests/import/`: import hardening, import job state and parser chunk boundaries.
-- `tests/quality/`: evidence engine, study-design classifier, priority quality-appraisal templates, `quality_appraisal.csv` serialization, `evidence_table.csv` serialization, and `grade_summary.csv` serialization.
-- `tests/audit/`: audit model, PRISMA count replay, audit export, PRISMA-trAIce report, and workflow source checks.
+- `tests/quality/`: evidence engine, study-design classifier, priority quality-appraisal templates, `quality_appraisal.csv` serialization including reviewer item-level edits, `evidence_table.csv` serialization, and `grade_summary.csv` serialization.
+- `tests/audit/`: audit model, PRISMA count replay, audit export, PRISMA-trAIce report, item-level quality form wiring, and workflow source checks.
 - `tests/ai/`: AI suggestion panel, mock suggestion generation, human accept/reject/edit review flow, and JSONL trace boundaries.
 
 Benchmark evidence:
@@ -226,7 +231,7 @@ Benchmark evidence:
 2. `app.js` audit hooks are now present, but the file still mixes UI, workflow, persistence, and export responsibilities.
 3. PRISMA counts can be replayed from decisions/events, but reviewer conflict gates are not yet strict final-export blockers.
 4. Exclusion reason taxonomy exports exist, but before/after changes to reason choices still need deeper audit events.
-5. Quality assessment now has a V2.4 schema, priority templates, evidence-table export, and GRADE summary foundation, but reviewer-editable item-level quality forms still need a product decision before V2.5.
+5. Quality assessment now has a V2.4 schema, priority templates, reviewer-editable item-level forms, evidence-table export, and GRADE summary foundation. Remaining risk is browser-level verification and future dual-review conflict handling.
 6. Dual-review support exists, but reviewer isolation, conflict gates and final resolver records need formalization.
 7. AI usage registry, provider abstraction, and AI suggestion log now exist for V2.3 readiness. Real AI provider dispatch remains disabled until the audit/reporting boundaries and API-key handling are release-stable.
 8. RDF/BibTeX/TXT import fallback behavior remains a future stability concern for large files.
@@ -235,13 +240,13 @@ Benchmark evidence:
 
 V2.3 release-readiness is satisfied and tracked in `docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`.
 
-V2.4 quality-appraisal readiness is tracked in `docs/checklists/V2.4_ALPHA_QUALITY_APPRAISAL_CHECKLIST.md`. V2.4-beta evidence-table export and V2.4 GRADE summary foundation are now part of the same checklist.
+V2.4 quality-appraisal readiness is tracked in `docs/checklists/V2.4_ALPHA_QUALITY_APPRAISAL_CHECKLIST.md`. V2.4-beta evidence-table export, V2.4 GRADE summary foundation, and reviewer-editable item-level quality forms are now part of the same checklist.
 
-Start the next pass by deciding whether to close V2.4 or add reviewer-editable item-level quality forms before V2.5:
+After this closeout passes focused checks and full regression, the next roadmap pass should move to V2.5:
 
 1. Keep V2.3 as a mock/local audit layer; provider request drafts may exist, but no real provider dispatch should occur yet.
 2. Use the V2.3 checklist as the export and behavior freeze for PRISMA-trAIce readiness.
 3. For AI, add the OpenAI-compatible configuration UI only after API key storage warnings, redacted export checks, and manual-dispatch gates are in place.
 4. Keep final GRADE certainty and downgrade reasons human-controlled.
-5. Decide whether reviewer-editable quality forms belong in V2.4 closeout or the first V2.5 conflict workflow slice.
+5. Formalize reviewer isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict export gates in V2.5.
 6. Preserve the current full regression gate before each slice.

@@ -49,12 +49,15 @@ Implemented in `literature-screening-v2.2/` on the V2.4 quality-appraisal featur
 - V2.4 adds `grade_summary.v2.4`, `GRADE_SUMMARY_COLUMNS`, and `grade_summary.csv` grouped by outcome / PICOS with study count, record ids, study designs, effect summary, quality judgement summary, and baseline certainty.
 - `grade_summary.csv` intentionally leaves `manual_grade_certainty`, `downgrade_reasons`, and final GRADE status human-controlled.
 - `grade_summary_export_generated` records the V2.4 GRADE summary export boundary in audit events.
-- Regression tests cover template schema, diagnostic accuracy detection, CSV serialization, export wiring, and audit boundaries.
+- Step 5 now exposes reviewer-editable item-level quality forms for each assessment domain. Reviewers can set the domain judgement, paste supporting quotes/page numbers, add reviewer notes, set the overall judgement, update status, and save assessment notes.
+- Saving item-level quality edits updates local project state and writes a human-sourced `quality_appraisal_updated` audit event with before/after snapshots and `metadata.editor = item_level_quality_form`.
+- `quality_appraisal.csv` uses the saved human-entered domain judgements, supporting quotes, reviewer notes, overall judgement, status, and timestamps.
+- Regression tests cover template schema, diagnostic accuracy detection, CSV serialization, export wiring, item-level form wiring, and audit boundaries.
 
-Remaining V2.4 work before V2.5:
+Remaining boundary before V2.5:
 
-- Reviewer-editable item-level forms.
-- End-to-end browser verification for reviewer-facing quality exports.
+- Browser verification should be repeated before cutting a public release tag, especially for the Step 5 form layout in Chinese and English.
+- Dual-review quality conflicts, reviewer isolation, resolver workflow, and export gates belong to V2.5 rather than this V2.4 closeout slice.
 
 ## 3. 模板 schema
 
@@ -169,13 +172,24 @@ not_assessed
 | `notes` | 备注 |
 | `updated_at` | 更新时间 |
 
+## 5.1 Reviewer-editable item-level form
+
+V2.4 includes a single-review item-level form in Step 5. It is deliberately conservative:
+
+- The app creates template rows and baseline evidence fields, but final judgements are entered or confirmed by a human reviewer.
+- Each domain row has `judgement`, `supporting_quote`, and `reviewer_note` inputs.
+- Each assessment card has `overall_judgement`, `status`, and `notes` inputs.
+- Save writes to `qualityAssessments`, persists the local project snapshot, and records a `quality_appraisal_updated` event with before/after values.
+- The form does not call a real AI provider and does not store or export API keys.
+- The form is single-review only; reviewer A/B isolation and conflict resolution remain V2.5 work.
+
 ## 6. Workflow
 
 1. 全文复核后，最终纳入记录进入质量评价队列。
 2. 系统根据字段和关键词给出 study type suggestion。
 3. 用户选择或确认 study type。
 4. 系统推荐 tool family 和 template。
-5. 用户逐域填写 judgement、supporting quote 和 notes。
+5. 用户逐域填写 judgement、supporting quote 和 reviewer note，并确认总体判断与评价状态。
 6. 完成后生成 `QualityAssessmentRecord`。
 7. 导出 `quality_appraisal.csv` 和后续 evidence table。
 8. 每次创建、修改、完成都写入 audit event。
@@ -248,9 +262,9 @@ AI 不可做：
 |---|---|
 | `quality_appraisal_queued` | 纳入记录进入质量队列 |
 | `quality_template_selected` | 用户选择模板 |
-| `quality_domain_updated` | 条目级 judgement 修改 |
-| `quality_overall_judgement_updated` | 总体判断修改 |
-| `quality_appraisal_completed` | 完成评价 |
+| `quality_domain_updated` | 条目级 judgement 修改。V2.4 UI 暂以 `quality_appraisal_updated` 聚合记录 before/after。 |
+| `quality_overall_judgement_updated` | 总体判断修改。V2.4 UI 暂以 `quality_appraisal_updated` 聚合记录 before/after。 |
+| `quality_appraisal_completed` | 完成评价。V2.4 UI 暂以 status 字段和 `quality_appraisal_updated` 记录。 |
 | `quality_export_generated` | 导出质量评价结果 |
 
 ## 10. 后续版本建议
@@ -259,6 +273,6 @@ AI 不可做：
 |---|---|
 | V2.4-alpha | 实现模板 schema 和 `quality_appraisal.csv` |
 | V2.4-beta | 实现 evidence table |
-| V2.4 | 增加 GRADE summary |
+| V2.4 | 增加 GRADE summary 和单人可编辑条目级质量评价表单 |
 | V2.5 | 双人质量评价冲突处理 |
 | V2.6 | AI 解释和缺失字段提示，不做自动评级 |
