@@ -3,8 +3,8 @@
 A local-first workspace for systematic reviews, meta-analyses, and evidence synthesis. It brings literature import, conservative deduplication, rule-based screening, manual review, quality assessment, PRISMA 2020 export, and audit-package output into one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.3%20PRISMA--trAIce-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![Stable demo](https://img.shields.io/badge/Stable%20demo-V2.1-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.4%20Quality%20Appraisal-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Current demo](https://img.shields.io/badge/Current%20demo-V2.4-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -23,8 +23,8 @@ The hard part of a systematic review is rarely the final PRISMA diagram. The har
 | Large imports can make the page feel frozen | Common formats use Worker-based incremental parsing with stage, byte, and record progress |
 | PRISMA counts are difficult to audit | V2.2 adds `AuditEvent` and `ScreeningDecision`, so counts can be recalculated from durable data |
 | Full-text exclusion reasons are scattered across notes | Uses a standard exclusion-reason taxonomy and exports a reason summary |
-| Quality appraisal often sits outside screening tools | Included studies can enter a quality queue with study-design and evidence baselines |
-| AI assistance needs transparency before adoption | AI mode is `off` by default; future AI suggestions must pass through human confirmation and audit logs |
+| Quality appraisal often sits outside screening tools | Included studies can enter reviewer-editable item-level quality forms and export quality, evidence, and GRADE tables |
+| AI assistance needs transparency before adoption | AI mode is `off` by default; example AI suggestions must pass through human confirmation and audit logs |
 
 ## Who it is for
 
@@ -54,19 +54,20 @@ flowchart LR
 | Deduplication | Hard-duplicate removals, candidate duplicate list, dedup evidence |
 | Rule screening | Title/abstract include, exclude, and uncertain decisions |
 | Manual review | Full-text decisions, exclusion reasons, reviewer notes |
-| Quality assessment | Study-design suggestions, tool-family suggestions, evidence baselines |
-| Export | PRISMA SVG, result tables, screening report, V2.3 audit package |
+| Quality assessment | Study-design suggestions, tool-family suggestions, item-level appraisal, evidence baselines |
+| Export | PRISMA SVG, result tables, screening report, audit package, quality appraisal, evidence table, GRADE summary |
 
 ## Current status
 
 | Line | Path | Status |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current release line. Keeps the V2.2 audit foundation and adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled. The `v2.2` path remains the compatibility release path. |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | Current release line. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI request is sent by default |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
-| V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
+| V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.3 is the current public release surface. It preserves the V2.2 audit model while adding PRISMA-trAIce transparency files. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. It adds these exports:
+V2.4 is the current public release surface. It preserves the V2.2 audit chain and V2.3 PRISMA-trAIce transparency report while moving included studies into formal quality-appraisal and evidence-table structures. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. Current key exports include:
 
 | File | Purpose |
 |---|---|
@@ -79,6 +80,9 @@ V2.3 is the current public release surface. It preserves the V2.2 audit model wh
 | `ai_usage_registry.json` | AI mode, provider boundary, allowed stages, and acknowledgement evidence |
 | `ai_suggestions.jsonl` | AI suggestions, hashes, human review actions, linked decisions, review trace fields, and PRISMA count boundary |
 | `PRISMA_TRAICE_REPORT.md` | No-AI or assistive-AI transparency report for PRISMA-trAIce readiness |
+| `quality_appraisal.csv` | Per-study and per-domain quality appraisal rows with human-entered judgement, supporting quote/page, reviewer note, and overall judgement |
+| `evidence_table.csv` | PICOS, effect, quality judgement, and certainty-of-evidence table for evidence synthesis |
+| `grade_summary.csv` | Outcome/PICOS-grouped GRADE scaffold; final certainty and downgrade reasons remain human-confirmed |
 
 ## Core capabilities
 
@@ -90,10 +94,11 @@ V2.3 is the current public release surface. It preserves the V2.2 audit model wh
 | Rule-based screening | Language, year, keyword, title, author, and journal filters |
 | Full-text review | Keyboard shortcuts, exclusion reasons, notes, and record-level translation entry |
 | Dual review | Main / secondary reviewer mode, with stronger conflict handling planned |
-| Quality assessment | Quality queue, study-design suggestions, and evidence baselines |
+| Quality assessment | V2.4 supports template families, item-level forms, human judgement, supporting quote/page, and reviewer note fields |
+| Evidence formalization | Exports `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv` |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
-| Audit export | V2.2 supports manifest, event log, decision ledger, counts, and summary |
-| PRISMA-trAIce readiness | V2.3 adds AI mode, AI usage registry, provider abstraction, mock suggestion log, human review trace fields, and a transparency report; no real AI provider dispatch is enabled |
+| Audit export | Supports manifest, event log, decision ledger, counts, summary, and quality-appraisal audit traces |
+| PRISMA-trAIce readiness | Adds AI mode, AI usage registry, provider abstraction, mock suggestion log, human review trace fields, and a transparency report; no real AI provider dispatch is enabled |
 
 ## Performance and benchmarks
 
@@ -112,11 +117,11 @@ Benchmark numbers come from [`docs/benchmarks/dedup/post-implementation-benchmar
 ```text
 workspace.html              -> Workspace page and step structure
 app.js                      -> Main flow, rule screening, review, export, and state management
-audit-engine.js             -> V2.3 audit and PRISMA-trAIce model, decision serialization, audit-package builders
+audit-engine.js             -> Audit model, PRISMA-trAIce structures, decision serialization, audit-package builders
 db-worker.js                -> IndexedDB data layer
 parser-worker.js            -> Multi-format parsing and background orchestration
 streaming-parser.js         -> Incremental parsing state machines
-quality-engine.js           -> Study-design, tool-family, and evidence baselines
+quality-engine.js           -> Quality templates, study-design detection, evidence table, and GRADE summary
 import-job-runtime.js       -> Import stages, progress, and project state
 dedup-engine.js             -> Conservative deduplication engine
 virtual-list.js             -> Large-list rendering
@@ -136,7 +141,9 @@ Current coverage includes:
 - AI suggestion panel, human review flow, PRISMA-trAIce report, and AI suggestion JSONL trace fields
 - dedup engine, candidate duplicate export, benchmark smoke/regression
 - import job state, parser chunk boundaries, import hardening
-- quality engine and study-design classifier
+- quality engine, study-design classifier, quality appraisal CSV, evidence table, and GRADE summary
+
+Latest V2.4 closeout regression: `115/115` tests passed.
 
 ## Roadmap
 
@@ -144,12 +151,42 @@ Current coverage includes:
 |---|---|
 | V2.2 | Audit foundation, event log, recalculable PRISMA counts, audit-package export |
 | V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
-| V2.4 | Quality appraisal templates, evidence table, GRADE summary |
-| V2.5 | Reviewer isolation, conflict queue, resolver workflow, agreement metrics |
+| V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
+| V2.5 | In progress: reviewer isolation, conflict queue, resolver workflow, agreement metrics |
 | V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history
+
+<details>
+<summary><b>V2.4 quality appraisal (current release, 2026-05)</b></summary>
+
+- keeps `literature-screening-v2.2/` as the compatibility release path
+- adds a quality appraisal template schema covering RCT, cohort, case-control, cross-sectional, diagnostic accuracy, and systematic review studies
+- adds reviewer-editable item-level quality forms for domain judgement, supporting quote/page, reviewer note, overall judgement, appraisal status, and assessment notes
+- exports `quality_appraisal.csv`
+- exports `evidence_table.csv`
+- exports `grade_summary.csv`, while final GRADE certainty and downgrade reasons remain human-confirmed
+- records quality edits as `quality_appraisal_updated` audit events with before/after values
+- does not connect to a real AI provider by default and does not save or export API keys
+- passed the full regression suite, `115/115`
+
+</details>
+
+<details>
+<summary><b>V2.3 PRISMA-trAIce readiness (completed, 2026-05)</b></summary>
+
+- adds `off`, `assistive`, and `experimental` AI modes
+- adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
+- exports `ai_usage_registry.json`
+- exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
+- exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
+- keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
+- keeps rejected suggestions out of PRISMA counts
+- does not dispatch to a real AI provider or export API key material
+- tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
+
+</details>
 
 <details>
 <summary><b>V2.2 audit-ready (completed foundation, 2026-04)</b></summary>
@@ -166,23 +203,7 @@ Current coverage includes:
 </details>
 
 <details>
-<summary><b>V2.3 PRISMA-trAIce readiness (current release, 2026-05)</b></summary>
-
-- adds `off`, `assistive`, and `experimental` AI modes
-- adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
-- exports `ai_usage_registry.json`
-- exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
-- exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
-- keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
-- keeps rejected suggestions out of PRISMA counts
-- does not dispatch to a real AI provider or export API key material
-- ships from the `literature-screening-v2.2/` compatibility path while presenting V2.3 as the release version
-- tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
-
-</details>
-
-<details>
-<summary><b>V2.1 stable (current GitHub Pages path, 2026-04)</b></summary>
+<summary><b>V2.1 stable (historical GitHub Pages path, 2026-04)</b></summary>
 
 - expands the workflow to 6 steps with quality assessment before export
 - moves `CSV / TSV / RIS / NBIB / ENW` to Worker-based incremental parsing

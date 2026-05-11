@@ -3,8 +3,8 @@
 面向系统综述、Meta 分析和证据整合项目的本地优先工作台。它把文献导入、保守去重、规则筛选、人工复核、质量评价、PRISMA 2020 导出和审计包放在同一个浏览器流程里。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.3%20PRISMA--trAIce-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![Stable demo](https://img.shields.io/badge/Stable%20demo-V2.1-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.4%20Quality%20Appraisal-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Current demo](https://img.shields.io/badge/Current%20demo-V2.4-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -23,8 +23,8 @@
 | 大文件导入时页面像是卡住 | 常用格式使用 Worker 增量解析，并记录导入阶段、字节进度和记录数 |
 | PRISMA 图里的数字难以追溯 | V2.2 增加 `AuditEvent` 和 `ScreeningDecision`，计数可从审计数据重算 |
 | 全文排除理由分散在表格或备注里 | 内置标准 exclusion reason taxonomy，并导出排除理由汇总 |
-| 质量评价经常脱离筛选流程 | 纳入研究可以进入质量评价队列，保留研究设计和证据等级基线 |
-| 后续要接 AI 辅助，但又担心不可解释 | AI 默认关闭；后续 AI 建议必须进入人工确认和审计日志 |
+| 质量评价经常脱离筛选流程 | 纳入研究可以进入条目级质量评价表单，并导出质量评价表、证据表和 GRADE 摘要 |
+| 使用 AI 辅助时担心不可解释 | AI 默认关闭；示例 AI 建议必须经过人工确认，并写入审计日志 |
 
 ## 适合谁
 
@@ -54,19 +54,20 @@ flowchart LR
 | 去重 | 硬重复移除列表、疑似重复候选列表、去重证据 |
 | 规则筛选 | 标题/摘要阶段的纳入、排除和不确定记录 |
 | 人工复核 | 全文阶段最终判断、排除理由、复核备注 |
-| 质量评价 | 研究设计建议、工具族建议、证据等级基线 |
-| 导出 | PRISMA SVG、结果表、筛选报告、V2.2 审计包 |
+| 质量评价 | 研究设计建议、工具族建议、条目级质量评价、证据等级基线 |
+| 导出 | PRISMA SVG、结果表、筛选报告、审计包、质量评价表、证据表、GRADE 摘要 |
 
 ## 当前版本状态
 
 | 版本线 | 路径 | 状态 |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current release line. Keeps V2.2 audit foundation and adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled. The `v2.2` path remains the compatibility release path. |
-| V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
-| V2.1 stable | `literature-screening-v2.0/` | GitHub Pages 当前稳定路径，保留 6 步工作流和质量评价入口 |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | 当前发布线。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求 |
+| V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出 |
+| V2.1 stable | `literature-screening-v2.0/` | 历史稳定路径，保留 6 步工作流和早期质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
 
-V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型与内部设计文档 `AUDIT_LEDGER_DESIGN.md` 对齐，导出采用稳定的 `snake_case` 字段命名，同时兼容旧版本存储的数据格式。新增导出包括：
+V2.4 是当前公开发布线。它保留 V2.2 的可复核审计链和 V2.3 的 PRISMA-trAIce 透明报告，同时把纳入研究推进到正式的质量评价与证据整理结构。审计事件类型与内部设计文档 `AUDIT_LEDGER_DESIGN.md` 对齐，导出采用稳定的 `snake_case` 字段命名，同时兼容旧版本存储的数据格式。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
@@ -79,6 +80,9 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 | `ai_usage_registry.json` | AI 模式、provider 边界、允许阶段和用户确认记录 |
 | `ai_suggestions.jsonl` | AI 建议、hash、人工复核动作、关联 decision、review trace 字段和 PRISMA 计数边界 |
 | `PRISMA_TRAICE_REPORT.md` | No-AI 或 assistive-AI 透明报告，用于 PRISMA-trAIce readiness |
+| `quality_appraisal.csv` | 逐研究、逐领域的质量评价记录，包含人工填写的 judgement、支持性原文 / 页码、审稿备注和总体判断 |
+| `evidence_table.csv` | 面向证据整理的 PICOS、效果量、质量判断和证据等级表 |
+| `grade_summary.csv` | 按结局和 PICOS 分组的 GRADE 摘要脚手架，最终 certainty 和降级理由保留人工确认 |
 
 ## 核心能力
 
@@ -90,10 +94,11 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 | 规则筛选 | 支持语言、年份、关键词、标题、作者、期刊等条件 |
 | 全文复核 | 支持快捷键、排除理由、备注和单篇翻译入口 |
 | 双人复核 | 支持主审 / 副审模式，后续会强化冲突解决闭环 |
-| 质量评价 | 已有质量评价队列、研究设计建议和证据等级基线 |
+| 质量评价 | V2.4 已支持模板族、条目级质量表单、人工 judgement、支持性原文 / 页码和审稿备注 |
+| 证据整理 | 已支持 `quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv` |
 | PRISMA 2020 导出 | 支持多主题 SVG、纳入/排除表和筛选报告 |
-| 审计导出 | V2.2 已支持 manifest、event log、decision ledger、counts 和 summary |
-| PRISMA-trAIce readiness | V2.3 已加入 AI mode、AI usage registry、mock suggestion log、人工复核 trace 字段和透明报告；当前不接真实 AI provider |
+| 审计导出 | 已支持 manifest、event log、decision ledger、counts、summary 和质量评价相关 audit trace |
+| PRISMA-trAIce readiness | 已加入 AI mode、AI usage registry、mock suggestion log、人工复核 trace 字段和透明报告；当前不接真实 AI provider |
 
 ## 性能与基准
 
@@ -112,11 +117,11 @@ V2.2 的重点是让筛选过程形成可复核的数据链。审计事件类型
 ```text
 workspace.html              -> 工作台页面与步骤结构
 app.js                      -> 主流程、规则筛选、复核、导出和状态管理
-audit-engine.js             -> V2.3 审计模型、决策序列化和审计包构建
+audit-engine.js             -> 审计模型、PRISMA-trAIce 数据结构、决策序列化和审计包构建
 db-worker.js                -> IndexedDB 数据层
 parser-worker.js            -> 多格式解析和后台消息编排
 streaming-parser.js         -> 常用格式增量解析状态机
-quality-engine.js           -> 研究设计、工具族和证据等级基线
+quality-engine.js           -> 质量评价模板、研究设计、证据等级、evidence table 和 GRADE summary
 import-job-runtime.js       -> 导入任务阶段、进度和项目状态
 dedup-engine.js             -> 保守去重引擎
 virtual-list.js             -> 大规模列表渲染
@@ -133,9 +138,12 @@ node tests\run-all-regressions.js
 当前覆盖范围包括：
 
 - audit model、workflow hooks、audit package export
+- AI suggestion panel、human review flow、PRISMA-trAIce report、AI suggestion JSONL trace fields
 - dedup engine、candidate duplicate export、benchmark smoke/regression
 - import job state、parser chunk boundaries、import hardening
-- quality engine、study-design classifier
+- quality engine、study-design classifier、quality appraisal CSV、evidence table、GRADE summary
+
+最近一次 V2.4 收尾回归结果：`115/115` 通过。
 
 ## 路线图
 
@@ -143,12 +151,42 @@ node tests\run-all-regressions.js
 |---|---|
 | V2.2 | 审计基础层、事件日志、可重算 PRISMA counts、审计包导出 |
 | V2.3 | PRISMA-trAIce 数据模型、AI usage registry、AI suggestion log、透明报告 |
-| V2.4 | 质量评价模板、evidence table、GRADE summary |
-| V2.5 | 双人复核隔离、冲突队列、resolver workflow、agreement metrics |
+| V2.4 | 已完成：质量评价模板、条目级质量表单、evidence table、GRADE summary |
+| V2.5 | 进行中：双人复核隔离、冲突队列、resolver workflow、agreement metrics |
 | V2.6 | Conservative AI screening、ranking、prompt registry、provider abstraction |
 | V3.0 | landing page、demo dataset、benchmark、paper skeleton、发布材料 |
 
 ## 版本历史
+
+<details>
+<summary><b>V2.4 quality appraisal（当前发布线，2026-05）</b></summary>
+
+- 保留 `literature-screening-v2.2/` 作为兼容发布路径
+- 新增质量评价模板 schema，覆盖 RCT、cohort、case-control、cross-sectional、diagnostic accuracy 和 systematic review
+- 新增 reviewer-editable item-level quality forms，支持领域判断、支持性原文 / 页码、审稿备注、总体判断、评价状态和评价备注
+- 新增 `quality_appraisal.csv`
+- 新增 `evidence_table.csv`
+- 新增 `grade_summary.csv`，最终 GRADE certainty 和 downgrade reasons 仍由人工确认
+- 质量评价修改写入 `quality_appraisal_updated` audit event，保留 before / after
+- 不默认连接真实 AI provider，不保存或导出 API key
+- 完整回归 `115/115` 通过
+
+</details>
+
+<details>
+<summary><b>V2.3 PRISMA-trAIce readiness（已完成，2026-05）</b></summary>
+
+- 新增 `off`、`assistive`、`experimental` AI mode
+- 新增 provider abstraction，为未来 OpenAI-compatible endpoint 做边界准备，但默认禁用真实请求
+- 导出 `ai_usage_registry.json`
+- 导出 `ai_suggestions.jsonl`，包含 human action、linked decision、`reviewed_at`、human edit fields 和 `prisma_count_boundary`
+- 导出 `PRISMA_TRAICE_REPORT.md`，支持 No-AI 和 assistive-AI 透明说明
+- mock AI suggestion 只有在人工 accept/edit 后才会形成 `ScreeningDecision`
+- rejected suggestion 不进入 PRISMA counts
+- 不发送真实 AI provider 请求，不导出 API key 材料
+- release-readiness gate 见 [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
+
+</details>
 
 <details>
 <summary><b>V2.2 audit-ready (completed foundation, 2026-04)</b></summary>
@@ -165,7 +203,7 @@ node tests\run-all-regressions.js
 </details>
 
 <details>
-<summary><b>V2.1 stable（当前 GitHub Pages 稳定路径，2026-04）</b></summary>
+<summary><b>V2.1 stable（历史 GitHub Pages 路径，2026-04）</b></summary>
 
 - 工作流升级为 6 步，新增质量评价 / 证据等级步骤
 - 常用格式 `CSV / TSV / RIS / NBIB / ENW` 改为 Worker 增量解析
