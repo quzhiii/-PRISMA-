@@ -333,6 +333,8 @@ test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit t
   assert.match(source, /dual_review_agreement\.json/);
   assert.match(source, /serializeDualReviewAgreementJson/);
   assert.match(source, /dual_review_export_generated/);
+  assert.match(source, /createResolverQualityAssessment/);
+  assert.match(source, /createQualityConflictResolvedAuditEvent/);
   const auditExportTypesBlock = source.match(/const AUDIT_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
   assert.ok(auditExportTypesBlock);
   assert.doesNotMatch(auditExportTypesBlock[1], /'quality_appraisal'/);

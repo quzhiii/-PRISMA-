@@ -98,6 +98,8 @@ test('v2.2 app supports reviewer-editable item-level quality forms with audit tr
   assert.match(source, /after,/);
   assert.match(source, /source: 'human'/);
   assert.match(source, /editor: 'item_level_quality_form'/);
+  assert.match(source, /reviewer_assessments: preserveQualityReviewerAssessments/);
+  assert.match(source, /reviewer_assessments: \{/);
   assert.match(source, /填写领域判断与引用证据/);
   assert.match(source, /支持性原文 \/ 页码/);
   assert.match(source, /审稿备注/);
@@ -168,9 +170,14 @@ test('v2.2 app wires V2.5 dual-review conflict workflow without changing local-f
   assert.match(source, /buildScreeningConflictQueue/);
   assert.match(source, /buildQualityConflictQueue/);
   assert.match(source, /createResolverScreeningDecision/);
+  assert.match(source, /function showQualityConflictResolver/);
+  assert.match(source, /createResolverQualityAssessment/);
   assert.match(source, /review_conflict_resolved/);
+  assert.match(source, /createQualityConflictResolvedAuditEvent/);
+  assert.match(source, /function upsertResolvedQualityAssessment/);
   assert.match(source, /export_conflict_warning/);
   assert.match(source, /maybeWarnUnresolvedConflictsBeforeExport/);
+  assert.match(source, /preserveQualityReviewerAssessments/);
   assert.match(source, /__uncertain__/);
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);
 });

@@ -97,6 +97,8 @@ V2.2 已新增：
 | `ai_suggestion_created` | ai | 未来 AI 建议事件 |
 | `ai_suggestion_reviewed` | ai | 未来 AI 建议人工处理事件 |
 
+V2.5 adds `quality_conflict_resolved` for resolver-confirmed quality appraisal final values. It uses `stage = quality`, includes reviewer A/B quality summaries in `before`, resolver final values in `after`, and keeps `metadata.resolverAction = true`.
+
 ### 3.3 ScreeningDecision
 
 Decision ledger 记录“当前可重算的筛选决定”。

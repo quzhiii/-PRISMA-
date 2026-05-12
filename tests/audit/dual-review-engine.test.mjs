@@ -175,6 +175,73 @@ test('detects minimal quality appraisal conflicts across overall, status, and do
   );
 });
 
+test('builds quality conflict resolver record and audit event', () => {
+  const reviewerAssessments = [
+    {
+      assessment_id: 'qa-a',
+      record_id: 'record-quality',
+      reviewer_id: 'reviewer_A',
+      overall_judgement: 'low_risk',
+      status: 'complete',
+      domain_scores: [
+        { domain_id: 'randomization', judgement: 'low_risk' },
+        { domain_id: 'blinding', judgement: 'some_concerns' },
+      ],
+      updated_at: '2026-05-12T02:00:00.000Z',
+    },
+    {
+      assessment_id: 'qa-b',
+      record_id: 'record-quality',
+      reviewer_id: 'reviewer_B',
+      overall_judgement: 'high_risk',
+      status: 'in_progress',
+      domain_scores: [
+        { domain_id: 'randomization', judgement: 'high_risk' },
+        { domain_id: 'blinding', judgement: 'some_concerns' },
+      ],
+      updated_at: '2026-05-12T02:01:00.000Z',
+    },
+  ];
+  const conflicts = DualReviewEngine.buildQualityConflictQueue(reviewerAssessments);
+  const resolverAssessment = DualReviewEngine.createResolverQualityAssessment(conflicts[0], {
+    projectId: 'project-1',
+    resolverId: 'resolver_1',
+    overallJudgement: 'some_concerns',
+    status: 'complete',
+    domainJudgements: {
+      randomization: 'some_concerns',
+      blinding: 'some_concerns',
+    },
+    notes: 'Consensus quality judgement.',
+    resolvedAt: '2026-05-12T03:00:00.000Z',
+  });
+  const event = DualReviewEngine.createQualityConflictResolvedAuditEvent(conflicts[0], resolverAssessment);
+  const resolvedConflicts = DualReviewEngine.buildQualityConflictQueue([
+    ...reviewerAssessments,
+    resolverAssessment,
+  ]);
+  const csv = DualReviewEngine.serializeDualReviewConflictsCsv({
+    qualityConflicts: resolvedConflicts,
+  });
+
+  assert.equal(resolverAssessment.reviewer_id, 'resolver_1');
+  assert.equal(resolverAssessment.overall_judgement, 'some_concerns');
+  assert.equal(resolverAssessment.metadata.resolverAction, true);
+  assert.equal(resolverAssessment.metadata.conflictId, 'quality-conflict-record-quality');
+  assert.equal(event.eventType, 'quality_conflict_resolved');
+  assert.equal(event.before.reviewerA.overallJudgement, 'low_risk');
+  assert.equal(event.before.reviewerB.status, 'in_progress');
+  assert.equal(event.after.finalValues.overallJudgement, 'some_concerns');
+  assert.equal(event.after.finalValues.domainJudgements.randomization, 'some_concerns');
+  assert.equal(event.metadata.resolverAction, true);
+  assert.equal(event.metadata.schemaVersion, DualReviewEngine.DUAL_REVIEW_SCHEMA_VERSION);
+  assert.equal(event.metadata.conflictId, 'quality-conflict-record-quality');
+  assert.equal(resolvedConflicts[0].status, 'resolved');
+  assert.match(csv, /resolved,quality,record-quality/);
+  assert.match(csv, /resolver_1/);
+  assert.match(csv, /overall:some_concerns\|status:complete\|domains:blinding:some_concerns;randomization:some_concerns/);
+});
+
 test('summarizes export gate warnings for unresolved conflicts', () => {
   const gate = DualReviewEngine.buildExportGateStatus({
     screeningConflicts: [{ status: 'pending' }, { status: 'resolved' }],

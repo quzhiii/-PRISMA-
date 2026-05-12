@@ -92,6 +92,15 @@ V2.4 checkpoint update:
 - Saving quality form edits updates `qualityAssessments`, persists local project state, and records a human-sourced `quality_appraisal_updated` audit event with before/after snapshots.
 - `quality_appraisal.csv` reflects the saved human-entered item-level quality fields.
 
+V2.5 checkpoint update:
+
+- `dual-review-engine.js` now owns `dual_review.v2.5-alpha` conflict and agreement helpers for screening and quality appraisal.
+- Full-text reviewer A/B decisions are isolated as durable `ScreeningDecision` records; resolver decisions write a final human decision plus `review_conflict_resolved`.
+- PRISMA count replay excludes unresolved A/B conflicts and counts resolver/final human decisions when present.
+- Quality conflicts are detected across `overall_judgement`, `status`, and domain judgements.
+- Step 5 now has a minimal main-reviewer quality conflict resolver that writes resolver/final quality values and a `quality_conflict_resolved` audit event.
+- V2.5 exports `dual_review_conflicts.csv` and `dual_review_agreement.json` outside the frozen V2.3 audit export type list.
+
 ## 4. Current Import / Parsing Pipeline
 
 Import entry points:
@@ -150,8 +159,8 @@ Dual-review support exists through:
 
 Main gaps:
 
-- reviewer decisions are increasingly represented through durable `ScreeningDecision` records for rule/manual/AI-confirmed paths, but dual-review resolver records still need formalization.
-- conflict resolution is present, but not yet a strict final-export gate.
+- reviewer decisions are increasingly represented through durable `ScreeningDecision` records for rule/manual/AI-confirmed paths, and the minimal V2.5 resolver workflow is now formalized for full-text and quality conflicts.
+- conflict resolution is present, but final exports still use a warning-only unresolved-conflict gate rather than a strict blocker.
 - exclusion reason changes are not logged with before/after values.
 
 ## 7. Current Export Workflow
@@ -190,6 +199,11 @@ V2.4-beta evidence export:
 V2.4 GRADE summary export:
 
 - `grade_summary.csv`
+
+V2.5 dual-review evidence exports:
+
+- `dual_review_conflicts.csv`
+- `dual_review_agreement.json`
 
 V2.3 checkpoint update: `ai_suggestions.jsonl` includes human action, linked decision id, `reviewed_at`, human edit fields, and `prisma_count_boundary`. Rejected suggestions stay advisory-only and do not change PRISMA counts.
 

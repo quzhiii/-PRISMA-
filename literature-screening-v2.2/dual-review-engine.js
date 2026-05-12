@@ -446,6 +446,142 @@
     };
   }
 
+  function createResolverQualityAssessment(conflictInput, input = {}) {
+    const conflict = conflictInput || {};
+    const timestamp = normalizeString(input.resolvedAt || input.updatedAt || input.updated_at, '') || nowIso();
+    const recordId = normalizeString(input.recordId || input.record_id || conflict.recordId || conflict.record_id, '');
+    const reviewerId = normalizeReviewerId(input.resolverId || input.resolver_id || input.reviewerId || input.reviewer_id, 'resolver_1');
+    const domainJudgements = normalizeQualityDomainJudgements(
+      input.domainJudgements || input.domain_judgements || input.domainScores || input.domain_scores || input.domains,
+      conflict
+    );
+    const domainRows = Object.keys(domainJudgements).sort().map((domainId) => ({
+      domain_id: domainId,
+      judgement: domainJudgements[domainId],
+    }));
+
+    return {
+      assessment_id: normalizeString(input.assessmentId || input.assessment_id, `quality-resolution-${recordId || makeId('record')}`),
+      project_id: normalizeString(input.projectId || input.project_id, ''),
+      record_id: recordId,
+      reviewer_id: reviewerId,
+      reviewer_slot: 'resolver',
+      overall_judgement: normalizeString(input.overallJudgement || input.overall_judgement, 'not_assessed'),
+      status: normalizeString(input.status, 'complete'),
+      domain_scores: domainRows,
+      domains: domainRows,
+      notes: normalizeString(input.notes || input.discussion, ''),
+      updated_at: timestamp,
+      metadata: {
+        ...normalizeObject(input.metadata),
+        resolverAction: true,
+        finalDecision: true,
+        conflictId: normalizeString(conflict.conflictId || conflict.conflict_id, ''),
+        reviewerA: conflict.reviewerA ? summarizeQualityAssessment(conflict.reviewerA) : null,
+        reviewerB: conflict.reviewerB ? summarizeQualityAssessment(conflict.reviewerB) : null,
+        resolutionSource: 'resolver',
+        schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+      },
+      schema_version: DUAL_REVIEW_SCHEMA_VERSION,
+    };
+  }
+
+  function normalizeQualityDomainJudgements(input, conflictInput) {
+    const judgements = {};
+    const source = input || {};
+
+    if (Array.isArray(source)) {
+      source.forEach((row) => {
+        const domainId = normalizeString(row && (row.domain_id || row.domain || row.id || row.label), '');
+        if (!domainId) return;
+        judgements[domainId] = normalizeString(row && (row.judgement || row.score || row.value), 'not_assessed');
+      });
+    } else if (source && typeof source === 'object') {
+      Object.keys(source).forEach((domainId) => {
+        const value = source[domainId];
+        judgements[domainId] = normalizeString(
+          value && typeof value === 'object' ? (value.judgement || value.score || value.value) : value,
+          'not_assessed'
+        );
+      });
+    }
+
+    const conflict = conflictInput || {};
+    const domainIds = new Set();
+    [conflict.reviewerA, conflict.reviewerB].forEach((assessment) => {
+      Object.keys((assessment && assessment.domainJudgements) || {}).forEach((domainId) => domainIds.add(domainId));
+    });
+    (Array.isArray(conflict.differences) ? conflict.differences : []).forEach((difference) => {
+      const field = normalizeString(difference && difference.field, '');
+      if (field.startsWith('domain:')) domainIds.add(field.slice('domain:'.length));
+    });
+
+    domainIds.forEach((domainId) => {
+      if (Object.prototype.hasOwnProperty.call(judgements, domainId)) return;
+      const reviewerAValue = conflict.reviewerA && conflict.reviewerA.domainJudgements
+        ? conflict.reviewerA.domainJudgements[domainId]
+        : '';
+      const reviewerBValue = conflict.reviewerB && conflict.reviewerB.domainJudgements
+        ? conflict.reviewerB.domainJudgements[domainId]
+        : '';
+      judgements[domainId] = normalizeString(reviewerAValue || reviewerBValue, 'not_assessed');
+    });
+
+    return judgements;
+  }
+
+  function summarizeQualityAssessment(assessmentInput) {
+    const assessment = assessmentInput && assessmentInput.recordId
+      ? assessmentInput
+      : normalizeQualityAssessment(assessmentInput || {});
+
+    return {
+      reviewerId: normalizeString(assessment.reviewerId || assessment.reviewer_id, ''),
+      overallJudgement: normalizeString(assessment.overallJudgement || assessment.overall_judgement, 'not_assessed'),
+      status: normalizeString(assessment.status, 'not_started'),
+      domainJudgements: clonePlain(assessment.domainJudgements || assessment.domain_judgements || {}, {}),
+      updatedAt: normalizeString(assessment.updatedAt || assessment.updated_at, ''),
+    };
+  }
+
+  function createQualityConflictResolvedAuditEvent(conflictInput, resolverAssessmentInput, input = {}) {
+    const conflict = conflictInput || {};
+    const resolverAssessment = normalizeQualityAssessment(resolverAssessmentInput || {});
+    const conflictId = normalizeString(conflict.conflictId || conflict.conflict_id, '');
+
+    return {
+      eventType: 'quality_conflict_resolved',
+      recordId: resolverAssessment.recordId || conflict.recordId || '',
+      stage: 'quality',
+      before: {
+        conflictId,
+        status: normalizeString(conflict.status, 'pending'),
+        reviewerA: conflict.reviewerA ? summarizeQualityAssessment(conflict.reviewerA) : null,
+        reviewerB: conflict.reviewerB ? summarizeQualityAssessment(conflict.reviewerB) : null,
+        differences: clonePlain(conflict.differences || [], []),
+      },
+      after: {
+        conflictId,
+        status: 'resolved',
+        finalValues: {
+          overallJudgement: resolverAssessment.overallJudgement,
+          status: resolverAssessment.status,
+          domainJudgements: clonePlain(resolverAssessment.domainJudgements || {}, {}),
+        },
+        resolverId: resolverAssessment.reviewerId,
+      },
+      reason: normalizeString(input.reason || input.notes || resolverAssessment.raw?.notes, ''),
+      source: 'human',
+      metadata: {
+        ...normalizeObject(input.metadata),
+        resolverAction: true,
+        resolutionNote: normalizeString(input.notes || input.discussion || resolverAssessment.raw?.notes, ''),
+        schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+        conflictId,
+      },
+    };
+  }
+
   function getDomainJudgementMap(assessment) {
     const rows = Array.isArray(assessment && assessment.domain_scores)
       ? assessment.domain_scores
@@ -465,14 +601,21 @@
 
   function normalizeQualityAssessment(input) {
     const payload = input || {};
+    const metadata = normalizeObject(payload.metadata);
     const reviewerId = normalizeReviewerId(payload.reviewer_id || payload.reviewerId, '');
     const recordId = normalizeString(payload.record_id || payload.recordId, '');
+    const metadataResolver = metadata.resolverAction === true
+      || metadata.resolver_action === true
+      || metadata.finalDecision === true
+      || metadata.final_decision === true
+      || metadata.resolutionSource === 'resolver'
+      || metadata.resolution_source === 'resolver';
 
     return {
       assessmentId: normalizeString(payload.assessment_id || payload.assessmentId || payload.id, `qa-${recordId || makeId('record')}`),
       recordId,
       reviewerId,
-      reviewerSlot: getReviewerSlot(reviewerId),
+      reviewerSlot: normalizeString(payload.reviewerSlot || payload.reviewer_slot || metadata.reviewerSlot || metadata.reviewer_slot, metadataResolver ? 'resolver' : getReviewerSlot(reviewerId)),
       overallJudgement: normalizeString(payload.overall_judgement || payload.overallJudgement || payload.overall_risk || payload.overallRisk, 'not_assessed'),
       status: normalizeString(payload.status, 'not_started'),
       domainJudgements: getDomainJudgementMap(payload),
@@ -898,6 +1041,8 @@
     createReviewerDecision,
     createResolverScreeningDecision,
     createResolverAuditEvent,
+    createResolverQualityAssessment,
+    createQualityConflictResolvedAuditEvent,
     getLatestScreeningDecisions,
     buildScreeningConflictQueue,
     buildScreeningAgreementPairs,

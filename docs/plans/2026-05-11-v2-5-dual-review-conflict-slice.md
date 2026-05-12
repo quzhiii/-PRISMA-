@@ -13,6 +13,7 @@ Covered:
 - Resolver decisions that write a final human `ScreeningDecision` plus a `review_conflict_resolved` audit event.
 - Agreement metrics foundation: percent agreement and Cohen's kappa.
 - Minimal quality conflict detection for overall judgement, status, and domain judgement.
+- Minimal quality conflict resolver workflow: resolver/final values for overall judgement, status, and domain judgements plus a `quality_conflict_resolved` audit event.
 - Warning-only export gate when unresolved conflicts remain.
 - V2.5 export evidence: `dual_review_conflicts.csv` and `dual_review_agreement.json`.
 
@@ -55,11 +56,12 @@ This prevents Reviewer A and Reviewer B from double-counting the same record.
 - preserves collaborative `projectData.reviewDecisions`.
 - records `review_conflict_detected` when pending conflicts are detected.
 - records `review_conflict_resolved` after resolver confirmation.
+- records `quality_conflict_resolved` after resolver confirmation of quality conflicts.
 - records `export_conflict_warning` when final exports proceed with unresolved conflicts.
 - records `dual_review_export_generated` when V2.5 conflict or agreement exports are downloaded.
 - persists `dualReviewResults` and `dualReviewConflictState` in project snapshots and project files.
 
-Quality forms now stamp `reviewer_id` on save so later V2.5 slices can compare reviewer-level quality appraisals without changing existing quality export columns.
+Quality forms now stamp `reviewer_id` and preserve reviewer-level quality snapshots on save so V2.5 can compare reviewer A/B quality appraisals without changing existing quality export columns. The resolver workflow stores resolver/final quality values in the same reviewer snapshot map and mirrors final values back to the base quality record for existing V2.4 exports.
 
 ## Export Evidence
 
@@ -69,6 +71,8 @@ This slice now exposes V2.5 dual-review artifacts outside the frozen V2.3 audit 
 - `dual_review_agreement.json`: paired A/B screening decisions, percent agreement, Cohen's kappa, conflict summaries, and the warning-only unresolved-conflict export gate.
 
 The paired agreement calculation includes both agreement and disagreement pairs. This avoids undercounting agreement when a project contains a mix of matching A/B decisions and unresolved conflicts.
+
+Quality conflict rows now show resolver/final values after resolution. This remains outside the frozen V2.3 audit export type list and does not change `quality_appraisal.csv`, `evidence_table.csv`, or `grade_summary.csv` columns.
 
 ## Verification
 
