@@ -315,3 +315,100 @@ test('serializes V2.5 dual-review conflict and agreement exports', () => {
   assert.equal(agreement.screening.pairs[0].recordId, 'record-1');
   assert.equal(agreement.exportGate.hasUnresolvedConflicts, true);
 });
+
+test('P1: reopens screening conflict when reviewer edits after resolution', () => {
+  const decisions = [
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'reopen-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_A',
+      decision: 'include',
+      updatedAt: '2026-06-02T01:00:00.000Z',
+    }),
+    DualReviewEngine.createReviewerDecision({
+      recordId: 'reopen-1',
+      stage: 'full_text',
+      reviewerId: 'reviewer_B',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      updatedAt: '2026-06-02T01:01:00.000Z',
+    }),
+    DualReviewEngine.createResolverScreeningDecision({
+      conflictId: 'conflict-full_text-reopen-1',
+      recordId: 'reopen-1',
+      stage: 'full_text',
+    }, {
+      resolverId: 'resolver_1',
+      decision: 'include',
+      updatedAt: '2026-06-02T02:00:00.000Z',
+    }),
+  ];
+  const records = [{ id: 'reopen-1', title: 'Reopen test' }];
+  const resolvedConflicts = DualReviewEngine.buildScreeningConflictQueue(decisions, records);
+  assert.equal(resolvedConflicts.length, 1);
+  assert.equal(resolvedConflicts[0].status, 'resolved');
+
+  // Reviewer B edits after resolver - should reopen
+  decisions.push(DualReviewEngine.createReviewerDecision({
+    recordId: 'reopen-1',
+    stage: 'full_text',
+    reviewerId: 'reviewer_B',
+    decision: 'uncertain',
+    updatedAt: '2026-06-02T03:00:00.000Z',
+  }));
+
+  const reopenedConflicts = DualReviewEngine.buildScreeningConflictQueue(decisions, records);
+  assert.equal(reopenedConflicts.length, 1);
+  assert.equal(reopenedConflicts[0].status, 'pending');
+  assert.equal(reopenedConflicts[0].resolverDecision, null);
+});
+
+test('P1: reopens quality conflict when reviewer edits after resolution', () => {
+  const assessments = [
+    {
+      assessment_id: 'qa-a-reopen',
+      record_id: 'record-quality-reopen',
+      reviewer_id: 'reviewer_A',
+      overall_judgement: 'low_risk',
+      status: 'complete',
+      updated_at: '2026-06-02T01:00:00.000Z',
+    },
+    {
+      assessment_id: 'qa-b-reopen',
+      record_id: 'record-quality-reopen',
+      reviewer_id: 'reviewer_B',
+      overall_judgement: 'high_risk',
+      status: 'complete',
+      updated_at: '2026-06-02T01:01:00.000Z',
+    },
+    {
+      assessment_id: 'qa-resolver-reopen',
+      record_id: 'record-quality-reopen',
+      reviewer_id: 'resolver_1',
+      reviewer_slot: 'resolver',
+      overall_judgement: 'low_risk',
+      status: 'complete',
+      metadata: { resolverAction: true },
+      updated_at: '2026-06-02T02:00:00.000Z',
+    },
+  ];
+
+  const resolvedConflicts = DualReviewEngine.buildQualityConflictQueue(assessments);
+  assert.equal(resolvedConflicts.length, 1);
+  assert.equal(resolvedConflicts[0].status, 'resolved');
+
+  // Reviewer B edits after resolver - should reopen
+  assessments.push({
+    assessment_id: 'qa-b-edited',
+    record_id: 'record-quality-reopen',
+    reviewer_id: 'reviewer_B',
+    overall_judgement: 'some_concerns',
+    status: 'complete',
+    updated_at: '2026-06-02T03:00:00.000Z',
+  });
+
+  const reopenedConflicts = DualReviewEngine.buildQualityConflictQueue(assessments);
+  assert.equal(reopenedConflicts.length, 1);
+  assert.equal(reopenedConflicts[0].status, 'pending');
+  assert.equal(reopenedConflicts[0].resolverDecision, null);
+});

@@ -252,6 +252,18 @@
       const stage = reviewerA.stage || reviewerB.stage;
       const conflictId = `conflict-${stage}-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`;
 
+      // P1 fix: Invalidate resolver if either reviewer edited after resolution
+      const resolverTime = resolverDecision ? normalizeString(resolverDecision.updatedAt || resolverDecision.decidedAt, '') : '';
+      const reviewerATime = normalizeString(reviewerA.updatedAt || reviewerA.decidedAt, '');
+      const reviewerBTime = normalizeString(reviewerB.updatedAt || reviewerB.decidedAt, '');
+      const resolverStillValid = resolverDecision
+        && resolverTime
+        && reviewerATime
+        && reviewerBTime
+        && compareDecisionTime(resolverDecision, reviewerA) >= 0
+        && compareDecisionTime(resolverDecision, reviewerB) >= 0;
+      const effectiveResolver = resolverStillValid ? resolverDecision : null;
+
       conflicts.push({
         conflictId,
         conflictType: 'screening',
@@ -261,8 +273,8 @@
         record: recordMap.get(recordId) || null,
         reviewerA,
         reviewerB,
-        resolverDecision,
-        status: resolverDecision ? 'resolved' : 'pending',
+        resolverDecision: effectiveResolver,
+        status: effectiveResolver ? 'resolved' : 'pending',
         field: 'human_decision',
         signatures: {
           reviewerA: decisionSignature(reviewerA),
@@ -653,6 +665,15 @@
       const differences = getQualityDifferences(reviewerA, reviewerB);
       if (differences.length === 0) return;
 
+      // P1 fix: Invalidate resolver if either reviewer edited after resolution
+      const resolverStillValid = resolver
+        && resolver.updatedAt
+        && reviewerA.updatedAt
+        && reviewerB.updatedAt
+        && compareAssessmentTime(resolver, reviewerA) >= 0
+        && compareAssessmentTime(resolver, reviewerB) >= 0;
+      const effectiveResolver = resolverStillValid ? resolver : null;
+
       conflicts.push({
         conflictId: `quality-conflict-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`,
         conflictType: 'quality',
@@ -661,10 +682,10 @@
         stage: 'quality',
         reviewerA,
         reviewerB,
-        resolverDecision: resolver,
-        status: resolver ? 'resolved' : 'pending',
+        resolverDecision: effectiveResolver,
+        status: effectiveResolver ? 'resolved' : 'pending',
         differences,
-        updatedAt: resolver ? resolver.updatedAt : (reviewerB.updatedAt || reviewerA.updatedAt),
+        updatedAt: effectiveResolver ? effectiveResolver.updatedAt : (reviewerB.updatedAt || reviewerA.updatedAt),
       });
     });
 
