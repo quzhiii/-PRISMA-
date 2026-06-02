@@ -335,6 +335,10 @@ test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit t
   assert.match(source, /dual_review_export_generated/);
   assert.match(source, /createResolverQualityAssessment/);
   assert.match(source, /createQualityConflictResolvedAuditEvent/);
+  assert.match(source, /V25_FINAL_CONFLICT_GATED_EXPORT_TYPES/);
+  assert.match(source, /V25_CONFLICT_EVIDENCE_EXPORT_TYPES/);
+  assert.match(source, /export_conflict_blocked/);
+  assert.match(source, /export_conflict_warning/);
   const auditExportTypesBlock = source.match(/const AUDIT_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
   assert.ok(auditExportTypesBlock);
   assert.doesNotMatch(auditExportTypesBlock[1], /'quality_appraisal'/);
@@ -342,6 +346,42 @@ test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit t
   assert.doesNotMatch(auditExportTypesBlock[1], /'grade_summary'/);
   assert.doesNotMatch(auditExportTypesBlock[1], /'dual_review_conflicts'/);
   assert.doesNotMatch(auditExportTypesBlock[1], /'dual_review_agreement'/);
+});
+
+test('v2.5 conflict gate blocks final exports while keeping evidence exports available', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+
+  const finalGateBlock = source.match(/const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
+  const evidenceGateBlock = source.match(/const V25_CONFLICT_EVIDENCE_EXPORT_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
+  assert.ok(finalGateBlock);
+  assert.ok(evidenceGateBlock);
+
+  [
+    'included',
+    'excluded',
+    'svg-colorful',
+    'report',
+    'quality_appraisal',
+    'evidence_table',
+    'grade_summary',
+    'audit_prisma_counts',
+    'audit_summary',
+  ].forEach((type) => assert.match(finalGateBlock[1], new RegExp(`'${type}'`)));
+
+  [
+    'audit_events',
+    'audit_screening_decisions',
+    'audit_exclusion_reasons',
+    'dual_review_conflicts',
+    'dual_review_agreement',
+  ].forEach((type) => assert.match(evidenceGateBlock[1], new RegExp(`'${type}'`)));
+
+  assert.doesNotMatch(evidenceGateBlock[1], /'included'/);
+  assert.doesNotMatch(evidenceGateBlock[1], /'quality_appraisal'/);
+  assert.match(source, /recordConflictGateAuditEvent\('export_conflict_blocked'/);
+  assert.match(source, /return false;/);
+  assert.match(source, /recordConflictGateAuditEvent\('export_conflict_warning'/);
+  assert.match(source, /Final result exports are blocked while unresolved dual-review conflicts remain|V2\.5 已阻止最终结果导出/);
 });
 
 test('v2.2 workspace includes the audit package export buttons', async () => {

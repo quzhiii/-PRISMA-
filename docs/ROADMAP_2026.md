@@ -1,6 +1,6 @@
 # PRISMA Workbench 2026 Roadmap
 
-Last updated: 2026-05-09
+Last updated: 2026-06-02
 
 ## Roadmap 原则
 
@@ -15,9 +15,11 @@ Last updated: 2026-05-09
 | 版本线 | 状态 | 关键路径 |
 |---|---|---|
 | v1.7.x | 历史维护版 | 根目录旧入口 |
-| V2.1 stable | 当前稳定演示路径 | `literature-screening-v2.0/` |
-| V2.3 PRISMA-trAIce readiness | current release | `literature-screening-v2.2/` compatibility path |
+| V2.1 stable | 历史稳定路径 | `literature-screening-v2.0/` |
+| V2.3 PRISMA-trAIce readiness | completed | `literature-screening-v2.2/` compatibility path |
 | V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
+| V2.4 quality appraisal | current public stable line | `literature-screening-v2.2/` compatibility path |
+| V2.5 dual-review closeout | current improvement line | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
 
@@ -99,13 +101,16 @@ Current status: V2.3 readiness is release-ready in `literature-screening-v2.2/` 
 
 目标：把质量评价从“队列和建议”推进到可正式导出的结构化模块。
 
-| 任务 | 说明 |
-|---|---|
-| Template schema | RCT、cohort、case-control、cross-sectional、diagnostic accuracy、systematic review |
-| Tool family mapping | RoB 2、ROBINS-I、NOS、JBI、QUADAS-2、AMSTAR 2 等 |
-| Evidence table | PICOS、效果量、结局、风险偏倚、证据等级 |
-| Quality export | `quality_appraisal.csv`、`evidence_table.csv` |
-| Audit integration | 质量评价创建、修改、完成都写入 audit event |
+Current status: V2.4 is the current public stable line. It adds item-level quality forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`, while keeping final GRADE certainty and downgrade reasons human-controlled.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| Template schema | RCT、cohort、case-control、cross-sectional、diagnostic accuracy、systematic review | 已完成 |
+| Tool family mapping | RoB 2、ROBINS-I、NOS、JBI、QUADAS-2、AMSTAR 2 等 | 已完成 |
+| Item-level quality forms | domain judgement、supporting quote/page、reviewer note、overall judgement、status | 已完成 |
+| Evidence table | PICOS、效果量、结局、风险偏倚、证据等级 | 已完成 |
+| Quality export | `quality_appraisal.csv`、`evidence_table.csv`、`grade_summary.csv` | 已完成 |
+| Audit integration | 质量评价创建、修改、完成都写入 audit event | 已完成 |
 
 不做事项：
 
@@ -116,13 +121,23 @@ Current status: V2.3 readiness is release-ready in `literature-screening-v2.2/` 
 
 目标：让双人复核从“可用入口”变成可审计的正式流程。
 
-| 任务 | 说明 |
-|---|---|
-| Reviewer isolation | 主审、副审决策隔离存储 |
-| Conflict queue | 纳入/排除/不确定/质量评价冲突集中处理 |
-| Resolver workflow | 第三方或主审确认最终决定 |
-| Agreement metrics | Kappa、percent agreement、分阶段一致性 |
-| Export gate | 未解决冲突时提示风险或阻止最终导出 |
+Current status: V2.5 closeout is in progress on the compatibility path. Node regression and headless Chrome smoke pass; reconciling with `origin/main` and an intentional release cutover remain the release gate.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| Reviewer isolation | 主审、副审决策隔离存储为 durable `ScreeningDecision` | 已完成 |
+| Conflict queue | 纳入/排除/不确定/质量评价冲突集中处理 | 已完成 |
+| Resolver workflow | 第三方或主审确认最终筛选决定和质量评价值 | 已完成 |
+| Agreement metrics | Kappa、percent agreement、配对决策、一致/分歧统计 | 已完成 |
+| Conflict evidence exports | `dual_review_conflicts.csv`、`dual_review_agreement.json` | 已完成 |
+| Export gate | 未解决冲突时阻止最终结果导出，保留冲突证据导出 | 本阶段推进 |
+
+V2.5 readiness gate:
+
+- `node tests\run-all-regressions.js` 必须通过。
+- README、README_EN、roadmap、V2.5 checklist 必须同步当前状态。
+- 未解决双审冲突时，最终结果导出必须被阻断；冲突证据和审计证据导出仍可下载。
+- Headless Chrome smoke 已覆盖 Reviewer A/B 分歧、screening resolver、quality resolver、dual-review exports 和 blocked final export。
 
 ## P5：V2.6 Conservative AI screening
 

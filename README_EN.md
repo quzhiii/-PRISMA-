@@ -3,8 +3,9 @@
 A local-first workspace for systematic reviews, meta-analyses, and evidence synthesis. It brings literature import, conservative deduplication, rule-based screening, manual review, quality assessment, PRISMA 2020 export, and audit-package output into one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.3%20PRISMA--trAIce-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![Stable demo](https://img.shields.io/badge/Stable%20demo-V2.1-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.4%20Quality%20Appraisal-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Current demo](https://img.shields.io/badge/Current%20demo-V2.4-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![V2.5 closeout](https://img.shields.io/badge/V2.5-Dual%20Review%20Closeout-blueviolet.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -23,8 +24,9 @@ The hard part of a systematic review is rarely the final PRISMA diagram. The har
 | Large imports can make the page feel frozen | Common formats use Worker-based incremental parsing with stage, byte, and record progress |
 | PRISMA counts are difficult to audit | V2.2 adds `AuditEvent` and `ScreeningDecision`, so counts can be recalculated from durable data |
 | Full-text exclusion reasons are scattered across notes | Uses a standard exclusion-reason taxonomy and exports a reason summary |
-| Quality appraisal often sits outside screening tools | Included studies can enter a quality queue with study-design and evidence baselines |
-| AI assistance needs transparency before adoption | AI mode is `off` by default; future AI suggestions must pass through human confirmation and audit logs |
+| Quality appraisal often sits outside screening tools | Included studies can enter item-level quality forms and export quality appraisal, evidence table, and GRADE summary files |
+| Dual-review conflicts weaken final export trust | V2.5 closeout brings screening and quality disagreements into reviewer isolation, resolver workflow, agreement metrics, and an unresolved-conflict gate |
+| AI assistance needs transparency before adoption | AI mode is `off` by default; example AI suggestions must pass through human confirmation and audit logs |
 
 ## Who it is for
 
@@ -54,19 +56,21 @@ flowchart LR
 | Deduplication | Hard-duplicate removals, candidate duplicate list, dedup evidence |
 | Rule screening | Title/abstract include, exclude, and uncertain decisions |
 | Manual review | Full-text decisions, exclusion reasons, reviewer notes |
-| Quality assessment | Study-design suggestions, tool-family suggestions, evidence baselines |
-| Export | PRISMA SVG, result tables, screening report, V2.3 audit package |
+| Quality assessment | Study-design suggestions, tool-family suggestions, item-level quality appraisal, evidence baselines |
+| Export | PRISMA SVG, result tables, screening report, audit package, quality appraisal, evidence table, GRADE summary, dual-review conflict evidence |
 
 ## Current status
 
 | Line | Path | Status |
 |---|---|---|
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Current release line. Keeps the V2.2 audit foundation and adds AI usage registry, provider abstraction, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled. The `v2.2` path remains the compatibility release path. |
+| V2.5 dual-review closeout | `literature-screening-v2.2/` | Current improvement line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; headless Chrome smoke passed, and public tagging still requires reconciling with `origin/main` plus release cutover. |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | Current public stable line. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
-| V2.1 stable | `literature-screening-v2.0/` | Current GitHub Pages stable path with the six-step workflow and quality setup |
+| V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.3 is the current public release surface. It preserves the V2.2 audit model while adding PRISMA-trAIce transparency files. Audit event types are normalized to the `AUDIT_LEDGER_DESIGN.md` contract, exports use a stable `snake_case` field schema, and legacy stored data remains compatible. It adds these exports:
+V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.4 remains the current public stable line; V2.5 is closing out in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. Current key exports include:
 
 | File | Purpose |
 |---|---|
@@ -79,6 +83,11 @@ V2.3 is the current public release surface. It preserves the V2.2 audit model wh
 | `ai_usage_registry.json` | AI mode, provider boundary, allowed stages, and acknowledgement evidence |
 | `ai_suggestions.jsonl` | AI suggestions, hashes, human review actions, linked decisions, review trace fields, and PRISMA count boundary |
 | `PRISMA_TRAICE_REPORT.md` | No-AI or assistive-AI transparency report for PRISMA-trAIce readiness |
+| `quality_appraisal.csv` | Study-level and domain-level quality appraisal with human judgement, supporting quote / page, reviewer note, and overall judgement |
+| `evidence_table.csv` | Evidence extraction table with PICOS, effect fields, quality judgement, and certainty baseline |
+| `grade_summary.csv` | GRADE summary scaffold grouped by outcome and PICOS; final certainty and downgrade reasons remain human-confirmed |
+| `dual_review_conflicts.csv` | V2.5 dual-review conflict evidence for screening and quality disagreements, reviewer A/B values, resolver/final values, and status |
+| `dual_review_agreement.json` | V2.5 agreement metrics with paired decisions, percent agreement, Cohen's kappa, and conflict gate status |
 
 ## Core capabilities
 
@@ -89,11 +98,12 @@ V2.3 is the current public release surface. It preserves the V2.2 audit model wh
 | Conservative deduplication | Hard duplicates are auto-removed; candidate duplicates go to review |
 | Rule-based screening | Language, year, keyword, title, author, and journal filters |
 | Full-text review | Keyboard shortcuts, exclusion reasons, notes, and record-level translation entry |
-| Dual review | Main / secondary reviewer mode, with stronger conflict handling planned |
-| Quality assessment | Quality queue, study-design suggestions, and evidence baselines |
+| Dual review | V2.5 closeout supports A/B decision isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate |
+| Quality assessment | V2.4 supports template families, item-level forms, human judgement, supporting quote / page, and reviewer notes; V2.5 adds quality conflict handling |
+| Evidence synthesis | Supports `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv` |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
-| Audit export | V2.2 supports manifest, event log, decision ledger, counts, and summary |
-| PRISMA-trAIce readiness | V2.3 adds AI mode, AI usage registry, provider abstraction, mock suggestion log, human review trace fields, and a transparency report; no real AI provider dispatch is enabled |
+| Audit export | Supports manifest, event log, decision ledger, counts, summary, quality audit trace, and dual-review conflict gate events |
+| PRISMA-trAIce readiness | Adds AI mode, AI usage registry, provider abstraction, mock suggestion log, human review trace fields, and a transparency report; no real AI provider dispatch is enabled |
 
 ## Performance and benchmarks
 
@@ -112,11 +122,12 @@ Benchmark numbers come from [`docs/benchmarks/dedup/post-implementation-benchmar
 ```text
 workspace.html              -> Workspace page and step structure
 app.js                      -> Main flow, rule screening, review, export, and state management
-audit-engine.js             -> V2.3 audit and PRISMA-trAIce model, decision serialization, audit-package builders
+audit-engine.js             -> Audit model, PRISMA-trAIce structures, decision serialization, audit-package builders
+dual-review-engine.js       -> V2.5 conflict queues, resolver workflow, agreement metrics, and dual-review exports
 db-worker.js                -> IndexedDB data layer
 parser-worker.js            -> Multi-format parsing and background orchestration
 streaming-parser.js         -> Incremental parsing state machines
-quality-engine.js           -> Study-design, tool-family, and evidence baselines
+quality-engine.js           -> Quality templates, study design, evidence table, and GRADE summary
 import-job-runtime.js       -> Import stages, progress, and project state
 dedup-engine.js             -> Conservative deduplication engine
 virtual-list.js             -> Large-list rendering
@@ -134,9 +145,12 @@ Current coverage includes:
 
 - audit model, workflow hooks, audit-package export
 - AI suggestion panel, human review flow, PRISMA-trAIce report, and AI suggestion JSONL trace fields
+- dual-review conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate
 - dedup engine, candidate duplicate export, benchmark smoke/regression
 - import job state, parser chunk boundaries, import hardening
-- quality engine and study-design classifier
+- quality engine, study-design classifier, quality appraisal CSV, evidence table, and GRADE summary
+
+Latest V2.5 closeout regression result: `121/121` passed.
 
 ## Roadmap
 
@@ -144,12 +158,57 @@ Current coverage includes:
 |---|---|
 | V2.2 | Audit foundation, event log, recalculable PRISMA counts, audit-package export |
 | V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
-| V2.4 | Quality appraisal templates, evidence table, GRADE summary |
-| V2.5 | Reviewer isolation, conflict queue, resolver workflow, agreement metrics |
+| V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
+| V2.5 | Closing out: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
 | V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history
+
+<details>
+<summary><b>V2.5 dual-review closeout (current improvement line, 2026-06)</b></summary>
+
+- Reviewer A/B full-text decisions are isolated as durable `ScreeningDecision` records
+- Screening conflicts generate a conflict queue across include / exclude / uncertain disagreements
+- Resolver actions write final human decisions and `review_conflict_resolved` audit events
+- Quality conflicts are detected across overall judgement, status, and domain judgements
+- Quality resolver actions write final quality values and `quality_conflict_resolved` audit events
+- Added `dual_review_conflicts.csv` and `dual_review_agreement.json`
+- Final result exports are blocked while unresolved dual-review conflicts remain; conflict evidence exports remain available
+- Full regression currently passes `121/121`; headless Chrome smoke passed with 0 console errors and 0 runtime exceptions
+
+</details>
+
+<details>
+<summary><b>V2.4 quality appraisal (current public stable line, 2026-05)</b></summary>
+
+- keeps `literature-screening-v2.2/` as the compatibility release path
+- adds quality-appraisal template schema for RCT, cohort, case-control, cross-sectional, diagnostic accuracy, and systematic review studies
+- adds reviewer-editable item-level quality forms for domain judgement, supporting quote / page, reviewer note, overall judgement, status, and assessment notes
+- adds `quality_appraisal.csv`
+- adds `evidence_table.csv`
+- adds `grade_summary.csv`, with final GRADE certainty and downgrade reasons still human-confirmed
+- writes `quality_appraisal_updated` audit events with before / after snapshots
+- does not connect a real AI provider by default, and does not save or export API keys
+- full regression passed `115/115`
+
+</details>
+
+<details>
+<summary><b>V2.3 PRISMA-trAIce readiness (completed, 2026-05)</b></summary>
+
+- adds `off`, `assistive`, and `experimental` AI modes
+- adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
+- exports `ai_usage_registry.json`
+- exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
+- exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
+- keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
+- keeps rejected suggestions out of PRISMA counts
+- does not dispatch to a real AI provider or export API key material
+- ships from the `literature-screening-v2.2/` compatibility path while presenting V2.3 as the release version
+- tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
+
+</details>
 
 <details>
 <summary><b>V2.2 audit-ready (completed foundation, 2026-04)</b></summary>
@@ -166,23 +225,7 @@ Current coverage includes:
 </details>
 
 <details>
-<summary><b>V2.3 PRISMA-trAIce readiness (current release, 2026-05)</b></summary>
-
-- adds `off`, `assistive`, and `experimental` AI modes
-- adds a provider abstraction layer for future OpenAI-compatible endpoints, with request drafts disabled by default
-- exports `ai_usage_registry.json`
-- exports `ai_suggestions.jsonl` with human actions, linked decisions, `reviewed_at`, human edit fields, and `prisma_count_boundary`
-- exports `PRISMA_TRAICE_REPORT.md` with No-AI and assistive-AI transparency sections
-- keeps mock AI suggestions advisory-only until a human accepts or edits them into a `ScreeningDecision`
-- keeps rejected suggestions out of PRISMA counts
-- does not dispatch to a real AI provider or export API key material
-- ships from the `literature-screening-v2.2/` compatibility path while presenting V2.3 as the release version
-- tracks the release-readiness gate in [`docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md`](docs/checklists/V2.3_PRISMA_TRAICE_READINESS_CHECKLIST.md)
-
-</details>
-
-<details>
-<summary><b>V2.1 stable (current GitHub Pages path, 2026-04)</b></summary>
+<summary><b>V2.1 stable (historical GitHub Pages path, 2026-04)</b></summary>
 
 - expands the workflow to 6 steps with quality assessment before export
 - moves `CSV / TSV / RIS / NBIB / ENW` to Worker-based incremental parsing

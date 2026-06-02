@@ -32,6 +32,30 @@ const DUAL_REVIEW_EXPORT_TYPES = Object.freeze([
   'dual_review_conflicts',
   'dual_review_agreement',
 ]);
+const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object.freeze([
+  'included',
+  'excluded',
+  'svg-colorful',
+  'svg-blackwhite',
+  'svg-subtle',
+  'report',
+  'quality_appraisal',
+  'evidence_table',
+  'grade_summary',
+  'audit_prisma_counts',
+  'audit_summary',
+]);
+const V25_CONFLICT_EVIDENCE_EXPORT_TYPES = Object.freeze([
+  'audit_manifest',
+  'audit_events',
+  'audit_screening_decisions',
+  'audit_exclusion_reasons',
+  'ai_usage_registry',
+  'ai_suggestions',
+  'prisma_traice_report',
+  'dual_review_conflicts',
+  'dual_review_agreement',
+]);
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
     not_started: { zh: '未开始', en: 'Not started' },
@@ -1014,49 +1038,49 @@ function getUnresolvedConflictGateStatus() {
   };
 }
 
+function recordConflictGateAuditEvent(eventType, type, gate, options = {}) {
+  if (typeof appendAuditEventsSafe !== 'function') return;
+
+  appendAuditEventsSafe({
+    eventType,
+    recordId: '',
+    stage: 'export',
+    after: {
+      exportType: type,
+      unresolvedConflictCount: gate.unresolvedConflictCount,
+      unresolvedScreeningConflictCount: gate.unresolvedScreeningConflictCount,
+      unresolvedQualityConflictCount: gate.unresolvedQualityConflictCount,
+      gateStatus: gate.status || '',
+    },
+    source: 'system',
+    metadata: {
+      schemaVersion: gate.schemaVersion || '',
+      warningOnly: options.warningOnly === true,
+      blocked: options.blocked === true,
+      gatePolicy: options.gatePolicy || 'v2.5-unresolved-conflict-gate',
+    },
+  }, { persist: false });
+}
+
 function maybeWarnUnresolvedConflictsBeforeExport(type) {
   if (!DUAL_REVIEW_ENGINE) return true;
-  const finalExportTypes = new Set([
-    'included',
-    'excluded',
-    'svg-colorful',
-    'svg-blackwhite',
-    'svg-subtle',
-    'report',
-    'quality_appraisal',
-    'evidence_table',
-    'grade_summary',
-    'audit_prisma_counts',
-    'audit_summary',
-    'dual_review_conflicts',
-    'dual_review_agreement',
-  ]);
-  if (!finalExportTypes.has(type)) return true;
+  const finalExportTypes = new Set(V25_FINAL_CONFLICT_GATED_EXPORT_TYPES);
+  const evidenceExportTypes = new Set(V25_CONFLICT_EVIDENCE_EXPORT_TYPES);
+  if (!finalExportTypes.has(type) && !evidenceExportTypes.has(type)) return true;
 
   const gate = getUnresolvedConflictGateStatus();
   if (!gate.hasUnresolvedConflicts) return true;
 
-  const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。继续导出会带有风险提示，最终 PRISMA 计数应以 resolver/final human decision 为准。`;
-  showToast(message, 'warning');
-
-  if (typeof appendAuditEventsSafe === 'function') {
-    appendAuditEventsSafe({
-      eventType: 'export_conflict_warning',
-      recordId: '',
-      stage: 'export',
-      after: {
-        exportType: type,
-        unresolvedConflictCount: gate.unresolvedConflictCount,
-        unresolvedScreeningConflictCount: gate.unresolvedScreeningConflictCount,
-        unresolvedQualityConflictCount: gate.unresolvedQualityConflictCount,
-      },
-      source: 'system',
-      metadata: {
-        schemaVersion: gate.schemaVersion || '',
-        warningOnly: true,
-      },
-    }, { persist: false });
+  if (finalExportTypes.has(type)) {
+    const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。V2.5 已阻止最终结果导出；请先解决冲突，或导出 dual_review_conflicts.csv / dual_review_agreement.json 作为冲突证据。`;
+    showToast(message, 'error');
+    recordConflictGateAuditEvent('export_conflict_blocked', type, gate, { blocked: true });
+    return false;
   }
+
+  const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。此导出仅作为审计/冲突证据，最终结果导出仍会被阻止。`;
+  showToast(message, 'warning');
+  recordConflictGateAuditEvent('export_conflict_warning', type, gate, { warningOnly: true });
 
   return true;
 }

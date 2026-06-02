@@ -1,8 +1,8 @@
 # Current State Audit
 
-Date: 2026-05-11
+Date: 2026-06-02
 
-Target iteration: V2.4 item-level quality appraisal closeout
+Target iteration: V2.5 dual-review closeout
 
 ## 1. Repository Structure
 
@@ -10,11 +10,11 @@ The repository is a static browser application with historical version folders a
 
 Important paths:
 
-- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.3 release-ready public line.
+- `README.md` and `README_EN.md`: bilingual public positioning for the current V2.4 stable line and V2.5 closeout line.
 - `index.html`, `login.html`, `app.js`, `parser-worker.js`, `db-worker.js`, `style.css`: root-level legacy/current shared entry files.
 - `dedup-engine.js`: shared conservative deduplication engine used by root and versioned workspaces.
 - `literature-screening-v2.0/`: current V2.1 workspace implementation and GitHub Pages-compatible version path.
-- `literature-screening-v2.2/`: current compatibility workspace. It presents the V2.3 public release surface and now carries the V2.4 quality-appraisal, evidence-table, and GRADE summary foundation slices on the feature branch.
+- `literature-screening-v2.2/`: current compatibility workspace. It carries V2.3 PRISMA-trAIce readiness, V2.4 quality appraisal, and the V2.5 dual-review closeout slices.
 - `tests/`: Node `node:test` regression coverage for deduplication, import hardening, streaming parser behavior, and quality baseline behavior.
 - `docs/benchmarks/dedup/`: dedup benchmark evidence and reports.
 - `docs/plans/`: implementation plans and roadmap documents.
@@ -100,6 +100,7 @@ V2.5 checkpoint update:
 - Quality conflicts are detected across `overall_judgement`, `status`, and domain judgements.
 - Step 5 now has a minimal main-reviewer quality conflict resolver that writes resolver/final quality values and a `quality_conflict_resolved` audit event.
 - V2.5 exports `dual_review_conflicts.csv` and `dual_review_agreement.json` outside the frozen V2.3 audit export type list.
+- Final result exports are blocked with `export_conflict_blocked` while unresolved dual-review conflicts remain; audit and dual-review evidence exports remain available with `export_conflict_warning`.
 
 ## 4. Current Import / Parsing Pipeline
 
@@ -160,7 +161,7 @@ Dual-review support exists through:
 Main gaps:
 
 - reviewer decisions are increasingly represented through durable `ScreeningDecision` records for rule/manual/AI-confirmed paths, and the minimal V2.5 resolver workflow is now formalized for full-text and quality conflicts.
-- conflict resolution is present, but final exports still use a warning-only unresolved-conflict gate rather than a strict blocker.
+- conflict resolution is present, and final result exports now use a strict unresolved-conflict blocker while evidence exports remain warning-only.
 - exclusion reason changes are not logged with before/after values.
 
 ## 7. Current Export Workflow
@@ -175,6 +176,11 @@ Export functions:
 - `generatePRISMASVG(counts, theme, mode)`
 
 Current exports include PRISMA diagram, result tables, candidate duplicate details, screening report, audit package files, PRISMA-trAIce readiness files, the V2.4 `quality_appraisal.csv`, the V2.4 `evidence_table.csv`, and the V2.4 `grade_summary.csv`.
+
+V2.5 final-result export gate:
+
+- unresolved screening or quality conflicts block final result exports such as included/excluded tables, PRISMA SVG, screening report, quality appraisal, evidence table, GRADE summary, PRISMA counts, and audit summary.
+- audit evidence and dual-review evidence exports remain available with warning-only behavior.
 
 Current audit package exports:
 
@@ -222,10 +228,11 @@ Sandbox behavior:
 
 Latest verified result:
 
-- 115 tests passed after the V2.4 item-level quality form closeout.
+- 121 tests passed after the V2.5 final export gate hardening.
 - 0 tests failed.
-- Syntax checks passed for `literature-screening-v2.2\app.js` and `literature-screening-v2.2\quality-engine.js`.
-- In-app browser automation was attempted but timed out while connecting to the browser; repeat a manual Step 5 smoke check before public tagging.
+- Syntax checks passed for `literature-screening-v2.2\app.js`, `literature-screening-v2.2\dual-review-engine.js`, and `literature-screening-v2.2\audit-engine.js`.
+- Focused V2.5 audit tests passed `54/54`.
+- Headless Chrome browser smoke passed with 0 console errors and 0 runtime exceptions. It verified workspace load, screening conflict detection, quality conflict detection, resolver workflows, final export blocking, and warning-only evidence exports.
 
 Existing test areas:
 
@@ -243,10 +250,10 @@ Benchmark evidence:
 
 1. `app.js` owns too many responsibilities: import, parsing orchestration, screening, review, quality, collaboration, export and UI state.
 2. `app.js` audit hooks are now present, but the file still mixes UI, workflow, persistence, and export responsibilities.
-3. PRISMA counts can be replayed from decisions/events, but reviewer conflict gates are not yet strict final-export blockers.
+3. PRISMA counts can be replayed from decisions/events, and final-result exports are now blocked when reviewer conflicts remain; headless Chrome smoke verified the gate in a real browser context.
 4. Exclusion reason taxonomy exports exist, but before/after changes to reason choices still need deeper audit events.
-5. Quality assessment now has a V2.4 schema, priority templates, reviewer-editable item-level forms, evidence-table export, and GRADE summary foundation. Remaining risk is browser-level verification and future dual-review conflict handling.
-6. Dual-review support exists, but reviewer isolation, conflict gates and final resolver records need formalization.
+5. Quality assessment now has a V2.4 schema, priority templates, reviewer-editable item-level forms, evidence-table export, GRADE summary foundation, and V2.5 quality-conflict resolver coverage. Remaining risk is manual usability on larger real projects.
+6. Dual-review support now has reviewer isolation, conflict gates, resolver records, evidence exports, and browser smoke coverage, but edge cases still need monitoring on real review datasets.
 7. AI usage registry, provider abstraction, and AI suggestion log now exist for V2.3 readiness. Real AI provider dispatch remains disabled until the audit/reporting boundaries and API-key handling are release-stable.
 8. RDF/BibTeX/TXT import fallback behavior remains a future stability concern for large files.
 
@@ -256,11 +263,14 @@ V2.3 release-readiness is satisfied and tracked in `docs/checklists/V2.3_PRISMA_
 
 V2.4 quality-appraisal readiness is tracked in `docs/checklists/V2.4_ALPHA_QUALITY_APPRAISAL_CHECKLIST.md`. V2.4-beta evidence-table export, V2.4 GRADE summary foundation, and reviewer-editable item-level quality forms are now part of the same checklist.
 
-After this closeout passes focused checks and full regression, the next roadmap pass should move to V2.5:
+V2.5 readiness is now tracked in `docs/checklists/V2.5_DUAL_REVIEW_READINESS_CHECKLIST.md`.
+
+After this closeout reconciles `origin/main` with the V2.5 branch, the next roadmap pass should prepare V2.6 only at the safety-boundary level:
 
 1. Keep V2.3 as a mock/local audit layer; provider request drafts may exist, but no real provider dispatch should occur yet.
 2. Use the V2.3 checklist as the export and behavior freeze for PRISMA-trAIce readiness.
 3. For AI, add the OpenAI-compatible configuration UI only after API key storage warnings, redacted export checks, and manual-dispatch gates are in place.
 4. Keep final GRADE certainty and downgrade reasons human-controlled.
-5. Formalize reviewer isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict export gates in V2.5.
+5. Preserve reviewer isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict export gates as the V2.5 release boundary.
 6. Preserve the current full regression gate before each slice.
+7. Reconcile `origin/main` and the V2.5 branch before public release so the V2.4 README refresh and V2.5 closeout work are both retained.

@@ -175,11 +175,31 @@ test('v2.2 app wires V2.5 dual-review conflict workflow without changing local-f
   assert.match(source, /review_conflict_resolved/);
   assert.match(source, /createQualityConflictResolvedAuditEvent/);
   assert.match(source, /function upsertResolvedQualityAssessment/);
+  assert.match(source, /export_conflict_blocked/);
   assert.match(source, /export_conflict_warning/);
   assert.match(source, /maybeWarnUnresolvedConflictsBeforeExport/);
+  assert.match(source, /V25_FINAL_CONFLICT_GATED_EXPORT_TYPES/);
+  assert.match(source, /V25_CONFLICT_EVIDENCE_EXPORT_TYPES/);
   assert.match(source, /preserveQualityReviewerAssessments/);
   assert.match(source, /__uncertain__/);
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);
+});
+
+test('v2.5 readiness docs describe final export blocking and browser smoke gate', async () => {
+  const checklist = await fs.readFile(
+    path.join(repoRoot, 'docs/checklists/V2.5_DUAL_REVIEW_READINESS_CHECKLIST.md'),
+    'utf8'
+  );
+  const roadmap = await fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8');
+
+  assert.match(checklist, /Final result exports are blocked/);
+  assert.match(checklist, /export_conflict_blocked/);
+  assert.match(checklist, /export_conflict_warning/);
+  assert.match(checklist, /Browser Smoke Checklist/);
+  assert.match(checklist, /dual_review_conflicts\.csv/);
+  assert.match(checklist, /dual_review_agreement\.json/);
+  assert.match(roadmap, /V2\.5 dual-review closeout/);
+  assert.match(roadmap, /未解决冲突时阻止最终结果导出/);
 });
 
 test('v2.2 app keeps mock AI suggestions separate from final screening decisions', async () => {
