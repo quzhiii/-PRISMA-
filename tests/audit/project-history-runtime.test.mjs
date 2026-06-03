@@ -168,9 +168,11 @@ const document = {
       classList: { add() {}, remove() {} },
       textContent: '',
       value: '',
+      scrollIntoView() {},
     };
   },
 };
+function setTimeout(fn) { fn(); return 0; }
 function getEmptyDualReviewConflictState() {
   return { screeningPairs: [], screeningConflicts: [], qualityConflicts: [], agreementMetrics: null, exportGate: null };
 }
@@ -200,6 +202,8 @@ function displayUploadInfo() {}
 function displayResults() {}
 function displayFulltextReviewUI() {}
 function prepareQualityAssessmentShell() {}
+function syncFormToYAML() {}
+function displayRulesPreview() {}
 function setStep(step) { currentStep = step; }
 function setFormRules(rules) { filterRules = rules; }
 function showToast(message, type) { toastLog.push({ message, type }); }
@@ -213,6 +217,8 @@ function confirm(message) { confirmLog.push(message); return true; }
     extractFunctionBlock(source, 'restoreProjectState'),
     extractFunctionBlock(source, 'restoreProjectHistorySnapshot'),
     extractFunctionBlock(source, 'removeSourceFileFromProject'),
+    extractFunctionBlock(source, 'cloneSampleRecords'),
+    extractFunctionBlock(source, 'applySampleDataPayload'),
     `
 function setState(patch = {}) {
   Object.assign(globalThis.__state, patch);
@@ -263,6 +269,7 @@ this.__exports = {
   startNewProjectSession,
   restoreProjectHistorySnapshot,
   removeSourceFileFromProject,
+  applySampleDataPayload,
 };
 `,
   ].join('\n');
@@ -361,4 +368,33 @@ test('removing a source file keeps linked state for index-fallback records that 
   assert.deepEqual(state.screeningDecisions, [{ recordId: 'record-2', decision: 'include' }]);
   assert.deepEqual(state.aiSuggestionEvents, [{ recordId: 'record-2', suggestionId: 'suggestion-1' }]);
   assert.deepEqual(state.qualityAssessments, [{ record_id: 'record-2', status: 'complete' }]);
+});
+
+test('sample data records carry source file metadata for removal', async () => {
+  const harness = await loadHistoryRuntimeHarness();
+
+  harness.applySampleDataPayload({
+    source: 'built_in_sample',
+    data: [
+      { title: 'Sample A' },
+      { title: 'Sample B' },
+    ],
+  });
+
+  const state = harness.getState();
+  assert.equal(state.uploadedFiles[0].name, '内置示例数据.json');
+  assert.equal(state.uploadedData.length, 2);
+  assert.deepEqual(state.uploadedData.map((record) => record._sourceFile), [
+    '内置示例数据.json',
+    '内置示例数据.json',
+  ]);
+  assert.deepEqual(state.uploadedData.map((record) => record._source), [
+    '系统内置',
+    '系统内置',
+  ]);
+
+  harness.removeSourceFileFromProject('内置示例数据.json');
+
+  assert.equal(harness.getState().uploadedData.length, 0);
+  assert.equal(harness.getState().currentStep, 1);
 });

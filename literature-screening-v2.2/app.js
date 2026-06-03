@@ -8063,13 +8063,20 @@ function applySampleDataPayload(payload) {
     throw new Error('示例数据为空');
   }
 
+  const sourceFileName = payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json';
+  const sourceLabel = payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置';
+
   startNewProjectSession();
-  uploadedData = records;
+  uploadedData = records.map((record) => ({
+    ...record,
+    _source: record._source || sourceLabel,
+    _sourceFile: record._sourceFile || sourceFileName,
+  }));
   uploadedFiles = [{
-    name: payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json',
+    name: sourceFileName,
     format: 'JSON',
     recordCount: records.length,
-    source: payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置',
+    source: sourceLabel,
   }];
   fileFormat = 'JSON';
   formatSource = '示例数据';
@@ -8078,9 +8085,9 @@ function applySampleDataPayload(payload) {
   displayUploadInfo();
   setStep(2);
   syncFormToYAML();
-      displayRulesPreview();
-      createProjectHistorySnapshot('after_import', 'After import');
-      persistCurrentProjectState();
+  displayRulesPreview();
+  createProjectHistorySnapshot('after_import', 'After import');
+  persistCurrentProjectState();
   updateStep4EntryLock();
 
   showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
