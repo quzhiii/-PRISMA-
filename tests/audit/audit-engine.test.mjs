@@ -22,6 +22,7 @@ test('creates a project manifest with conservative defaults', () => {
   assert.equal(manifest.reviewType, 'systematic_review');
   assert.equal(manifest.prismaVersion, 'PRISMA_2020');
   assert.equal(manifest.aiMode, 'off');
+  assert.equal(manifest.appVersion, 'v2.5');
   assert.deepEqual(manifest.aiUsageRegistry, []);
   assert.equal(manifest.schemaVersion, AuditEngine.AUDIT_SCHEMA_VERSION);
   assert.ok(manifest.createdAt);
@@ -357,7 +358,7 @@ test('builds a PRISMA-trAIce report with a No-AI statement by default', () => {
   assert.match(report, /screening_decisions\.csv` remains the final human decision ledger/i);
 });
 
-test('v2.4 workspace loads audit engine before app.js', async () => {
+test('v2.5 workspace loads audit engine before app.js', async () => {
   const workspaceHtml = await fs.readFile(
     path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
     'utf8'
@@ -367,7 +368,7 @@ test('v2.4 workspace loads audit engine before app.js', async () => {
 
   assert.ok(auditIndex > 0);
   assert.ok(appIndex > auditIndex);
-  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.5/);
 });
 
 test('v2.2 db worker declares audit stores and message handlers', async () => {

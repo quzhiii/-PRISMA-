@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.4 local-first evidence screening workspace with import, conservative deduplication, full-text review, structured quality appraisal, evidence table and GRADE summary exports, audit package export, and AI transparency records.">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.5 local-first evidence screening workspace with import, conservative deduplication, full-text review, dual-review conflict handling, structured quality appraisal, evidence table and GRADE summary exports, audit package export, and AI transparency records.">
   <meta name="keywords" content="PRISMA,literature screening,systematic review,meta analysis,evidence synthesis">
-  <title>PRISMA Literature Screening v2.4</title>
+  <title>PRISMA Literature Screening v2.5</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
           </span>
           <span class="brand-copy">
             <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
-            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.4</span><span class="en">Research-grade workspace v2.4</span></span>
+            <span class="brand-subtitle"><span class="zh">研究级审计工作台 v2.5</span><span class="en">Research-grade workspace v2.5</span></span>
           </span>
         </a>
         <div class="nav-actions">
@@ -174,6 +174,7 @@
               <p><strong><span class="zh">格式来源</span><span class="en">Source</span>:</strong> <span id="formatSource">-</span></p>
               <p><strong><span class="zh">总记录数</span><span class="en">Records</span>:</strong> <span id="totalRecords">0</span></p>
               <p><strong><span class="zh">检测到的列</span><span class="en">Detected columns</span>:</strong> <span id="columnList"></span></p>
+              <div id="sourceFileHistoryPanel" style="margin-top: 16px;"></div>
             </div>
             <div class="surface-panel workspace-side-panel secondary-info-zone">
               <h3 style="margin-top: 0;"><span class="zh">字段映射</span><span class="en">Field Mapping</span></h3>
@@ -429,6 +430,12 @@
             <button type="button" class="btn btn-secondary" onclick="autoSaveToggle()"><span class="zh">自动保存</span><span class="en">Auto Save</span>：<span id="autoSaveStatus">关闭</span></button>
           </div>
           <p id="lastSaveTime" class="muted-text" style="margin-top: 10px;"></p>
+        </div>
+
+        <div class="info-box workspace-info-panel auxiliary-zone project-history-panel" style="margin-bottom: 20px;">
+          <h3><span class="zh">历史记录回溯</span><span class="en">Project History</span></h3>
+          <p><span class="zh">查看自动生成的项目快照，并在需要时恢复到上一版筛选状态。</span><span class="en">Review automatic project snapshots and restore an earlier screening state when needed.</span></p>
+          <div id="projectHistoryPanel"></div>
         </div>
 
         <div class="grid-4 workspace-stat-grid" id="statsGrid">
@@ -914,12 +921,12 @@
         el.hidden = isZh;
         el.style.display = isZh ? 'none' : '';
       });
-      document.title = isZh ? 'PRISMA Workbench v2.4 工作台' : 'PRISMA Workbench v2.4 Workspace';
+      document.title = isZh ? 'PRISMA Workbench v2.5 工作台' : 'PRISMA Workbench v2.5 Workspace';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? 'PRISMA Workbench v2.4 本地优先审计工作台，支持导入、保守去重、全文复核、结构化质量评价、证据表和 GRADE 摘要导出、AI 透明记录和审计包导出。'
-          : 'PRISMA Workbench v2.4 audit-ready local-first workspace for import, conservative deduplication, full-text review, structured quality appraisal, evidence table and GRADE summary exports, AI transparency records, and audit package export.';
+          ? 'PRISMA Workbench v2.5 本地优先审计工作台，支持导入、保守去重、全文复核、双人复核冲突处理、结构化质量评价、证据表和 GRADE 摘要导出、AI 透明记录和审计包导出。'
+          : 'PRISMA Workbench v2.5 audit-ready local-first workspace for import, conservative deduplication, full-text review, dual-review conflict handling, structured quality appraisal, evidence table and GRADE summary exports, AI transparency records, and audit package export.';
       }
       const currentThemeLabel = document.getElementById('currentThemeLabel');
       if (currentThemeLabel && (currentThemeLabel.textContent === '柔和版' || currentThemeLabel.textContent === 'Subtle')) {
@@ -980,6 +987,7 @@
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
   <script src="dual-review-engine.js?v=20260512-v25-dual-review-exports"></script>
   <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
+  <script src="project-history-engine.js?v=20260603-v251-history"></script>
   <script src="app.js?v=20260512-v25-dual-review-exports"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>

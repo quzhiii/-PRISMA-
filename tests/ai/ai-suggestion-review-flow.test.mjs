@@ -157,6 +157,7 @@ let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
+let projectHistory = [];
 let currentUserSession = { username: 'reviewer_1', role: 'reviewer' };
 let runtimeSession = null;
 let isDualReviewMode = false;

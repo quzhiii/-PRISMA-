@@ -371,6 +371,9 @@ function displayUploadInfoV17() {
   `;
 
   displayPreviewTable();
+  if (typeof renderSourceFileHistoryPanel === 'function') {
+    renderSourceFileHistoryPanel();
+  }
   infoDiv.classList.remove('hidden');
 }
 

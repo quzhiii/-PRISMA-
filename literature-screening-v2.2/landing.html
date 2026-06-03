@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.3 overview for local-first, audit-ready evidence screening, quality appraisal, Chinese-source compatibility, and conservative AI readiness.">
-  <title>PRISMA Workbench v2.3 - Overview</title>
+  <meta name="description" id="metaDescription" content="PRISMA Workbench v2.5 overview for local-first, audit-ready evidence screening, dual-review conflict handling, quality appraisal, Chinese-source compatibility, and conservative AI readiness.">
+  <title>PRISMA Workbench v2.5 - Overview</title>
   <link rel="stylesheet" href="style.css?v=20260428-v22-ui-fix">
 </head>
 <body>
@@ -35,7 +35,7 @@
       <main>
         <section class="landing-hero">
           <div>
-            <div class="eyebrow"><span class="zh">V2.3 产品概览</span><span class="en">V2.3 product overview</span></div>
+            <div class="eyebrow"><span class="zh">V2.5 产品概览</span><span class="en">V2.5 product overview</span></div>
             <h1 class="hero-title">
               <span class="zh">本地优先、可审计的证据筛选工作台概览。</span>
               <span class="en">Overview of the local-first, audit-ready evidence screening workstation.</span>
@@ -73,7 +73,7 @@
           <div class="section-heading">
             <div>
               <h2><span class="zh">三类典型使用场景</span><span class="en">Three common usage scenarios</span></h2>
-              <p><span class="zh">这里更偏向“为什么使用它、在什么场景下使用它”，首页更偏向快速进入 V2.3 工作台。</span><span class="en">This page explains why and when to use the system, while the home page stays focused on fast V2.3 workspace entry.</span></p>
+              <p><span class="zh">这里更偏向“为什么使用它、在什么场景下使用它”，首页更偏向快速进入 V2.5 工作台。</span><span class="en">This page explains why and when to use the system, while the home page stays focused on fast V2.5 workspace entry.</span></p>
             </div>
           </div>
           <div class="route-grid">
@@ -84,7 +84,7 @@
                   <span class="pill"><span class="zh">单人复核</span><span class="en">Single Review</span></span>
                 </div>
                 <h3><span class="zh">单人筛选与审计包导出</span><span class="en">Single-review screening and audit export</span></h3>
-                <p class="route-meta"><span class="zh">适合已准备好数据库导出文件，并希望本地完成筛选和 V2.3 审计包导出的项目。</span><span class="en">Suitable for projects that are ready to screen locally and export the V2.3 audit package.</span></p>
+                <p class="route-meta"><span class="zh">适合已准备好数据库导出文件，并希望本地完成筛选和 V2.5 审计包导出的项目。</span><span class="en">Suitable for projects that are ready to screen locally and export the V2.5 audit package.</span></p>
               </div>
               <ul class="route-list">
                 <li><span class="zh">直接进入工作台，不额外打断流程</span><span class="en">Enter the workspace directly without extra setup</span></li>
@@ -138,14 +138,14 @@
           <div class="section-heading">
             <div>
               <h2><span class="zh">工作台核心能力</span><span class="en">Workspace capabilities</span></h2>
-              <p><span class="zh">概览工作台在正式筛选项目中的核心能力和 V2.3 差异化。</span><span class="en">Summarizes core workflow capabilities and the V2.3 differentiation.</span></p>
+              <p><span class="zh">概览工作台在正式筛选项目中的核心能力和 V2.5 差异化。</span><span class="en">Summarizes core workflow capabilities and the V2.5 differentiation.</span></p>
             </div>
           </div>
           <div class="feature-grid">
             <article class="feature-card">
               <div class="feature-icon">A</div>
               <h3><span class="zh">审计账本与可重算 counts</span><span class="en">Audit ledger and replayable counts</span></h3>
-              <p><span class="zh">通过 manifest、events 和 decision ledger 记录关键节点，并导出 V2.3 审计包。</span><span class="en">Records key workflow points with a manifest, events, and a decision ledger, then exports the V2.3 audit package.</span></p>
+              <p><span class="zh">通过 manifest、events、decision ledger 和双审冲突证据记录关键节点，并导出 V2.5 审计包。</span><span class="en">Records key workflow points with a manifest, events, decision ledger, and dual-review conflict evidence, then exports the V2.5 audit package.</span></p>
             </article>
             <article class="feature-card">
               <div class="feature-icon">C</div>
@@ -203,7 +203,7 @@
       </main>
 
       <footer class="footer-row">
-        <span><span class="zh">PRISMA Workbench v2.3 概览页</span><span class="en">PRISMA Workbench v2.3 Overview</span></span>
+        <span><span class="zh">PRISMA Workbench v2.5 概览页</span><span class="en">PRISMA Workbench v2.5 Overview</span></span>
         <a class="mini-link" href="https://github.com/quzhiii/-PRISMA-" target="_blank" rel="noreferrer">GitHub</a>
       </footer>
     </div>
@@ -240,12 +240,12 @@
       document.querySelectorAll('.en').forEach((el) => {
         el.hidden = isZh;
       });
-      document.title = isZh ? 'PRISMA Workbench v2.3 概览页' : 'PRISMA Workbench v2.3 Overview';
+      document.title = isZh ? 'PRISMA Workbench v2.5 概览页' : 'PRISMA Workbench v2.5 Overview';
       const metaDescription = document.getElementById('metaDescription');
       if (metaDescription) {
         metaDescription.content = isZh
-          ? 'PRISMA Workbench v2.3 概览页，帮助研究团队理解 local-first、audit-ready、中文源兼容、质量评价和保守型 AI 路线。'
-          : 'PRISMA Workbench v2.3 overview page for local-first, audit-ready evidence screening, Chinese-source compatibility, quality appraisal, and conservative AI readiness.';
+          ? 'PRISMA Workbench v2.5 概览页，帮助研究团队理解 local-first、audit-ready、双人复核冲突处理、中文源兼容、质量评价和保守型 AI 路线。'
+          : 'PRISMA Workbench v2.5 overview page for local-first, audit-ready evidence screening, dual-review conflict handling, Chinese-source compatibility, quality appraisal, and conservative AI readiness.';
       }
       document.getElementById('langToggle').textContent = isZh ? 'EN' : '中';
       syncLangLinks(lang);

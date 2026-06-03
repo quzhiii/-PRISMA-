@@ -11,6 +11,8 @@ const testFiles = [
   'tests/audit/audit-engine.test.mjs',
   'tests/audit/audit-workflow.test.mjs',
   'tests/audit/audit-export.test.mjs',
+  'tests/audit/project-history-engine.test.mjs',
+  'tests/audit/project-history-runtime.test.mjs',
   'tests/audit/prisma-traice-export-trio.test.mjs',
   'tests/quality/evidence-engine.test.mjs',
   'tests/quality/study-design-classifier.test.mjs',

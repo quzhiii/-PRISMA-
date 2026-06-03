@@ -127,6 +127,31 @@ test('workspace language visibility has CSS fallback for local file mode', async
   assert.match(indexHtml, /try \{ storedLang = localStorage\.getItem\('prisma_lang'\); \} catch \(_\) \{\}/);
 });
 
+test('public V2.5 release labels are synchronized across page shells', async () => {
+  const [rootIndexHtml, indexHtml, workspaceHtml, landingHtml, appSource] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
+    readV22File('index.html'),
+    readV22File('workspace.html'),
+    readV22File('landing.html'),
+    readV22App(),
+  ]);
+
+  assert.match(rootIndexHtml, /默认版本已切换至 V2\.5/);
+  assert.match(rootIndexHtml, /打开 V2\.5 工作台/);
+  assert.match(rootIndexHtml, /打开 V2\.5 双人复核/);
+  assert.match(indexHtml, /PRISMA Workbench v2\.5/);
+  assert.match(indexHtml, /V2\.5 dual-review workstation/);
+  assert.doesNotMatch(indexHtml, /V2\.3/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.5/);
+  assert.match(workspaceHtml, /Research-grade workspace v2\.5/);
+  assert.match(workspaceHtml, /PRISMA Workbench v2\.5 工作台/);
+  assert.match(workspaceHtml, /PRISMA Workbench v2\.5 audit-ready local-first workspace/);
+  assert.match(landingHtml, /PRISMA Workbench v2\.5 - Overview/);
+  assert.match(landingHtml, /V2\.5 product overview/);
+  assert.match(appSource, /const APP_RELEASE_VERSION = '2\.5-dual-review-release';/);
+  assert.match(appSource, /version: APP_RELEASE_VERSION/);
+});
+
 test('workspace upload and sample data load stay usable from file URLs', async () => {
   const [source, workspaceHtml] = await Promise.all([
     readV22App(),
@@ -200,6 +225,81 @@ test('v2.5 readiness docs describe final export blocking and browser smoke gate'
   assert.match(checklist, /dual_review_agreement\.json/);
   assert.match(roadmap, /V2\.5 dual-review closeout/);
   assert.match(roadmap, /未解决冲突时阻止最终结果导出/);
+});
+
+test('public docs mark V2.5 as current and plan local history rollback', async () => {
+  const [readme, readmeEn, roadmap, historyPlan] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/plans/2026-06-03-v2-5-history-rollback.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /Version-V2\.5%20Dual%20Review/);
+  assert.match(readme, /Current%20demo-V2\.5/);
+  assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
+  assert.match(readmeEn, /Version-V2\.5%20Dual%20Review/);
+  assert.match(readmeEn, /Current%20demo-V2\.5/);
+  assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
+  assert.match(roadmap, /V2\.5\.1 本地历史记录与回溯/);
+  assert.match(roadmap, /project_snapshot_created/);
+  assert.match(roadmap, /source_file_removed/);
+  assert.match(historyPlan, /# V2\.5\.1 Project History and Rollback Implementation Plan/);
+  assert.match(historyPlan, /restoreProjectState\(snapshot\)/);
+  assert.match(historyPlan, /project_snapshot_restored/);
+});
+
+test('v2.5.1 app persists project history snapshots', async () => {
+  const source = await readV22App();
+  const workspaceHtml = await readV22File('workspace.html');
+
+  assert.match(workspaceHtml, /project-history-engine\.js/);
+  assert.match(source, /let projectHistory = \[\];/);
+  assert.match(source, /projectHistory,/);
+  assert.match(source, /projectHistory = Array\.isArray\(snapshot\.projectHistory\)/);
+  assert.match(source, /function createProjectHistorySnapshot/);
+  assert.match(source, /project_snapshot_created/);
+});
+
+test('v2.5.1 app creates history snapshots at recovery points', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /createProjectHistorySnapshot\('before_import'/);
+  assert.match(source, /createProjectHistorySnapshot\('after_import'/);
+  assert.match(source, /createProjectHistorySnapshot\('screening_rerun'/);
+  assert.match(source, /createProjectHistorySnapshot\('fulltext_finalized'/);
+  assert.match(source, /createProjectHistorySnapshot\('quality_saved'/);
+  assert.match(source, /createProjectHistorySnapshot\('conflict_resolved'/);
+  assert.match(source, /createProjectHistorySnapshot\('before_export'/);
+});
+
+test('v2.5.1 workspace exposes history rollback UI and restore flow', async () => {
+  const [source, workspaceHtml, styleCss] = await Promise.all([
+    readV22App(),
+    readV22File('workspace.html'),
+    readV22File('style.css'),
+  ]);
+
+  assert.match(workspaceHtml, /id="projectHistoryPanel"/);
+  assert.match(source, /renderProjectHistoryPanel\(\)/);
+  assert.match(source, /function renderProjectHistoryPanel/);
+  assert.match(source, /function restoreProjectHistorySnapshot/);
+  assert.match(source, /project_snapshot_restored/);
+  assert.match(source, /restoreProjectState\(historySnapshot\.state\)/);
+  assert.match(source, /refreshDualReviewConflictState/);
+  assert.match(styleCss, /\.project-history-panel/);
+});
+
+test('v2.5.1 app records source file add and remove history', async () => {
+  const source = await readV22App();
+  const workspaceHtml = await readV22File('workspace.html');
+
+  assert.match(workspaceHtml, /id="sourceFileHistoryPanel"/);
+  assert.match(source, /function removeSourceFileFromProject/);
+  assert.match(source, /source_file_removed/);
+  assert.match(source, /source_file_added/);
+  assert.match(source, /createProjectHistorySnapshot\('source_file_removed'/);
+  assert.match(source, /createProjectHistorySnapshot\('source_file_added'/);
 });
 
 test('v2.2 app keeps mock AI suggestions separate from final screening decisions', async () => {

@@ -1234,6 +1234,22 @@ select {
 	background: linear-gradient(180deg, rgba(255, 253, 249, 0.94), rgba(246, 240, 232, 0.94));
 }
 
+.project-history-panel {
+	border-left-color: var(--color-info);
+}
+
+.project-history-card {
+	padding: var(--space-12);
+	margin-top: 12px;
+}
+
+.project-history-meta {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-12);
+	align-items: center;
+}
+
 .workspace-dropzone {
 	min-height: 240px;
 	display: grid;
