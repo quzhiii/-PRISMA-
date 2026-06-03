@@ -58,6 +58,7 @@ Remaining boundary before V2.5:
 
 - Browser verification should be repeated before cutting a public release tag, especially for the Step 5 form layout in Chinese and English.
 - Dual-review quality conflicts, reviewer isolation, resolver workflow, and export gates belong to V2.5 rather than this V2.4 closeout slice.
+- V2.5 now adds the minimal quality conflict resolver workflow: reviewer A/B snapshots are preserved locally, conflicts are detected across overall judgement, status, and domain judgements, resolver/final quality values are recorded, and `quality_conflict_resolved` is written without changing the V2.4 quality/evidence/GRADE export columns.
 
 ## 3. 模板 schema
 
@@ -181,7 +182,7 @@ V2.4 includes a single-review item-level form in Step 5. It is deliberately cons
 - Each assessment card has `overall_judgement`, `status`, and `notes` inputs.
 - Save writes to `qualityAssessments`, persists the local project snapshot, and records a `quality_appraisal_updated` event with before/after values.
 - The form does not call a real AI provider and does not store or export API keys.
-- The form is single-review only; reviewer A/B isolation and conflict resolution remain V2.5 work.
+- V2.5 preserves reviewer A/B item-level quality snapshots and lets the main reviewer resolve quality conflicts with final overall/status/domain judgements.
 
 ## 6. Workflow
 

@@ -1293,6 +1293,32 @@ select {
 	overflow-wrap: anywhere;
 }
 
+.quality-card-badges {
+	display: inline-flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.quality-conflict-badge {
+	display: inline-flex;
+	align-items: center;
+	border: 1px solid rgba(217, 119, 6, 0.24);
+	border-radius: 999px;
+	background: rgba(245, 158, 11, 0.14);
+	color: #92400e;
+	font-size: 12px;
+	font-weight: 800;
+	line-height: 1.2;
+	padding: 6px 9px;
+}
+
+.quality-conflict-badge.resolved {
+	border-color: rgba(22, 163, 74, 0.22);
+	background: rgba(34, 197, 94, 0.12);
+	color: #166534;
+}
+
 .quality-assessment-meta {
 	display: flex;
 	flex-wrap: wrap;
@@ -1338,6 +1364,70 @@ select {
 .quality-summary-chip strong {
 	color: var(--color-text);
 	font-weight: 800;
+}
+
+.quality-conflict-panel {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-12);
+	margin-top: var(--space-12);
+	padding: var(--space-12);
+	border: 1px solid rgba(217, 119, 6, 0.2);
+	border-radius: 8px;
+	background: rgba(255, 251, 235, 0.76);
+}
+
+.quality-conflict-resolver-list {
+	display: grid;
+	gap: var(--space-14);
+}
+
+.quality-conflict-resolver-card {
+	display: grid;
+	gap: var(--space-12);
+	padding: var(--space-14);
+	border: 1px solid rgba(36, 52, 71, 0.1);
+	border-radius: 8px;
+	background: rgba(248, 250, 252, 0.82);
+}
+
+.quality-conflict-resolver-card h4 {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.quality-conflict-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.quality-conflict-table th,
+.quality-conflict-table td {
+	padding: 8px;
+	border-bottom: 1px solid rgba(36, 52, 71, 0.08);
+	text-align: left;
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.quality-resolver-controls {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-12);
+}
+
+.quality-resolver-controls label {
+	display: grid;
+	gap: 6px;
+	color: var(--color-text-secondary);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.quality-resolver-notes {
+	grid-column: 1 / -1;
 }
 
 .quality-editor-panel {
@@ -2766,12 +2856,18 @@ summary::-webkit-details-marker {
 	}
 
 	.quality-editor-toolbar,
-	.quality-domain-row {
+	.quality-domain-row,
+	.quality-resolver-controls {
 		grid-template-columns: 1fr;
 	}
 
 	.quality-domain-row label:last-child {
 		grid-column: auto;
+	}
+
+	.quality-conflict-panel {
+		align-items: stretch;
+		flex-direction: column;
 	}
 
 	.quality-editor-actions {

@@ -757,6 +757,8 @@
             <h4 style="margin: 18px 0 8px;"><span class="zh">审计包</span><span class="en">Audit Package</span></h4>
             <p class="section-subtitle" style="margin-bottom: 10px;"><span class="zh">审计包记录完整的筛选过程证据，全部在浏览器本地生成，不会自动上传。可用于方法学附录、审稿回复或研究团队内部分享。</span><span class="en">The audit package captures the full screening evidence chain. Everything is generated locally in your browser and never uploaded automatically. Use it for methodology appendices, reviewer responses, or team sharing.</span></p>
             <div class="button-group audit-package-downloads">
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('dual_review_conflicts')"><span class="zh">Dual-review conflicts CSV</span><span class="en">Dual-review Conflicts</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('dual_review_agreement')"><span class="zh">Agreement metrics JSON</span><span class="en">Agreement Metrics</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_manifest')"><span class="zh">项目清单 JSON</span><span class="en">Project Manifest</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_events')"><span class="zh">事件日志 JSONL</span><span class="en">Event Log JSONL</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_screening_decisions')"><span class="zh">筛选决策 CSV</span><span class="en">Decisions CSV</span></button>
@@ -824,6 +826,14 @@
                   <tr>
                     <td style="padding: 4px 8px;"><code>PRISMA_TRAICE_REPORT.md</code></td>
                     <td style="padding: 4px 8px;"><span class="zh">V2.3 透明报告：说明是否使用 AI、如何使用、No-AI 状态，以及“最终计数来自人工 ScreeningDecision”的边界</span><span class="en">V2.3 transparency report covering AI usage, No-AI state, and the boundary that final counts come from human ScreeningDecision records</span></td>
+                  </tr>
+                  <tr style="border-top: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>dual_review_conflicts.csv</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">V2.5 dual-review evidence: screening and quality conflicts, reviewer A/B decisions, resolver final decisions, and status</span><span class="en">V2.5 dual-review evidence: screening and quality conflicts, reviewer A/B decisions, resolver final decisions, and status</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 8px;"><code>dual_review_agreement.json</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">V2.5 agreement metrics: percent agreement, Cohen's kappa, paired decisions, and unresolved-conflict export gate status</span><span class="en">V2.5 agreement metrics: percent agreement, Cohen's kappa, paired decisions, and unresolved-conflict export gate status</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -968,9 +978,9 @@
   <script src="quality-engine.js?v=20260511-v24-alpha-quality-schema"></script>
   <script src="import-job-runtime.js?v=20260422-v21-shell"></script>
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
-  <script src="dual-review-engine.js?v=20260511-v25-dual-review"></script>
+  <script src="dual-review-engine.js?v=20260512-v25-dual-review-exports"></script>
   <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
-  <script src="app.js?v=20260511-v25-dual-review-conflicts"></script>
+  <script src="app.js?v=20260512-v25-dual-review-exports"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>
 </html>

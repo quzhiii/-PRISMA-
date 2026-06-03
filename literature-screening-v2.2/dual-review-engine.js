@@ -13,6 +13,27 @@
   const VALID_SCREENING_DECISIONS = new Set(['include', 'exclude', 'uncertain', 'pending']);
   const RESOLVER_REVIEWER_IDS = new Set(['resolver', 'resolver_1', 'resolver-1', 'consensus', 'final', 'final_decision']);
   const QUALITY_CONFLICT_FIELDS = Object.freeze(['overall_judgement', 'status']);
+  const DUAL_REVIEW_CONFLICT_EXPORT_COLUMNS = Object.freeze([
+    'schema_version',
+    'conflict_id',
+    'conflict_type',
+    'status',
+    'stage',
+    'record_id',
+    'title',
+    'field',
+    'reviewer_a_id',
+    'reviewer_a_decision',
+    'reviewer_a_reason',
+    'reviewer_b_id',
+    'reviewer_b_decision',
+    'reviewer_b_reason',
+    'resolver_id',
+    'final_decision',
+    'final_reason',
+    'differences',
+    'updated_at',
+  ]);
 
   function nowIso() {
     return new Date().toISOString();
@@ -231,6 +252,18 @@
       const stage = reviewerA.stage || reviewerB.stage;
       const conflictId = `conflict-${stage}-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`;
 
+      // P1 fix: Invalidate resolver if either reviewer edited after resolution
+      const resolverTime = resolverDecision ? normalizeString(resolverDecision.updatedAt || resolverDecision.decidedAt, '') : '';
+      const reviewerATime = normalizeString(reviewerA.updatedAt || reviewerA.decidedAt, '');
+      const reviewerBTime = normalizeString(reviewerB.updatedAt || reviewerB.decidedAt, '');
+      const resolverStillValid = resolverDecision
+        && resolverTime
+        && reviewerATime
+        && reviewerBTime
+        && compareDecisionTime(resolverDecision, reviewerA) >= 0
+        && compareDecisionTime(resolverDecision, reviewerB) >= 0;
+      const effectiveResolver = resolverStillValid ? resolverDecision : null;
+
       conflicts.push({
         conflictId,
         conflictType: 'screening',
@@ -240,8 +273,8 @@
         record: recordMap.get(recordId) || null,
         reviewerA,
         reviewerB,
-        resolverDecision,
-        status: resolverDecision ? 'resolved' : 'pending',
+        resolverDecision: effectiveResolver,
+        status: effectiveResolver ? 'resolved' : 'pending',
         field: 'human_decision',
         signatures: {
           reviewerA: decisionSignature(reviewerA),
@@ -257,6 +290,72 @@
       if (stageCompare !== 0) return stageCompare;
       return normalizeString(left.recordId, '').localeCompare(normalizeString(right.recordId, ''));
     });
+  }
+
+  function buildScreeningAgreementPairs(decisions, records, options = {}) {
+    const recordMap = buildRecordMap(records);
+    const groups = groupDecisionsByRecordStage(decisions);
+    const pairs = [];
+
+    groups.forEach((group) => {
+      const reviewerA = pickReviewerDecision(group, 'A', options.reviewerAId);
+      const reviewerB = pickReviewerDecision(group, 'B', options.reviewerBId);
+
+      if (!reviewerA || !reviewerB) return;
+      if (reviewerA.decision === 'pending' || reviewerB.decision === 'pending') return;
+
+      const resolverDecision = findLatestResolverDecision(group);
+      const recordId = reviewerA.recordId || reviewerB.recordId;
+      const stage = reviewerA.stage || reviewerB.stage;
+      const reviewerASignature = decisionSignature(reviewerA);
+      const reviewerBSignature = decisionSignature(reviewerB);
+      const agreement = reviewerASignature === reviewerBSignature;
+      const pairId = `pair-${stage}-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`;
+
+      pairs.push({
+        pairId,
+        schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+        recordId,
+        stage,
+        record: recordMap.get(recordId) || null,
+        reviewerA,
+        reviewerB,
+        resolverDecision,
+        agreement,
+        status: agreement ? 'agreement' : 'disagreement',
+        conflictStatus: agreement ? 'none' : resolverDecision ? 'resolved' : 'pending',
+        signatures: {
+          reviewerA: reviewerASignature,
+          reviewerB: reviewerBSignature,
+        },
+        updatedAt: resolverDecision ? resolverDecision.updatedAt : (normalizeString(reviewerB.updatedAt, '') || normalizeString(reviewerA.updatedAt, '')),
+      });
+    });
+
+    return pairs.sort((left, right) => {
+      const stageCompare = normalizeString(left.stage, '').localeCompare(normalizeString(right.stage, ''));
+      if (stageCompare !== 0) return stageCompare;
+      return normalizeString(left.recordId, '').localeCompare(normalizeString(right.recordId, ''));
+    });
+  }
+
+  function calculateScreeningAgreementMetrics(decisions, records, options = {}) {
+    const pairs = buildScreeningAgreementPairs(decisions, records, options);
+    const metrics = calculateAgreementMetrics(
+      pairs.map((pair) => pair.reviewerA),
+      pairs.map((pair) => pair.reviewerB)
+    );
+    const disagreementPairs = pairs.filter((pair) => !pair.agreement);
+    const resolvedDisagreements = disagreementPairs.filter((pair) => pair.conflictStatus === 'resolved');
+
+    return {
+      ...metrics,
+      scope: 'screening',
+      pairCount: pairs.length,
+      disagreementPairCount: disagreementPairs.length,
+      resolvedDisagreementCount: resolvedDisagreements.length,
+      pendingDisagreementCount: disagreementPairs.length - resolvedDisagreements.length,
+    };
   }
 
   function buildRecordMap(records) {
@@ -359,6 +458,142 @@
     };
   }
 
+  function createResolverQualityAssessment(conflictInput, input = {}) {
+    const conflict = conflictInput || {};
+    const timestamp = normalizeString(input.resolvedAt || input.updatedAt || input.updated_at, '') || nowIso();
+    const recordId = normalizeString(input.recordId || input.record_id || conflict.recordId || conflict.record_id, '');
+    const reviewerId = normalizeReviewerId(input.resolverId || input.resolver_id || input.reviewerId || input.reviewer_id, 'resolver_1');
+    const domainJudgements = normalizeQualityDomainJudgements(
+      input.domainJudgements || input.domain_judgements || input.domainScores || input.domain_scores || input.domains,
+      conflict
+    );
+    const domainRows = Object.keys(domainJudgements).sort().map((domainId) => ({
+      domain_id: domainId,
+      judgement: domainJudgements[domainId],
+    }));
+
+    return {
+      assessment_id: normalizeString(input.assessmentId || input.assessment_id, `quality-resolution-${recordId || makeId('record')}`),
+      project_id: normalizeString(input.projectId || input.project_id, ''),
+      record_id: recordId,
+      reviewer_id: reviewerId,
+      reviewer_slot: 'resolver',
+      overall_judgement: normalizeString(input.overallJudgement || input.overall_judgement, 'not_assessed'),
+      status: normalizeString(input.status, 'complete'),
+      domain_scores: domainRows,
+      domains: domainRows,
+      notes: normalizeString(input.notes || input.discussion, ''),
+      updated_at: timestamp,
+      metadata: {
+        ...normalizeObject(input.metadata),
+        resolverAction: true,
+        finalDecision: true,
+        conflictId: normalizeString(conflict.conflictId || conflict.conflict_id, ''),
+        reviewerA: conflict.reviewerA ? summarizeQualityAssessment(conflict.reviewerA) : null,
+        reviewerB: conflict.reviewerB ? summarizeQualityAssessment(conflict.reviewerB) : null,
+        resolutionSource: 'resolver',
+        schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+      },
+      schema_version: DUAL_REVIEW_SCHEMA_VERSION,
+    };
+  }
+
+  function normalizeQualityDomainJudgements(input, conflictInput) {
+    const judgements = {};
+    const source = input || {};
+
+    if (Array.isArray(source)) {
+      source.forEach((row) => {
+        const domainId = normalizeString(row && (row.domain_id || row.domain || row.id || row.label), '');
+        if (!domainId) return;
+        judgements[domainId] = normalizeString(row && (row.judgement || row.score || row.value), 'not_assessed');
+      });
+    } else if (source && typeof source === 'object') {
+      Object.keys(source).forEach((domainId) => {
+        const value = source[domainId];
+        judgements[domainId] = normalizeString(
+          value && typeof value === 'object' ? (value.judgement || value.score || value.value) : value,
+          'not_assessed'
+        );
+      });
+    }
+
+    const conflict = conflictInput || {};
+    const domainIds = new Set();
+    [conflict.reviewerA, conflict.reviewerB].forEach((assessment) => {
+      Object.keys((assessment && assessment.domainJudgements) || {}).forEach((domainId) => domainIds.add(domainId));
+    });
+    (Array.isArray(conflict.differences) ? conflict.differences : []).forEach((difference) => {
+      const field = normalizeString(difference && difference.field, '');
+      if (field.startsWith('domain:')) domainIds.add(field.slice('domain:'.length));
+    });
+
+    domainIds.forEach((domainId) => {
+      if (Object.prototype.hasOwnProperty.call(judgements, domainId)) return;
+      const reviewerAValue = conflict.reviewerA && conflict.reviewerA.domainJudgements
+        ? conflict.reviewerA.domainJudgements[domainId]
+        : '';
+      const reviewerBValue = conflict.reviewerB && conflict.reviewerB.domainJudgements
+        ? conflict.reviewerB.domainJudgements[domainId]
+        : '';
+      judgements[domainId] = normalizeString(reviewerAValue || reviewerBValue, 'not_assessed');
+    });
+
+    return judgements;
+  }
+
+  function summarizeQualityAssessment(assessmentInput) {
+    const assessment = assessmentInput && assessmentInput.recordId
+      ? assessmentInput
+      : normalizeQualityAssessment(assessmentInput || {});
+
+    return {
+      reviewerId: normalizeString(assessment.reviewerId || assessment.reviewer_id, ''),
+      overallJudgement: normalizeString(assessment.overallJudgement || assessment.overall_judgement, 'not_assessed'),
+      status: normalizeString(assessment.status, 'not_started'),
+      domainJudgements: clonePlain(assessment.domainJudgements || assessment.domain_judgements || {}, {}),
+      updatedAt: normalizeString(assessment.updatedAt || assessment.updated_at, ''),
+    };
+  }
+
+  function createQualityConflictResolvedAuditEvent(conflictInput, resolverAssessmentInput, input = {}) {
+    const conflict = conflictInput || {};
+    const resolverAssessment = normalizeQualityAssessment(resolverAssessmentInput || {});
+    const conflictId = normalizeString(conflict.conflictId || conflict.conflict_id, '');
+
+    return {
+      eventType: 'quality_conflict_resolved',
+      recordId: resolverAssessment.recordId || conflict.recordId || '',
+      stage: 'quality',
+      before: {
+        conflictId,
+        status: normalizeString(conflict.status, 'pending'),
+        reviewerA: conflict.reviewerA ? summarizeQualityAssessment(conflict.reviewerA) : null,
+        reviewerB: conflict.reviewerB ? summarizeQualityAssessment(conflict.reviewerB) : null,
+        differences: clonePlain(conflict.differences || [], []),
+      },
+      after: {
+        conflictId,
+        status: 'resolved',
+        finalValues: {
+          overallJudgement: resolverAssessment.overallJudgement,
+          status: resolverAssessment.status,
+          domainJudgements: clonePlain(resolverAssessment.domainJudgements || {}, {}),
+        },
+        resolverId: resolverAssessment.reviewerId,
+      },
+      reason: normalizeString(input.reason || input.notes || resolverAssessment.raw?.notes, ''),
+      source: 'human',
+      metadata: {
+        ...normalizeObject(input.metadata),
+        resolverAction: true,
+        resolutionNote: normalizeString(input.notes || input.discussion || resolverAssessment.raw?.notes, ''),
+        schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+        conflictId,
+      },
+    };
+  }
+
   function getDomainJudgementMap(assessment) {
     const rows = Array.isArray(assessment && assessment.domain_scores)
       ? assessment.domain_scores
@@ -378,14 +613,21 @@
 
   function normalizeQualityAssessment(input) {
     const payload = input || {};
+    const metadata = normalizeObject(payload.metadata);
     const reviewerId = normalizeReviewerId(payload.reviewer_id || payload.reviewerId, '');
     const recordId = normalizeString(payload.record_id || payload.recordId, '');
+    const metadataResolver = metadata.resolverAction === true
+      || metadata.resolver_action === true
+      || metadata.finalDecision === true
+      || metadata.final_decision === true
+      || metadata.resolutionSource === 'resolver'
+      || metadata.resolution_source === 'resolver';
 
     return {
       assessmentId: normalizeString(payload.assessment_id || payload.assessmentId || payload.id, `qa-${recordId || makeId('record')}`),
       recordId,
       reviewerId,
-      reviewerSlot: getReviewerSlot(reviewerId),
+      reviewerSlot: normalizeString(payload.reviewerSlot || payload.reviewer_slot || metadata.reviewerSlot || metadata.reviewer_slot, metadataResolver ? 'resolver' : getReviewerSlot(reviewerId)),
       overallJudgement: normalizeString(payload.overall_judgement || payload.overallJudgement || payload.overall_risk || payload.overallRisk, 'not_assessed'),
       status: normalizeString(payload.status, 'not_started'),
       domainJudgements: getDomainJudgementMap(payload),
@@ -423,6 +665,15 @@
       const differences = getQualityDifferences(reviewerA, reviewerB);
       if (differences.length === 0) return;
 
+      // P1 fix: Invalidate resolver if either reviewer edited after resolution
+      const resolverStillValid = resolver
+        && resolver.updatedAt
+        && reviewerA.updatedAt
+        && reviewerB.updatedAt
+        && compareAssessmentTime(resolver, reviewerA) >= 0
+        && compareAssessmentTime(resolver, reviewerB) >= 0;
+      const effectiveResolver = resolverStillValid ? resolver : null;
+
       conflicts.push({
         conflictId: `quality-conflict-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`,
         conflictType: 'quality',
@@ -431,10 +682,10 @@
         stage: 'quality',
         reviewerA,
         reviewerB,
-        resolverDecision: resolver,
-        status: resolver ? 'resolved' : 'pending',
+        resolverDecision: effectiveResolver,
+        status: effectiveResolver ? 'resolved' : 'pending',
         differences,
-        updatedAt: resolver ? resolver.updatedAt : (reviewerB.updatedAt || reviewerA.updatedAt),
+        updatedAt: effectiveResolver ? effectiveResolver.updatedAt : (reviewerB.updatedAt || reviewerA.updatedAt),
       });
     });
 
@@ -614,6 +865,157 @@
     };
   }
 
+  function buildDualReviewAgreementExport(input = {}) {
+    const screeningDecisions = Array.isArray(input.screeningDecisions)
+      ? input.screeningDecisions
+      : Array.isArray(input.decisions)
+        ? input.decisions
+        : [];
+    const records = Array.isArray(input.records) ? input.records : [];
+    const screeningPairs = Array.isArray(input.screeningPairs)
+      ? input.screeningPairs
+      : buildScreeningAgreementPairs(screeningDecisions, records, input.options || {});
+    const screeningConflicts = Array.isArray(input.screeningConflicts)
+      ? input.screeningConflicts
+      : buildScreeningConflictQueue(screeningDecisions, records, input.options || {});
+    const qualityConflicts = Array.isArray(input.qualityConflicts)
+      ? input.qualityConflicts
+      : buildQualityConflictQueue(input.qualityAssessments || [], input.options || {});
+    const screeningMetrics = input.screeningAgreementMetrics
+      || calculateAgreementMetrics(
+        screeningPairs.map((pair) => pair.reviewerA),
+        screeningPairs.map((pair) => pair.reviewerB)
+      );
+    const exportGate = input.exportGate || buildExportGateStatus({ screeningConflicts, qualityConflicts });
+
+    return {
+      schemaVersion: DUAL_REVIEW_SCHEMA_VERSION,
+      exportType: 'dual_review_agreement',
+      generatedAt: normalizeString(input.generatedAt, '') || nowIso(),
+      screening: {
+        metrics: {
+          ...screeningMetrics,
+          scope: 'screening',
+          pairCount: screeningPairs.length,
+          disagreementPairCount: screeningPairs.filter((pair) => !pair.agreement).length,
+          resolvedDisagreementCount: screeningPairs.filter((pair) => !pair.agreement && pair.conflictStatus === 'resolved').length,
+          pendingDisagreementCount: screeningPairs.filter((pair) => !pair.agreement && pair.conflictStatus !== 'resolved').length,
+        },
+        pairs: screeningPairs.map(summarizeAgreementPair),
+      },
+      conflicts: {
+        screening: summarizeConflicts(screeningConflicts),
+        quality: summarizeConflicts(qualityConflicts),
+      },
+      exportGate,
+    };
+  }
+
+  function serializeDualReviewAgreementJson(input = {}) {
+    return `${JSON.stringify(buildDualReviewAgreementExport(input), null, 2)}\n`;
+  }
+
+  function serializeDualReviewConflictsCsv(input = {}, qualityInput) {
+    const screeningConflicts = Array.isArray(input)
+      ? input
+      : Array.isArray(input.screeningConflicts)
+        ? input.screeningConflicts
+        : [];
+    const qualityConflicts = Array.isArray(qualityInput)
+      ? qualityInput
+      : Array.isArray(input.qualityConflicts)
+        ? input.qualityConflicts
+        : [];
+    const rows = screeningConflicts
+      .map((conflict) => conflictToExportRow(conflict))
+      .concat(qualityConflicts.map((conflict) => conflictToExportRow(conflict)));
+    const header = DUAL_REVIEW_CONFLICT_EXPORT_COLUMNS.join(',');
+    const body = rows.map((row) => DUAL_REVIEW_CONFLICT_EXPORT_COLUMNS.map((column) => csvCell(row[column])).join(','));
+
+    return [header, ...body].join('\n') + '\n';
+  }
+
+  function summarizeAgreementPair(pairInput) {
+    const pair = pairInput || {};
+
+    return {
+      pairId: normalizeString(pair.pairId || pair.pair_id, ''),
+      recordId: normalizeString(pair.recordId || pair.record_id, ''),
+      stage: normalizeString(pair.stage, ''),
+      title: getRecordTitle(pair.record),
+      status: normalizeString(pair.status, ''),
+      conflictStatus: normalizeString(pair.conflictStatus || pair.conflict_status, ''),
+      reviewerA: pair.reviewerA ? summarizeDecision(pair.reviewerA) : null,
+      reviewerB: pair.reviewerB ? summarizeDecision(pair.reviewerB) : null,
+      signatures: {
+        reviewerA: normalizeString(pair.signatures && pair.signatures.reviewerA, ''),
+        reviewerB: normalizeString(pair.signatures && pair.signatures.reviewerB, ''),
+      },
+      resolverDecision: pair.resolverDecision ? summarizeDecision(pair.resolverDecision) : null,
+      updatedAt: normalizeString(pair.updatedAt || pair.updated_at, ''),
+    };
+  }
+
+  function conflictToExportRow(conflictInput) {
+    const conflict = conflictInput || {};
+    const isQuality = normalizeString(conflict.conflictType || conflict.conflict_type, '') === 'quality';
+    const reviewerA = conflict.reviewerA || {};
+    const reviewerB = conflict.reviewerB || {};
+    const resolver = conflict.resolverDecision || null;
+    const differences = Array.isArray(conflict.differences)
+      ? conflict.differences
+      : conflict.signatures
+        ? [{ field: normalizeString(conflict.field, 'human_decision'), reviewerA: conflict.signatures.reviewerA, reviewerB: conflict.signatures.reviewerB }]
+        : [];
+
+    return {
+      schema_version: normalizeString(conflict.schemaVersion || conflict.schema_version, DUAL_REVIEW_SCHEMA_VERSION),
+      conflict_id: normalizeString(conflict.conflictId || conflict.conflict_id, ''),
+      conflict_type: normalizeString(conflict.conflictType || conflict.conflict_type, 'screening'),
+      status: normalizeString(conflict.status, 'pending'),
+      stage: normalizeString(conflict.stage, isQuality ? 'quality' : ''),
+      record_id: normalizeString(conflict.recordId || conflict.record_id, ''),
+      title: getRecordTitle(conflict.record || reviewerA.raw || reviewerB.raw),
+      field: isQuality
+        ? differences.map((difference) => normalizeString(difference.field, '')).filter(Boolean).join(';')
+        : normalizeString(conflict.field, 'human_decision'),
+      reviewer_a_id: normalizeString(reviewerA.reviewerId || reviewerA.reviewer_id, ''),
+      reviewer_a_decision: isQuality ? summarizeQualityAssessmentForExport(reviewerA) : decisionSignature(reviewerA),
+      reviewer_a_reason: isQuality ? '' : normalizeString(reviewerA.exclusionReason || reviewerA.exclusion_reason, ''),
+      reviewer_b_id: normalizeString(reviewerB.reviewerId || reviewerB.reviewer_id, ''),
+      reviewer_b_decision: isQuality ? summarizeQualityAssessmentForExport(reviewerB) : decisionSignature(reviewerB),
+      reviewer_b_reason: isQuality ? '' : normalizeString(reviewerB.exclusionReason || reviewerB.exclusion_reason, ''),
+      resolver_id: resolver ? normalizeString(resolver.reviewerId || resolver.reviewer_id, '') : '',
+      final_decision: resolver ? (isQuality ? summarizeQualityAssessmentForExport(resolver) : decisionSignature(resolver)) : '',
+      final_reason: resolver && !isQuality ? normalizeString(resolver.exclusionReason || resolver.exclusion_reason, '') : '',
+      differences: JSON.stringify(differences),
+      updated_at: normalizeString(conflict.updatedAt || conflict.updated_at, ''),
+    };
+  }
+
+  function summarizeQualityAssessmentForExport(assessmentInput) {
+    const assessment = assessmentInput && assessmentInput.raw
+      ? assessmentInput
+      : normalizeQualityAssessment(assessmentInput || {});
+    const domains = assessment.domainJudgements && typeof assessment.domainJudgements === 'object'
+      ? Object.keys(assessment.domainJudgements)
+        .sort()
+        .map((domainId) => `${domainId}:${assessment.domainJudgements[domainId]}`)
+        .join(';')
+      : '';
+
+    return [
+      `overall:${normalizeString(assessment.overallJudgement || assessment.overall_judgement, 'not_assessed')}`,
+      `status:${normalizeString(assessment.status, 'not_started')}`,
+      domains ? `domains:${domains}` : '',
+    ].filter(Boolean).join('|');
+  }
+
+  function getRecordTitle(record) {
+    const source = record && typeof record === 'object' ? record : {};
+    return normalizeString(source.title || source.TI || source.T1 || source.name || '', '');
+  }
+
   function summarizeConflicts(conflicts) {
     const summary = {
       total: 0,
@@ -638,21 +1040,42 @@
     target[key] = (target[key] || 0) + 1;
   }
 
+  function csvCell(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+    if (/[",\n\r]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    return text;
+  }
+
   return {
     DUAL_REVIEW_SCHEMA_VERSION,
+    DUAL_REVIEW_CONFLICT_EXPORT_COLUMNS,
     normalizeReviewSelection,
     normalizeScreeningDecision,
     normalizeScreeningDecisionRecord,
     createReviewerDecision,
     createResolverScreeningDecision,
     createResolverAuditEvent,
+    createResolverQualityAssessment,
+    createQualityConflictResolvedAuditEvent,
     getLatestScreeningDecisions,
     buildScreeningConflictQueue,
+    buildScreeningAgreementPairs,
     buildQualityConflictQueue,
     buildExportGateStatus,
+    buildDualReviewAgreementExport,
     summarizeConflicts,
     calculateAgreementMetrics,
+    calculateScreeningAgreementMetrics,
     calculateCohensKappa,
+    serializeDualReviewAgreementJson,
+    serializeDualReviewConflictsCsv,
     isResolverDecision,
     decisionSignature,
     getReviewerSlot,

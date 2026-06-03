@@ -28,6 +28,34 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'ai_suggestions',
   'prisma_traice_report',
 ]);
+const DUAL_REVIEW_EXPORT_TYPES = Object.freeze([
+  'dual_review_conflicts',
+  'dual_review_agreement',
+]);
+const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object.freeze([
+  'included',
+  'excluded',
+  'svg-colorful',
+  'svg-blackwhite',
+  'svg-subtle',
+  'report',
+  'quality_appraisal',
+  'evidence_table',
+  'grade_summary',
+  'audit_prisma_counts',
+  'audit_summary',
+]);
+const V25_CONFLICT_EVIDENCE_EXPORT_TYPES = Object.freeze([
+  'audit_manifest',
+  'audit_events',
+  'audit_screening_decisions',
+  'audit_exclusion_reasons',
+  'ai_usage_registry',
+  'ai_suggestions',
+  'prisma_traice_report',
+  'dual_review_conflicts',
+  'dual_review_agreement',
+]);
 const QUALITY_DISPLAY_LABELS = Object.freeze({
   status: {
     not_started: { zh: '未开始', en: 'Not started' },
@@ -102,11 +130,22 @@ let currentReviewer = 'A';
 let reviewerNames = { A: '审查员A', B: '审查员B' };
 let dualReviewResults = { A: {}, B: {}, final: {} };
 let dualReviewConflictState = {
+  screeningPairs: [],
   screeningConflicts: [],
   qualityConflicts: [],
   agreementMetrics: null,
   exportGate: null,
 };
+
+function getEmptyDualReviewConflictState() {
+  return {
+    screeningPairs: [],
+    screeningConflicts: [],
+    qualityConflicts: [],
+    agreementMetrics: null,
+    exportGate: null,
+  };
+}
 let projectData = null;
 let collaborationSyncInterval = null;
 const COLLAB_PROJECTS_KEY = 'prisma_projects';
@@ -319,7 +358,7 @@ function normalizeQualityAssessmentsState(list) {
     .filter(Boolean)
     .map((assessment, index) => {
       if (QUALITY_ENGINE && typeof QUALITY_ENGINE.createQualityAssessment === 'function') {
-        return QUALITY_ENGINE.createQualityAssessment(
+        const normalized = QUALITY_ENGINE.createQualityAssessment(
           {
             id: assessment.record_id || assessment.recordId || `record-${index + 1}`,
             title: assessment.title || '',
@@ -344,6 +383,11 @@ function normalizeQualityAssessmentsState(list) {
             updatedAt: assessment.updated_at || assessment.updatedAt,
           }
         );
+
+        return {
+          ...normalized,
+          reviewer_assessments: preserveQualityReviewerAssessments(assessment),
+        };
       }
 
       return {
@@ -365,10 +409,25 @@ function normalizeQualityAssessmentsState(list) {
         evidence_final: assessment.evidence_final || assessment.evidenceFinal || 'very_low',
         override_reason: assessment.override_reason || assessment.overrideReason || '',
         reviewer_id: assessment.reviewer_id || assessment.reviewerId || '',
+        reviewer_assessments: preserveQualityReviewerAssessments(assessment),
         notes: assessment.notes || '',
         updated_at: assessment.updated_at || assessment.updatedAt || new Date().toISOString(),
       };
     });
+}
+
+function preserveQualityReviewerAssessments(assessment) {
+  if (!assessment || typeof assessment !== 'object' || !assessment.reviewer_assessments || typeof assessment.reviewer_assessments !== 'object') {
+    return {};
+  }
+
+  return Object.keys(assessment.reviewer_assessments).reduce((acc, reviewerId) => {
+    const entry = assessment.reviewer_assessments[reviewerId];
+    if (entry && typeof entry === 'object') {
+      acc[reviewerId] = { ...entry };
+    }
+    return acc;
+  }, {});
 }
 
 function normalizeImportJobsState(list) {
@@ -485,7 +544,7 @@ function rehydrateQualityAssessmentFromSourceRecord(record, assessment, index) {
   const recordId = buildQualityRecordId(record, index);
 
   if (QUALITY_ENGINE && typeof QUALITY_ENGINE.createQualityAssessment === 'function') {
-    return QUALITY_ENGINE.createQualityAssessment(record, {
+    const normalized = QUALITY_ENGINE.createQualityAssessment(record, {
       id: assessment.id || `qa-${recordId}`,
       projectId: currentProjectId || assessment.project_id || assessment.projectId || null,
       recordId,
@@ -500,6 +559,11 @@ function rehydrateQualityAssessmentFromSourceRecord(record, assessment, index) {
       notes: assessment.notes || '',
       updatedAt: assessment.updated_at || assessment.updatedAt,
     });
+
+    return {
+      ...normalized,
+      reviewer_assessments: preserveQualityReviewerAssessments(assessment),
+    };
   }
 
   return {
@@ -609,6 +673,31 @@ function renderQualityMetaPill(labelZh, labelEn, labelGroup, value) {
       <span class="quality-meta-label"><span class="zh">${labelZh}</span><span class="en">${labelEn}</span></span>
       <span class="quality-meta-value">${renderQualityDisplayLabel(labelGroup, value)}</span>
     </span>
+  `;
+}
+
+function renderQualityConflictResolverPanel() {
+  if (!isDualReviewMode || runtimeMode !== RUNTIME_MODE.DUAL_MAIN || !DUAL_REVIEW_ENGINE) {
+    return '';
+  }
+
+  const conflicts = refreshDualReviewConflictState().qualityConflicts || [];
+  const pendingConflicts = conflicts.filter((conflict) => conflict.status !== 'resolved');
+  const resolvedCount = conflicts.length - pendingConflicts.length;
+
+  return `
+    <div class="quality-conflict-panel">
+      <div>
+        <strong><span class="zh">质量评价分歧</span><span class="en">Quality conflicts</span></strong>
+        <div class="muted-text">
+          <span class="zh">待处理 ${pendingConflicts.length} 条，已解决 ${resolvedCount} 条。</span>
+          <span class="en">${pendingConflicts.length} pending, ${resolvedCount} resolved.</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="showQualityConflictResolver()" ${pendingConflicts.length === 0 ? 'disabled' : ''}>
+        <span class="zh">处理质量分歧</span><span class="en">Resolve quality conflicts</span>
+      </button>
+    </div>
   `;
 }
 
@@ -857,12 +946,20 @@ function getQualityReviewConflictInputs() {
       });
     });
 
-    if (assessment.reviewer_id) {
+    if (assessment.reviewer_id && !reviewerAssessments[assessment.reviewer_id]) {
       rows.push(assessment);
     }
   });
 
   return rows;
+}
+
+function getQualityConflictIndexMap() {
+  const map = new Map();
+  refreshDualReviewConflictState().qualityConflicts.forEach((conflict, index) => {
+    map.set(conflict.conflictId, index);
+  });
+  return map;
 }
 
 function getFulltextReviewRecordsForConflictState() {
@@ -880,41 +977,21 @@ function refreshDualReviewConflictState(options = {}) {
   const screeningConflicts = DUAL_REVIEW_ENGINE.buildScreeningConflictQueue(screeningDecisions, records);
   const qualityConflicts = DUAL_REVIEW_ENGINE.buildQualityConflictQueue(getQualityReviewConflictInputs());
   const pendingScreeningConflicts = screeningConflicts.filter((conflict) => conflict.status !== 'resolved');
-  const reviewerADecisions = [];
-  const reviewerBDecisions = [];
-
-  screeningConflicts.forEach((conflict) => {
-    reviewerADecisions.push(conflict.reviewerA);
-    reviewerBDecisions.push(conflict.reviewerB);
-  });
-
-  if (screeningConflicts.length === 0) {
-    const byRecordStage = new Map();
-    if (typeof DUAL_REVIEW_ENGINE.getLatestScreeningDecisions === 'function') {
-      DUAL_REVIEW_ENGINE.getLatestScreeningDecisions(screeningDecisions)
-        .filter((decision) => decision.stage === 'full_text' && !DUAL_REVIEW_ENGINE.isResolverDecision(decision))
-        .forEach((decision) => {
-          const key = `${decision.recordId}::${decision.stage}`;
-          if (!byRecordStage.has(key)) byRecordStage.set(key, {});
-          const slot = DUAL_REVIEW_ENGINE.getReviewerSlot(decision.reviewerId);
-          if (slot === 'A' || slot === 'B') byRecordStage.get(key)[slot] = decision;
-        });
-    }
-
-    byRecordStage.forEach((pair) => {
-      if (pair.A && pair.B) {
-        reviewerADecisions.push(pair.A);
-        reviewerBDecisions.push(pair.B);
-      }
-    });
-  }
-
-  const agreementMetrics = reviewerADecisions.length > 0
-    ? DUAL_REVIEW_ENGINE.calculateAgreementMetrics(reviewerADecisions, reviewerBDecisions)
+  const screeningPairs = typeof DUAL_REVIEW_ENGINE.buildScreeningAgreementPairs === 'function'
+    ? DUAL_REVIEW_ENGINE.buildScreeningAgreementPairs(screeningDecisions, records)
+    : [];
+  const agreementMetrics = screeningPairs.length > 0
+    ? (typeof DUAL_REVIEW_ENGINE.calculateScreeningAgreementMetrics === 'function'
+      ? DUAL_REVIEW_ENGINE.calculateScreeningAgreementMetrics(screeningDecisions, records)
+      : DUAL_REVIEW_ENGINE.calculateAgreementMetrics(
+        screeningPairs.map((pair) => pair.reviewerA),
+        screeningPairs.map((pair) => pair.reviewerB)
+      ))
     : null;
   const exportGate = DUAL_REVIEW_ENGINE.buildExportGateStatus({ screeningConflicts, qualityConflicts });
 
   dualReviewConflictState = {
+    screeningPairs,
     screeningConflicts,
     qualityConflicts,
     agreementMetrics,
@@ -961,47 +1038,49 @@ function getUnresolvedConflictGateStatus() {
   };
 }
 
+function recordConflictGateAuditEvent(eventType, type, gate, options = {}) {
+  if (typeof appendAuditEventsSafe !== 'function') return;
+
+  appendAuditEventsSafe({
+    eventType,
+    recordId: '',
+    stage: 'export',
+    after: {
+      exportType: type,
+      unresolvedConflictCount: gate.unresolvedConflictCount,
+      unresolvedScreeningConflictCount: gate.unresolvedScreeningConflictCount,
+      unresolvedQualityConflictCount: gate.unresolvedQualityConflictCount,
+      gateStatus: gate.status || '',
+    },
+    source: 'system',
+    metadata: {
+      schemaVersion: gate.schemaVersion || '',
+      warningOnly: options.warningOnly === true,
+      blocked: options.blocked === true,
+      gatePolicy: options.gatePolicy || 'v2.5-unresolved-conflict-gate',
+    },
+  }, { persist: false });
+}
+
 function maybeWarnUnresolvedConflictsBeforeExport(type) {
   if (!DUAL_REVIEW_ENGINE) return true;
-  const finalExportTypes = new Set([
-    'included',
-    'excluded',
-    'svg-colorful',
-    'svg-blackwhite',
-    'svg-subtle',
-    'report',
-    'quality_appraisal',
-    'evidence_table',
-    'grade_summary',
-    'audit_prisma_counts',
-    'audit_summary',
-  ]);
-  if (!finalExportTypes.has(type)) return true;
+  const finalExportTypes = new Set(V25_FINAL_CONFLICT_GATED_EXPORT_TYPES);
+  const evidenceExportTypes = new Set(V25_CONFLICT_EVIDENCE_EXPORT_TYPES);
+  if (!finalExportTypes.has(type) && !evidenceExportTypes.has(type)) return true;
 
   const gate = getUnresolvedConflictGateStatus();
   if (!gate.hasUnresolvedConflicts) return true;
 
-  const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。继续导出会带有风险提示，最终 PRISMA 计数应以 resolver/final human decision 为准。`;
-  showToast(message, 'warning');
-
-  if (typeof appendAuditEventsSafe === 'function') {
-    appendAuditEventsSafe({
-      eventType: 'export_conflict_warning',
-      recordId: '',
-      stage: 'export',
-      after: {
-        exportType: type,
-        unresolvedConflictCount: gate.unresolvedConflictCount,
-        unresolvedScreeningConflictCount: gate.unresolvedScreeningConflictCount,
-        unresolvedQualityConflictCount: gate.unresolvedQualityConflictCount,
-      },
-      source: 'system',
-      metadata: {
-        schemaVersion: gate.schemaVersion || '',
-        warningOnly: true,
-      },
-    }, { persist: false });
+  if (finalExportTypes.has(type)) {
+    const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。V2.5 已阻止最终结果导出；请先解决冲突，或导出 dual_review_conflicts.csv / dual_review_agreement.json 作为冲突证据。`;
+    showToast(message, 'error');
+    recordConflictGateAuditEvent('export_conflict_blocked', type, gate, { blocked: true });
+    return false;
   }
+
+  const message = `仍有 ${gate.unresolvedConflictCount} 个未解决的双审冲突。此导出仅作为审计/冲突证据，最终结果导出仍会被阻止。`;
+  showToast(message, 'warning');
+  recordConflictGateAuditEvent('export_conflict_warning', type, gate, { warningOnly: true });
 
   return true;
 }
@@ -1130,6 +1209,8 @@ function renderQualityAssessmentShell() {
     return;
   }
 
+  const qualityConflictIndexMap = getQualityConflictIndexMap();
+
   queueEl.innerHTML = qualityAssessments
     .slice(0, 8)
     .map((assessment) => {
@@ -1167,12 +1248,23 @@ function renderQualityAssessmentShell() {
       const overallId = getQualityAssessmentInputId(recordId, 'overall');
       const statusId = getQualityAssessmentInputId(recordId, 'status');
       const notesId = getQualityAssessmentInputId(recordId, 'notes');
+      const qualityConflictIndex = qualityConflictIndexMap.get(`quality-conflict-${String(recordId).replace(/[^a-z0-9_-]/gi, '_')}`);
+      const qualityConflict = Number.isFinite(qualityConflictIndex) ? dualReviewConflictState.qualityConflicts[qualityConflictIndex] : null;
+      const qualityConflictBadge = qualityConflict
+        ? `<span class="quality-conflict-badge ${qualityConflict.status === 'resolved' ? 'resolved' : ''}">
+            <span class="zh">${qualityConflict.status === 'resolved' ? '分歧已解决' : '存在质量分歧'}</span>
+            <span class="en">${qualityConflict.status === 'resolved' ? 'Resolved conflict' : 'Quality conflict'}</span>
+          </span>`
+        : '';
 
       return `
       <div class="surface-panel quality-assessment-card">
         <div class="quality-assessment-card-head">
           <strong>${escapeShellText(assessment.title || assessment.record_id)}</strong>
-          <span class="format-tag">${renderQualityDisplayLabel('status', assessment.status)}</span>
+          <span class="quality-card-badges">
+            ${qualityConflictBadge}
+            <span class="format-tag">${renderQualityDisplayLabel('status', assessment.status)}</span>
+          </span>
         </div>
         <div class="quality-assessment-meta">
           ${renderQualityMetaPill('研究设计', 'Design', 'studyDesign', assessment.study_design)}
@@ -1229,6 +1321,7 @@ function renderQualityAssessmentShell() {
       <span class="zh">总纳入 ${summary.totalIncluded} 篇，已完成 ${summary.completedAssessments} 篇，缺少 ${summary.missingAssessments} 篇。</span>
       <span class="en">${summary.totalIncluded} included, ${summary.completedAssessments} completed, ${summary.missingAssessments} missing.</span>
     </div>
+    ${renderQualityConflictResolverPanel()}
     <div class="quality-summary-block">
       <strong><span class="zh">工具分布</span><span class="en">Tool families</span></strong>
       <div class="quality-summary-list">${renderQualityDistribution(toolFamilyEntries, 'toolFamily')}</div>
@@ -1311,6 +1404,202 @@ function saveQualityAssessmentEdits(recordId) {
   persistCurrentProjectState();
   renderQualityAssessmentShell();
   showToast('质量评价已保存，导出的质量表会使用这些人工填写内容。', 'success');
+}
+
+function showQualityConflictResolver() {
+  if (runtimeMode !== RUNTIME_MODE.DUAL_MAIN) {
+    showToast('仅主审查员可处理质量评价分歧', 'warning');
+    return;
+  }
+
+  if (!DUAL_REVIEW_ENGINE) {
+    showToast('Dual-review resolver module is not loaded', 'error');
+    return;
+  }
+
+  const conflicts = refreshDualReviewConflictState().qualityConflicts
+    .filter((conflict) => conflict.status !== 'resolved');
+
+  if (conflicts.length === 0) {
+    showToast('所有质量评价分歧均已解决。', 'success');
+    return;
+  }
+
+  const conflictRows = conflicts.map((conflict, index) => {
+    const fields = (conflict.differences || []).map((difference) => `
+      <tr>
+        <td>${escapeShellText(difference.field || '')}</td>
+        <td>${escapeShellText(difference.reviewerA || '')}</td>
+        <td>${escapeShellText(difference.reviewerB || '')}</td>
+      </tr>
+    `).join('');
+    const domainIds = Array.from(new Set(
+      (conflict.differences || [])
+        .map((difference) => String(difference.field || ''))
+        .filter((field) => field.startsWith('domain:'))
+        .map((field) => field.slice('domain:'.length))
+    ));
+    const domainControls = domainIds.map((domainId) => {
+      const resolverValue = conflict.reviewerA?.domainJudgements?.[domainId]
+        || conflict.reviewerB?.domainJudgements?.[domainId]
+        || 'not_assessed';
+      return `
+        <label>
+          <span>${escapeShellText(domainId)}</span>
+          <select id="quality-resolver-domain-${index}-${encodeURIComponent(domainId)}" class="form-input">
+            ${getQualityJudgementOptions(resolverValue)}
+          </select>
+        </label>
+      `;
+    }).join('');
+
+    return `
+      <div class="quality-conflict-resolver-card">
+        <h4>${escapeShellText(conflict.recordId || '')}</h4>
+        <table class="quality-conflict-table">
+          <thead>
+            <tr>
+              <th><span class="zh">字段</span><span class="en">Field</span></th>
+              <th>${escapeShellText(getReviewerLabelForSlot('A'))}</th>
+              <th>${escapeShellText(getReviewerLabelForSlot('B'))}</th>
+            </tr>
+          </thead>
+          <tbody>${fields}</tbody>
+        </table>
+        <div class="quality-resolver-controls">
+          <label>
+            <span class="zh">最终总体判断</span><span class="en">Final overall judgement</span>
+            <select id="quality-resolver-overall-${index}" class="form-input">
+              ${getQualityJudgementOptions(conflict.reviewerA?.overallJudgement || conflict.reviewerB?.overallJudgement || 'not_assessed')}
+            </select>
+          </label>
+          <label>
+            <span class="zh">最终评价状态</span><span class="en">Final status</span>
+            <select id="quality-resolver-status-${index}" class="form-input">
+              ${getQualityStatusOptions('complete')}
+            </select>
+          </label>
+          ${domainControls}
+          <label class="quality-resolver-notes">
+            <span class="zh">协商记录</span><span class="en">Resolution note</span>
+            <textarea id="quality-resolver-notes-${index}" class="form-input quality-domain-textarea" rows="3"></textarea>
+          </label>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const modalHTML = `
+    <div id="quality-conflict-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: var(--color-surface); border-radius: 12px; padding: var(--space-24); max-width: 960px; width: min(960px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);">
+        <h3 style="margin-bottom: var(--space-16); color: var(--color-primary);"><span class="zh">质量评价分歧处理</span><span class="en">Resolve Quality Conflicts</span></h3>
+        <div class="quality-conflict-resolver-list">${conflictRows}</div>
+        <div style="text-align: right; margin-top: var(--space-16);">
+          <button class="btn btn-secondary" type="button" onclick="closeQualityConflictModal()" style="margin-right: var(--space-8);"><span class="zh">取消</span><span class="en">Cancel</span></button>
+          <button class="btn btn-primary" type="button" onclick="applyQualityConflictResolutions()"><span class="zh">应用最终质量判断</span><span class="en">Apply final judgements</span></button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  window.currentQualityConflicts = conflicts;
+  if (typeof applyLangVisibility === 'function') {
+    applyLangVisibility();
+  }
+}
+
+function closeQualityConflictModal() {
+  const modal = document.getElementById('quality-conflict-modal');
+  if (modal) modal.remove();
+  window.currentQualityConflicts = null;
+}
+
+function applyQualityConflictResolutions() {
+  const conflicts = window.currentQualityConflicts || [];
+  if (!Array.isArray(conflicts) || conflicts.length === 0 || !DUAL_REVIEW_ENGINE) return;
+
+  let resolvedCount = 0;
+  conflicts.forEach((conflict, index) => {
+    const domainJudgements = {};
+    (conflict.differences || [])
+      .map((difference) => String(difference.field || ''))
+      .filter((field) => field.startsWith('domain:'))
+      .map((field) => field.slice('domain:'.length))
+      .forEach((domainId) => {
+        domainJudgements[domainId] = readQualityInputValue(`quality-resolver-domain-${index}-${encodeURIComponent(domainId)}`) || 'not_assessed';
+      });
+
+    const notes = readQualityInputValue(`quality-resolver-notes-${index}`);
+    const resolverAssessment = DUAL_REVIEW_ENGINE.createResolverQualityAssessment(conflict, {
+      projectId: ensureProjectId(),
+      resolverId: currentUserSession?.username || 'resolver_1',
+      overallJudgement: readQualityInputValue(`quality-resolver-overall-${index}`) || 'not_assessed',
+      status: readQualityInputValue(`quality-resolver-status-${index}`) || 'complete',
+      domainJudgements,
+      notes,
+    });
+
+    upsertResolvedQualityAssessment(conflict, resolverAssessment);
+    appendAuditEventsSafe(
+      DUAL_REVIEW_ENGINE.createQualityConflictResolvedAuditEvent(conflict, resolverAssessment, { notes }),
+      { persist: false }
+    );
+    resolvedCount += 1;
+  });
+
+  refreshDualReviewConflictState();
+  persistCurrentProjectState();
+  renderQualityAssessmentShell();
+  closeQualityConflictModal();
+  showToast(`已解决 ${resolvedCount} 个质量评价分歧。`, 'success');
+}
+
+function upsertResolvedQualityAssessment(conflict, resolverAssessment) {
+  const recordId = resolverAssessment.record_id || conflict.recordId || '';
+  const index = findQualityAssessmentIndex(recordId);
+  if (index < 0) return;
+
+  const current = qualityAssessments[index] || {};
+  const currentDomains = Array.isArray(current.domain_scores) ? current.domain_scores : [];
+  const resolverDomainMap = (resolverAssessment.domain_scores || []).reduce((acc, domain) => {
+    acc[domain.domain_id] = domain.judgement;
+    return acc;
+  }, {});
+  const domainScores = currentDomains.map((domain) => {
+    const domainId = domain.domain_id || domain.domain || domain.label || '';
+    return {
+      ...domain,
+      judgement: resolverDomainMap[domainId] || domain.judgement || 'not_assessed',
+    };
+  });
+  const resolverId = resolverAssessment.reviewer_id || 'resolver_1';
+
+  qualityAssessments[index] = {
+    ...current,
+    reviewer_id: resolverId,
+    overall_judgement: resolverAssessment.overall_judgement,
+    status: resolverAssessment.status,
+    domain_scores: domainScores,
+    domains: domainScores,
+    notes: resolverAssessment.notes || current.notes || '',
+    reviewer_assessments: {
+      ...(current.reviewer_assessments || {}),
+      [resolverId]: {
+        reviewer_id: resolverId,
+        reviewer_slot: 'resolver',
+        overall_judgement: resolverAssessment.overall_judgement,
+        status: resolverAssessment.status,
+        domain_scores: domainScores,
+        domains: domainScores,
+        notes: resolverAssessment.notes || '',
+        metadata: resolverAssessment.metadata || {},
+        updated_at: resolverAssessment.updated_at,
+      },
+    },
+    updated_at: resolverAssessment.updated_at,
+  };
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
 }
 
 function updateQualityAssessmentCounters(summary) {
@@ -4813,12 +5102,7 @@ function startNewProjectSession() {
   screeningDecisions = [];
   aiSuggestionEvents = [];
   dualReviewResults = { A: {}, B: {}, final: {} };
-  dualReviewConflictState = {
-    screeningConflicts: [],
-    qualityConflicts: [],
-    agreementMetrics: null,
-    exportGate: null,
-  };
+  dualReviewConflictState = getEmptyDualReviewConflictState();
   projectManifest = null;
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
@@ -4884,11 +5168,9 @@ function restoreProjectState(snapshot) {
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
-  dualReviewConflictState = snapshot.dualReviewConflictState || dualReviewConflictState || {
-    screeningConflicts: [],
-    qualityConflicts: [],
-    agreementMetrics: null,
-    exportGate: null,
+  dualReviewConflictState = {
+    ...getEmptyDualReviewConflictState(),
+    ...(snapshot.dualReviewConflictState || dualReviewConflictState || {}),
   };
   ensureProjectManifest();
   ensureDefaultAiUsageRegistry({ persist: false });
@@ -6768,6 +7050,40 @@ function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
 
+function isDualReviewExportType(type) {
+  return DUAL_REVIEW_EXPORT_TYPES.includes(type);
+}
+
+function buildDualReviewExportInput() {
+  const state = refreshDualReviewConflictState();
+  return {
+    screeningDecisions,
+    records: getFulltextReviewRecordsForConflictState(),
+    qualityAssessments: getQualityReviewConflictInputs(),
+    screeningPairs: state.screeningPairs || [],
+    screeningConflicts: state.screeningConflicts || [],
+    qualityConflicts: state.qualityConflicts || [],
+    screeningAgreementMetrics: state.agreementMetrics || null,
+    exportGate: state.exportGate || null,
+  };
+}
+
+function buildDualReviewExportContent(type) {
+  if (!DUAL_REVIEW_ENGINE) {
+    return '';
+  }
+
+  const input = buildDualReviewExportInput();
+  switch (type) {
+    case 'dual_review_conflicts':
+      return DUAL_REVIEW_ENGINE.serializeDualReviewConflictsCsv(input);
+    case 'dual_review_agreement':
+      return DUAL_REVIEW_ENGINE.serializeDualReviewAgreementJson(input);
+    default:
+      return '';
+  }
+}
+
 function buildAuditExportContent(type) {
   if (!AUDIT_ENGINE) {
     return '';
@@ -6806,8 +7122,9 @@ function buildAuditExportContent(type) {
 
 function downloadFile(type) {
   const isAuditExport = isAuditExportType(type);
+  const isDualReviewExport = isDualReviewExportType(type);
 
-  if (!screeningResults && !isAuditExport) {
+  if (!screeningResults && !isAuditExport && !isDualReviewExport) {
     showToast('没有可下载的结果', 'error');
     return;
   }
@@ -6818,6 +7135,11 @@ function downloadFile(type) {
 
   if (isAuditExport && !AUDIT_ENGINE) {
     showToast('审计导出模块尚未加载', 'error');
+    return;
+  }
+
+  if (isDualReviewExport && !DUAL_REVIEW_ENGINE) {
+    showToast('Dual-review export module is not loaded', 'error');
     return;
   }
 
@@ -6893,6 +7215,14 @@ function downloadFile(type) {
       filename = 'grade_summary.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
+    case 'dual_review_conflicts':
+      filename = 'dual_review_conflicts.csv';
+      mimeType = 'text/csv;charset=utf-8';
+      break;
+    case 'dual_review_agreement':
+      filename = 'dual_review_agreement.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
     case 'audit_manifest':
       filename = 'project_manifest.json';
       mimeType = 'application/json;charset=utf-8';
@@ -6938,7 +7268,9 @@ function downloadFile(type) {
         ? 'evidence_table_export_generated'
         : type === 'grade_summary'
           ? 'grade_summary_export_generated'
-          : 'export_generated';
+          : type === 'dual_review_conflicts' || type === 'dual_review_agreement'
+            ? 'dual_review_export_generated'
+            : 'export_generated';
     appendAuditEventsSafe({
       eventType,
       recordId: '',
@@ -6954,12 +7286,17 @@ function downloadFile(type) {
         excludedCount: screeningResults?.excluded?.length ?? 0,
         qualityAssessmentCount: qualityAssessments.length,
         unresolvedConflictCount: dualReviewConflictState?.exportGate?.unresolvedConflictCount || 0,
+        dualReviewSchemaVersion: DUAL_REVIEW_ENGINE?.DUAL_REVIEW_SCHEMA_VERSION || '',
       },
     }, { persist: true });
   }
 
   if (isAuditExport) {
     content = buildAuditExportContent(type);
+  }
+
+  if (isDualReviewExport) {
+    content = buildDualReviewExportContent(type);
   }
 
   if (!filename) {
@@ -6996,6 +7333,8 @@ function downloadAllFiles() {
     'quality_appraisal',
     'evidence_table',
     'grade_summary',
+    'dual_review_conflicts',
+    'dual_review_agreement',
     'audit_manifest',
     'audit_screening_decisions',
     'audit_exclusion_reasons',
@@ -9166,7 +9505,7 @@ function loadProjectData() {
       screeningResults: null,
       reviewDecisions: {},
       dualReviewResults: { A: {}, B: {}, final: {} },
-      dualReviewConflictState: null,
+      dualReviewConflictState: getEmptyDualReviewConflictState(),
       columnMapping: {},
       fileFormat: 'unknown',
       formatSource: 'Unknown',

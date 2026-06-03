@@ -93,9 +93,16 @@ V2.2 已新增：
 | `review_conflict_resolved` | full_text | 冲突最终解决 |
 | `quality_appraisal_started` | quality | 进入质量评价队列 |
 | `quality_appraisal_updated` | quality | 质量评价字段更新 |
+| `quality_conflict_resolved` | quality | 质量评价冲突最终解决 |
+| `export_conflict_warning` | export | 未解决双审冲突存在时导出审计或冲突证据 |
+| `export_conflict_blocked` | export | 未解决双审冲突存在时阻止最终结果导出 |
 | `export_generated` | export | 生成 PRISMA、报告或审计包 |
 | `ai_suggestion_created` | ai | 未来 AI 建议事件 |
 | `ai_suggestion_reviewed` | ai | 未来 AI 建议人工处理事件 |
+
+V2.5 adds `quality_conflict_resolved` for resolver-confirmed quality appraisal final values. It uses `stage = quality`, includes reviewer A/B quality summaries in `before`, resolver final values in `after`, and keeps `metadata.resolverAction = true`.
+
+V2.5 also separates unresolved-conflict export behavior. Final result exports record `export_conflict_blocked` and stop when conflicts remain. Audit and dual-review evidence exports record `export_conflict_warning` and remain available so reviewers can inspect the unresolved conflicts.
 
 ### 3.3 ScreeningDecision
 
