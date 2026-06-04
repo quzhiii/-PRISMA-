@@ -1,11 +1,12 @@
-# PRISMA 文献筛选助手
+# PRISMA 系统综述筛选与审计工作台
 
-一个本地优先的系统综述筛选工作台：把多来源文献导入、保守去重、规则筛选、双人复核、质量评价、历史回溯、PRISMA 2020 导出和审计证据包放进同一个浏览器流程。
+面向系统综述、Meta 分析与证据整合项目的本地优先研究级工作台。支持多来源文献导入、保守去重、双人复核、质量评价、历史回溯、PRISMA 2020 导出和审计证据包。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![Audit trail](https://img.shields.io/badge/Audit%20trail-events%20%2B%20decision%20ledger-0969da.svg)](./literature-screening-v2.2/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -13,11 +14,12 @@
 
 [在线使用](https://quzhiii.github.io/-PRISMA-/) · [提交问题](https://github.com/quzhiii/-PRISMA-/issues) · [版本历史](#版本历史)
 
-如果你需要的不只是“画一张 PRISMA 图”，而是能交代清楚每一步证据链的筛选流程，这个项目重点解决三件事：
+如果你需要的不只是“画一张 PRISMA 图”，而是一套能经得起复查的筛选流程，这个项目重点解决四件事：
 
 - 数据默认留在本地浏览器，适合还不方便上传到云端的研究资料。
 - 导入、去重、筛选、全文复核、质量评价和导出都有可追溯记录。
 - 双人复核冲突、来源文件调整和误操作可以被发现、阻断或回滚。
+- 最终不仅能导出图和结果表，还能导出适合复核、答辩和方法学附录的审计证据。
 
 ## 为什么选择这个工作台
 
