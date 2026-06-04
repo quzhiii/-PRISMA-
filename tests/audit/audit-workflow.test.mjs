@@ -227,7 +227,7 @@ test('v2.5 readiness docs describe final export blocking and browser smoke gate'
   assert.match(roadmap, /未解决冲突时阻止最终结果导出/);
 });
 
-test('public docs mark V2.5 as current and plan local history rollback', async () => {
+test('public docs mark V2.5 as current and history rollback as completed', async () => {
   const [readme, readmeEn, roadmap, historyPlan] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
@@ -238,9 +238,13 @@ test('public docs mark V2.5 as current and plan local history rollback', async (
   assert.match(readme, /Version-V2\.5%20Dual%20Review/);
   assert.match(readme, /Current%20demo-V2\.5/);
   assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
+  assert.match(readme, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| 已完成/);
+  assert.match(readme, /最近一次 V2\.5\.1 回归结果：`133\/133` 通过/);
   assert.match(readmeEn, /Version-V2\.5%20Dual%20Review/);
   assert.match(readmeEn, /Current%20demo-V2\.5/);
   assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
+  assert.match(readmeEn, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| Completed/);
+  assert.match(readmeEn, /Latest V2\.5\.1 regression result: `133\/133` passed/);
   assert.match(roadmap, /V2\.5\.1 本地历史记录与回溯/);
   assert.match(roadmap, /project_snapshot_created/);
   assert.match(roadmap, /source_file_removed/);
