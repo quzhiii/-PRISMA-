@@ -75,6 +75,7 @@ flowchart LR
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | Current public release line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; the page shell, project snapshot version, and manifest default version now align on V2.5. |
 | V2.5.1 project history rollback | `literature-screening-v2.2/` | Completed. Adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
+| V2.6 | `literature-screening-v2.2/` | In progress: local conservative AI foundation slice. The current slice adds local advisory suggestions, prioritisation, uncertainty flags, and prompt-registry trace records; real provider dispatch stays disabled by default and final decisions remain human-confirmed. |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
@@ -174,7 +175,7 @@ Latest V2.5.1 regression result: `133/133` passed.
 | V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
 | V2.5 | Current public release line: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
 | V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
-| V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
+| V2.6 | In progress: local conservative AI foundation slice for advisory suggestions, ranking, prompt registry, and provider abstraction boundaries |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history

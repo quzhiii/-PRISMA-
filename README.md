@@ -75,6 +75,7 @@ flowchart LR
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
 | V2.5.1 project history rollback | `literature-screening-v2.2/` | 已完成。增加本地历史快照、版本恢复、来源文件增减后的可恢复状态，并在导入、筛选重跑、全文复核完成、质量保存、冲突解决和导出前生成恢复点。 |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
+| V2.6 | `literature-screening-v2.2/` | 进行中：本地保守 AI foundation slice。当前只增加 local advisory suggestions、prioritisation、uncertainty flags 和 prompt registry trace；真实 AI provider 仍默认关闭，最终决定仍由人工确认。 |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
 | V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出 |
 | V2.1 stable | `literature-screening-v2.0/` | 历史稳定路径，保留 6 步工作流和早期质量评价入口 |
@@ -174,7 +175,7 @@ node tests\run-all-regressions.js
 | V2.4 | 已完成：质量评价模板、条目级质量表单、evidence table、GRADE summary |
 | V2.5 | 当前公开版本线：双人复核隔离、冲突队列、resolver workflow、agreement metrics、unresolved conflict gate |
 | V2.5.1 | 已完成：本地历史记录、项目快照、来源文件增减回溯、关键流程恢复点 |
-| V2.6 | Conservative AI screening、ranking、prompt registry、provider abstraction |
+| V2.6 | 进行中：本地保守 AI foundation slice，覆盖 advisory suggestions、ranking、prompt registry、provider abstraction 边界 |
 | V3.0 | landing page、demo dataset、benchmark、paper skeleton、发布材料 |
 
 ## 版本历史

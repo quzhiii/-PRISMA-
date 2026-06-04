@@ -18,6 +18,7 @@ const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.Import
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
 const DUAL_REVIEW_ENGINE = typeof globalThis !== 'undefined' ? globalThis.DualReviewEngine || null : null;
 const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
+const CONSERVATIVE_AI_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ConservativeAiEngine || null : null;
 const PROJECT_HISTORY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectHistoryEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
@@ -4933,6 +4934,35 @@ function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
   };
 }
 
+function buildConservativeAiSuggestionForRecord(record, stage = 'title_abstract', index = 0) {
+  const criteria = filterRules || {};
+  if (CONSERVATIVE_AI_ENGINE && typeof CONSERVATIVE_AI_ENGINE.buildConservativeSuggestionForRecord === 'function') {
+    return CONSERVATIVE_AI_ENGINE.buildConservativeSuggestionForRecord(record, {
+      projectId: ensureProjectId(),
+      stage,
+      criteria,
+      index,
+    });
+  }
+
+  const fallback = buildMockAiSuggestionForRecord(record, stage);
+  return {
+    ...fallback,
+    metadata: {
+      ...(fallback.metadata || {}),
+      advisoryOnly: true,
+      realProviderConnected: false,
+      rawPayloadIncluded: false,
+      priorityScore: 0.5,
+      priorityReason: 'Fallback conservative advisory suggestion for human review only.',
+      recommendedQueue: 'needs_human_attention',
+      uncertaintyFlags: ['engine_unavailable_fallback'],
+      riskFlags: [],
+      criteriaMatches: [],
+    },
+  };
+}
+
 function getAiSuggestionIdentity(entry) {
   return [
     String(entry?.recordId || entry?.record_id || '').trim(),
@@ -4986,6 +5016,48 @@ function generateMockAiSuggestions(limit = 3) {
   const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
   const toastType = suggestions.length > 0 ? 'success' : 'info';
   showToast(`已生成 ${suggestions.length} 条本地示例 AI 建议${skippedMessage}，仍需人工确认`, toastType);
+  return suggestions;
+}
+
+function generateConservativeAiSuggestions(limit = 5) {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传或加载示例数据，再生成 V2.6 保守 AI 建议', 'warning');
+    return [];
+  }
+
+  const manifest = setAiModeSafe('assistive', { persist: false });
+  const registry = ensureDefaultAiUsageRegistry({ persist: false });
+  const selected = uploadedData.slice(0, Math.max(1, limit));
+  const candidates = selected.map((record, index) => buildConservativeAiSuggestionForRecord(record, 'title_abstract', index));
+  const suggestions = candidates.filter((suggestion) => !hasAiSuggestionForIdentity(suggestion));
+  const skippedCount = candidates.length - suggestions.length;
+
+  if (suggestions.length > 0) {
+    appendAiSuggestionEventsSafe(suggestions, { persist: false });
+  }
+
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_generated',
+    recordId: '',
+    after: {
+      suggestionCount: suggestions.length,
+      skippedExistingSuggestionCount: skippedCount,
+      aiMode: manifest?.aiMode || 'assistive',
+      generator: 'v2_6_conservative_ai',
+    },
+    source: 'system',
+    metadata: {
+      advisoryOnly: true,
+      realProviderConnected: false,
+      registryCount: registry.length,
+    },
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderAiSuggestionPanel();
+  const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
+  const toastType = suggestions.length > 0 ? 'success' : 'info';
+  showToast(`已生成 ${suggestions.length} 条 V2.6 保守 AI 建议${skippedMessage}，仍需人工确认`, toastType);
   return suggestions;
 }
 
@@ -5552,6 +5624,9 @@ function renderAiSuggestionPanel() {
         rewriteDecision: 'Human rewrite decision',
         exclusionReason: 'Exclusion reason',
         confidence: 'Confidence:',
+        priorityScore: 'Priority score:',
+        recommendedQueue: 'Recommended queue:',
+        uncertaintyFlags: 'Uncertainty flags:',
         promptHash: 'Prompt hash:',
         accept: 'Accept',
         edit: 'Edit',
@@ -5599,6 +5674,18 @@ function renderAiSuggestionPanel() {
     const linkedDecision = entry.linkedDecisionId
       ? `<div class="muted-text" style="margin-top: 6px;">${escapeHTML(ui.linkedDecision)} <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
       : '';
+    const metadata = entry.metadata || {};
+    const uncertaintyFlags = Array.isArray(metadata.uncertaintyFlags) ? metadata.uncertaintyFlags : [];
+    const advisoryMeta = `
+      <div class="muted-text ai-suggestion-meta">
+        ${escapeHTML(ui.priorityScore)} ${escapeHTML(String(metadata.priorityScore ?? '-'))}
+        <span aria-hidden="true"> | </span>
+        ${escapeHTML(ui.recommendedQueue)} ${escapeHTML(String(metadata.recommendedQueue || '-'))}
+      </div>
+      <div class="muted-text ai-suggestion-meta">
+        ${escapeHTML(ui.uncertaintyFlags)} ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}
+      </div>
+    `;
     const editControls = isPending
       ? `
         <div class="ai-suggestion-edit-grid">
@@ -5636,6 +5723,7 @@ function renderAiSuggestionPanel() {
               <span aria-hidden="true"> | </span>
               ${escapeHTML(ui.promptHash)} <code>${escapeHTML(entry.promptHash || '-')}</code>
             </div>
+            ${advisoryMeta}
             ${linkedDecision}
             ${editControls}
           </div>

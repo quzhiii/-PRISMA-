@@ -168,6 +168,16 @@ V2.5.1 验收标准：
 
 目标：引入 AI 建议和排序，但保持人类最终决定。
 
+Current status: V2.6 is in progress as a local conservative AI foundation slice on the `literature-screening-v2.2/` compatibility path. AI suggestions stay advisory-only until a human accepts or edits them into a final decision.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| Local advisory suggestions | 基于本地规则和启发式生成 include/exclude/uncertain 建议，写入 `AISuggestionEvent`，不直接改写 `ScreeningDecision` | 进行中 |
+| AI prioritisation foundation | 为记录生成 `priorityScore`、`priorityReason`、`recommendedQueue`，只改变人工处理顺序建议 | 进行中 |
+| Uncertainty flagging foundation | 为低信息量、边界样本和潜在冲突样本生成 `uncertaintyFlags` 和 `riskFlags` | 进行中 |
+| Prompt registry foundation | 为本地 conservative AI 建议生成 prompt trace、criteria hash 和 input hash | 进行中 |
+| Provider boundary remains disabled by default | 继续保留 provider abstraction，但默认不发真实请求、不接 API key 输入 | 已完成边界 |
+
 | 模式 | 作用 |
 |---|---|
 | AI suggest only | 给出纳入/排除/不确定建议和理由 |

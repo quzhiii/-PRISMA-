@@ -849,7 +849,7 @@
           </div>
 
           <div class="info-box ai-readiness-box ai-transparency-panel">
-            <h4><span class="zh">V2.3 PRISMA-trAIce 透明记录</span><span class="en">V2.3 PRISMA-trAIce Readiness</span></h4>
+            <h4><span class="zh">V2.6 Conservative AI / PRISMA-trAIce</span><span class="en">V2.6 Conservative AI / PRISMA-trAIce</span></h4>
             <p class="ai-readiness-copy"><span class="zh">PRISMA-trAIce 是面向“系统综述中使用 AI”的透明报告要求：需要说明 AI 用在什么环节、是否影响筛选决定，以及人工如何复核。</span><span class="en">PRISMA-trAIce is a transparency checklist for AI use in systematic reviews: where AI is used, whether it affects screening decisions, and how humans review it.</span></p>
             <div class="ai-readiness-steps">
               <div><strong><span class="zh">为什么做</span><span class="en">Why</span></strong><span><span class="zh">让审稿人和团队看清 AI 只提供建议，不直接改变最终计数。</span><span class="en">Reviewers can see that AI only suggests and never changes final counts directly.</span></span></div>
@@ -861,6 +861,7 @@
               <label class="checkbox-label"><input type="radio" name="aiMode" value="experimental" onclick="setAiModeSafe('experimental')"><span><span class="zh">完整记录：额外保留模型和提示词追踪信息</span><span class="en">Trace mode: keep fuller model and prompt records</span></span></label>
             </div>
             <div class="button-group ai-transparency-actions">
+              <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成 V2.6 保守 AI 建议</span><span class="en">Generate V2.6 Conservative AI Suggestions</span></button>
               <button type="button" class="btn btn-secondary" onclick="generateMockAiSuggestions()"><span class="zh">生成本地示例 AI 建议</span><span class="en">Generate Local Example AI Suggestions</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">下载 PRISMA-trAIce 报告</span><span class="en">Download PRISMA-trAIce Report</span></button>
             </div>
@@ -987,6 +988,7 @@
   <script src="audit-engine.js?v=20260427-v22-audit"></script>
   <script src="dual-review-engine.js?v=20260512-v25-dual-review-exports"></script>
   <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
+  <script src="conservative-ai-engine.js?v=20260604-v26-foundation"></script>
   <script src="project-history-engine.js?v=20260603-v251-history"></script>
   <script src="app.js?v=20260512-v25-dual-review-exports"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>

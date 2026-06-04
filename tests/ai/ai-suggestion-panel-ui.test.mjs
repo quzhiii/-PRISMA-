@@ -97,13 +97,16 @@ this.__exports = {
 test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion panel mount', async () => {
   const workspace = await readV22Workspace();
 
-  assert.match(workspace, /V2\.3 PRISMA-trAIce/);
+  assert.match(workspace, /V2\.6 Conservative AI/);
+  assert.match(workspace, /PRISMA-trAIce/);
   assert.match(workspace, /name="aiMode" value="off"/);
   assert.match(workspace, /name="aiMode" value="assistive"/);
   assert.match(workspace, /name="aiMode" value="experimental"/);
+  assert.match(workspace, /onclick="generateConservativeAiSuggestions\(\)"/);
   assert.match(workspace, /onclick="generateMockAiSuggestions\(\)"/);
   assert.match(workspace, /id="aiSuggestionPanel"/);
   assert.match(workspace, /ai-provider-engine\.js/);
+  assert.match(workspace, /conservative-ai-engine\.js/);
   assert.match(workspace, /Provider boundary/);
   assert.match(workspace, /real API dispatch remains disabled/);
   assert.match(workspace, /id="aiProviderConfigPanel"/);
@@ -138,6 +141,9 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   assert.match(source, /\$\{escapeHTML\(ui\.summaryNote\)\}/);
   assert.match(source, /const isPending = entry\.humanAction === 'pending'/);
   assert.match(source, /Human rewrite decision/);
+  assert.match(source, /Priority score/);
+  assert.match(source, /Recommended queue/);
+  assert.match(source, /Uncertainty flags/);
   assert.match(source, /AI_SUGGESTION_DECISION_LABELS/);
   assert.match(source, /getAiSuggestionDecisionLabel\(decision\)/);
   assert.match(source, /const decisionOptions = \['include', 'exclude', 'uncertain'\]/);
