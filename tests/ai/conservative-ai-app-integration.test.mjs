@@ -126,6 +126,7 @@ test('workspace loads V2.6 conservative AI before app and exposes advisory actio
   );
   assert.match(workspace, /V2\.6 Conservative AI/);
   assert.match(workspace, /generateConservativeAiSuggestions\(\)/);
+  assert.match(workspace, /id="conservativeAiQueuePanel"/);
   assert.match(workspace, /real API dispatch remains disabled/);
   assert.doesNotMatch(workspace, /id="aiProviderApiKey"/);
   assert.doesNotMatch(workspace, /type="password"/);
@@ -137,13 +138,21 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(source, /const CONSERVATIVE_AI_ENGINE/);
   assert.match(source, /function buildConservativeAiSuggestionForRecord/);
   assert.match(source, /function generateConservativeAiSuggestions/);
+  assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /renderConservativeAiQueuePanel\(\)/);
   assert.match(source, /priorityScore/);
   assert.match(source, /recommendedQueue/);
   assert.match(source, /uncertaintyFlags/);
   assert.match(source, /advisoryOnly/);
+  assert.match(source, /likely_relevant/);
+  assert.match(source, /needs_human_attention/);
+  assert.match(source, /needs_human_exclusion_check/);
 
   const generator = extractFunctionBlock(source, 'generateConservativeAiSuggestions');
   assert.match(generator, /appendAiSuggestionEventsSafe\(suggestions/);
   assert.doesNotMatch(generator, /upsertScreeningDecisionSafe/);
   assert.doesNotMatch(generator, /buildHumanConfirmedDecisionFromSuggestion/);
+
+  const displayResults = extractFunctionBlock(source, 'displayResults');
+  assert.match(displayResults, /renderConservativeAiQueuePanel\(\)/);
 });

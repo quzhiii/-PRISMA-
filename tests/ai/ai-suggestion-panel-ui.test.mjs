@@ -112,6 +112,14 @@ test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion pane
   assert.match(workspace, /id="aiProviderConfigPanel"/);
 });
 
+test('Step 3 workspace exposes the conservative AI queue surface', async () => {
+  const workspace = await readV22Workspace();
+
+  assert.match(workspace, /STEP 03/);
+  assert.match(workspace, /id="conservativeAiQueuePanel"/);
+  assert.match(workspace, /generateConservativeAiSuggestions\(\)/);
+});
+
 test('AI provider configuration shell is boundary-only and does not expose API key input', async () => {
   const source = await readV22App();
 
@@ -153,6 +161,16 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   assert.match(source, /Choose a reason/);
   assert.match(source, /reasonOptions/);
   assert.match(source, /editAiSuggestion\('\$\{suggestionId\}', document\.getElementById\('\$\{editDecisionId\}'\)\?\.value, document\.getElementById\('\$\{editReasonId\}'\)\?\.value\)/);
+});
+
+test('conservative AI queue panel renders workflow-facing recommendation buckets', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /likely_relevant/);
+  assert.match(source, /needs_human_attention/);
+  assert.match(source, /needs_human_exclusion_check/);
+  assert.match(source, /uncertaintyFlags/);
 });
 
 test('AI suggestion panel disables accept edit and reject actions after review', async () => {

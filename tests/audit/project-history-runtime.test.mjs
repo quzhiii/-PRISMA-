@@ -187,6 +187,7 @@ function renderImportJobShell() {}
 function renderQualityAssessmentShell() {}
 function renderAiProviderConfigPanel() {}
 function renderAiSuggestionPanel() {}
+function renderConservativeAiQueuePanel() {}
 function renderProjectHistoryPanel() {}
 function renderSourceFileHistoryPanel() {}
 function updateStep4EntryLock() {}

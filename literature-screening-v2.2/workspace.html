@@ -438,6 +438,15 @@
           <div id="projectHistoryPanel"></div>
         </div>
 
+        <div class="info-box workspace-info-panel auxiliary-zone" style="margin-bottom: 20px;">
+          <h3><span class="zh">V2.6 保守 AI 初筛队列</span><span class="en">V2.6 Conservative AI Screening Queue</span></h3>
+          <p><span class="zh">在进入全文复核前，用本地 advisory suggestions 把记录分成优先保留、需要人工关注和需要重点排除核查三类。</span><span class="en">Before full-text review, use local advisory suggestions to group records into likely relevant, needs-human-attention, and exclusion-check queues.</span></p>
+          <div class="button-group" style="margin-top: 12px; margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成 V2.6 保守 AI 队列</span><span class="en">Generate V2.6 Conservative AI Queue</span></button>
+          </div>
+          <div id="conservativeAiQueuePanel"></div>
+        </div>
+
         <div class="grid-4 workspace-stat-grid" id="statsGrid">
           <div class="stat-card"><div class="stat-label"><span class="zh">数据库识别</span><span class="en">Database identified</span></div><div class="stat-value" id="stat-identified-db">0</div></div>
           <div class="stat-card"><div class="stat-label"><span class="zh">其他来源</span><span class="en">Other sources</span></div><div class="stat-value" id="stat-identified-other">0</div></div>

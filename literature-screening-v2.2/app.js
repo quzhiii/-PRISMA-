@@ -5054,6 +5054,7 @@ function generateConservativeAiSuggestions(limit = 5) {
   }, { persist: false });
 
   persistCurrentProjectState();
+  renderConservativeAiQueuePanel();
   renderAiSuggestionPanel();
   const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
   const toastType = suggestions.length > 0 ? 'success' : 'info';
@@ -5211,6 +5212,7 @@ function acceptAiSuggestion(suggestionId) {
     source: 'human',
   }, { persist: false });
   persistCurrentProjectState();
+  renderConservativeAiQueuePanel();
   renderAiSuggestionPanel();
   showToast('已接受 AI 建议，并生成对应的人类确认 decision', 'success');
 }
@@ -5581,6 +5583,7 @@ function restoreProjectState(snapshot) {
   renderQualityAssessmentShell();
   renderProjectHistoryPanel();
   renderSourceFileHistoryPanel();
+  renderConservativeAiQueuePanel();
   renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
 }
@@ -7042,6 +7045,66 @@ function renderDedupReviewSummary(results) {
   });
 }
 
+function renderConservativeAiQueuePanel() {
+  const container = document.getElementById('conservativeAiQueuePanel');
+  if (!container) return;
+
+  const entries = (Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : []).filter((entry) => {
+    const stage = String(entry?.stage || '').trim();
+    const metadata = entry?.metadata || {};
+    return stage === 'title_abstract' && metadata.advisoryOnly === true;
+  });
+
+  if (entries.length === 0) {
+    container.innerHTML = `
+      <div class="muted-text">
+        <span class="zh">当前还没有 V2.6 conservative AI 队列。可在这里生成本地 advisory suggestions，再决定是否进入全文复核。</span>
+        <span class="en">There is no V2.6 conservative AI queue yet. Generate local advisory suggestions here before moving to full-text review.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const buckets = [
+    ['likely_relevant', '优先保留', 'Likely relevant'],
+    ['needs_human_attention', '需要人工关注', 'Needs human attention'],
+    ['needs_human_exclusion_check', '需要重点排除核查', 'Needs human exclusion check'],
+  ];
+
+  const bucketHtml = buckets.map(([bucketKey, zhLabel, enLabel]) => {
+    const bucketEntries = entries.filter((entry) => (entry?.metadata?.recommendedQueue || '') === bucketKey);
+    const rowHtml = bucketEntries.length > 0
+      ? bucketEntries.map((entry) => {
+          const uncertaintyFlags = Array.isArray(entry?.metadata?.uncertaintyFlags) ? entry.metadata.uncertaintyFlags : [];
+          return `
+            <li>
+              <strong>${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId || 'Untitled')}</strong>
+              <div class="muted-text">Priority score: ${escapeHTML(String(entry?.metadata?.priorityScore ?? '-'))}</div>
+              <div class="muted-text">Uncertainty flags: ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}</div>
+            </li>
+          `;
+        }).join('')
+      : '<li class="muted-text">0</li>';
+
+    return `
+      <div class="surface-panel" style="padding: 12px;">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: 8px;">
+          <span class="zh">${escapeHTML(zhLabel)}</span>
+          <span class="en">${escapeHTML(enLabel)}</span>
+          <span class="muted-text">(${bucketEntries.length})</span>
+        </div>
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.7;">${rowHtml}</ul>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="grid grid-3" style="gap: var(--space-12);">
+      ${bucketHtml}
+    </div>
+  `;
+}
+
 function displayResults(results) {
   if (!results || !results.counts) {
     showToast('没有可显示的结果，请先完成文献筛选', 'warning');
@@ -7076,6 +7139,7 @@ function displayResults(results) {
   renderDedupReviewSummary(results);
   renderFilterRulesOverview(results.rules || filterRules);
   renderScreeningDiagnostics(results);
+  renderConservativeAiQueuePanel();
   
   // Render rules overview in Step5 if exists
   const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
