@@ -1,11 +1,11 @@
 # PRISMA Literature Screening Assistant
 
-A local-first workspace for systematic reviews, meta-analyses, and evidence synthesis. It brings literature import, conservative deduplication, rule-based screening, manual review, quality assessment, PRISMA 2020 export, and audit-package output into one browser workflow.
+A local-first systematic-review workspace that keeps literature import, conservative deduplication, rule-based screening, dual review, quality assessment, history rollback, PRISMA 2020 export, and audit evidence in one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![V2.5.1 plan](https://img.shields.io/badge/V2.5.1-History%20Rollback-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -13,9 +13,15 @@ English | [简体中文](./README.md)
 
 [Live Demo](https://quzhiii.github.io/-PRISMA-/) · [Issues](https://github.com/quzhiii/-PRISMA-/issues) · [Version History](#version-history)
 
+This is for teams that need more than a final PRISMA diagram. It focuses on keeping the review trail explainable:
+
+- Project data stays in the local browser by default.
+- Import, deduplication, screening, full-text review, quality appraisal, and export actions leave audit evidence.
+- Dual-review conflicts, source-file changes, and accidental workflow changes can be detected, blocked, or rolled back.
+
 ## Why use this workspace
 
-The hard part of a systematic review is rarely the final PRISMA diagram. The hard part is keeping every step explainable: which records came in, which duplicates were removed, which records were excluded by rules, why full-text records were excluded, and whether final counts can be checked later. This project is built around that workflow. It runs locally in the browser by default, which is useful when project data should stay on the researcher's own machine.
+The hard part of a systematic review is rarely the final diagram. The hard part is whether the process can be checked later: which records came in, which duplicates were removed, which records were excluded by rules, why full-text records were excluded, how dual-review conflicts were resolved, and whether an earlier screening state can be restored. This project is built around those real workflow risks, not just around producing a final count.
 
 | Review problem | How this workspace handles it |
 |---|---|
@@ -25,7 +31,8 @@ The hard part of a systematic review is rarely the final PRISMA diagram. The har
 | PRISMA counts are difficult to audit | V2.2 adds `AuditEvent` and `ScreeningDecision`, so counts can be recalculated from durable data |
 | Full-text exclusion reasons are scattered across notes | Uses a standard exclusion-reason taxonomy and exports a reason summary |
 | Quality appraisal often sits outside screening tools | Included studies can enter item-level quality forms and export quality appraisal, evidence table, and GRADE summary files |
-| Dual-review conflicts weaken final export trust | V2.5 closeout brings screening and quality disagreements into reviewer isolation, resolver workflow, agreement metrics, and an unresolved-conflict gate |
+| Dual-review conflicts weaken final export trust | V2.5 brings screening and quality disagreements into reviewer isolation, resolver workflow, agreement metrics, and an unresolved-conflict gate |
+| Wrong source files or source-set changes are hard to undo | V2.5.1 adds local project snapshots, restore flow, and source-file add/remove history |
 | AI assistance needs transparency before adoption | AI mode is `off` by default; example AI suggestions must pass through human confirmation and audit logs |
 
 ## Who it is for
@@ -64,14 +71,14 @@ flowchart LR
 | Line | Path | Status |
 |---|---|---|
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | Current public release line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; the page shell, project snapshot version, and manifest default version now align on V2.5. |
-| V2.5.1 project history rollback | `literature-screening-v2.2/` | Next patch-line plan. Adds local history snapshots, version rollback, recoverable state after adding/removing source files, and rule/result history review. |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | Completed. Adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.5 is now the current public release line in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. The next V2.5.1 patch focuses on local project history and rollback so users can recover after uploading the wrong files, changing source sets, or needing to inspect an earlier screening pass. Current key exports include:
+V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.5 is now the current public release line in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. V2.5.1 adds local project history and rollback so users can recover after uploading the wrong files, changing source sets, or needing to inspect an earlier screening pass. Current key exports include:
 
 | File | Purpose |
 |---|---|
@@ -100,7 +107,7 @@ V2.5 closeout turns dual review from a usable entry point into an auditable, ris
 | Rule-based screening | Language, year, keyword, title, author, and journal filters |
 | Full-text review | Keyboard shortcuts, exclusion reasons, notes, and record-level translation entry |
 | Dual review | V2.5 closeout supports A/B decision isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate |
-| History rollback | V2.5.1 plans local project snapshots, version restore, source-file add/remove history, and rule/result history review |
+| History rollback | V2.5.1 supports local project snapshots, version restore, source-file add/remove history, and restore points at key workflow steps |
 | Quality assessment | V2.4 supports template families, item-level forms, human judgement, supporting quote / page, and reviewer notes; V2.5 adds quality conflict handling |
 | Evidence synthesis | Supports `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv` |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
@@ -126,6 +133,7 @@ workspace.html              -> Workspace page and step structure
 app.js                      -> Main flow, rule screening, review, export, and state management
 audit-engine.js             -> Audit model, PRISMA-trAIce structures, decision serialization, audit-package builders
 dual-review-engine.js       -> V2.5 conflict queues, resolver workflow, agreement metrics, and dual-review exports
+project-history-engine.js   -> V2.5.1 local history snapshots, state cloning, and rollback metadata
 db-worker.js                -> IndexedDB data layer
 parser-worker.js            -> Multi-format parsing and background orchestration
 streaming-parser.js         -> Incremental parsing state machines
@@ -148,11 +156,12 @@ Current coverage includes:
 - audit model, workflow hooks, audit-package export
 - AI suggestion panel, human review flow, PRISMA-trAIce report, and AI suggestion JSONL trace fields
 - dual-review conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate
+- project history snapshots, rollback flow, source-file add/remove recovery
 - dedup engine, candidate duplicate export, benchmark smoke/regression
 - import job state, parser chunk boundaries, import hardening
 - quality engine, study-design classifier, quality appraisal CSV, evidence table, and GRADE summary
 
-Latest V2.5 closeout regression result: `121/121` passed.
+Latest V2.5.1 regression result: `133/133` passed.
 
 ## Roadmap
 
@@ -162,11 +171,25 @@ Latest V2.5 closeout regression result: `121/121` passed.
 | V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
 | V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
 | V2.5 | Current public release line: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
-| V2.5.1 | Planned: local history records, project snapshots, source-file add/remove rollback, screening rule/result version restore |
+| V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
 | V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history
+
+<details>
+<summary><b>V2.5.1 project history rollback (completed, 2026-06)</b></summary>
+
+- adds `project-history-engine.js` for bounded local project history snapshots
+- adds a project history panel and restore entry for earlier screening states
+- creates restore points at `before_import`, `after_import`, `screening_rerun`, `fulltext_finalized`, `quality_saved`, `conflict_resolved`, and `before_export`
+- adds source-file add/remove history and preserves a recoverable state before source-file removal
+- preserves the current full rollback timeline when restoring an older snapshot
+- stabilizes fallback audit IDs for records without durable identifiers so source-file removal does not drop surviving decisions, AI suggestions, or quality assessments
+- stamps sample-data records with `_source` and `_sourceFile`, so source-file removal also works for built-in sample data
+- full regression passed `133/133`
+
+</details>
 
 <details>
 <summary><b>V2.5 dual-review closeout (current public release line, 2026-06)</b></summary>
@@ -178,7 +201,7 @@ Latest V2.5 closeout regression result: `121/121` passed.
 - Quality resolver actions write final quality values and `quality_conflict_resolved` audit events
 - Added `dual_review_conflicts.csv` and `dual_review_agreement.json`
 - Final result exports are blocked while unresolved dual-review conflicts remain; conflict evidence exports remain available
-- Full regression currently passes `121/121`; headless Chrome smoke passed with 0 console errors and 0 runtime exceptions
+- V2.5 closeout regression passed `121/121`; headless Chrome smoke passed with 0 console errors and 0 runtime exceptions
 
 </details>
 

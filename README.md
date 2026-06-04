@@ -1,11 +1,11 @@
 # PRISMA 文献筛选助手
 
-面向系统综述、Meta 分析和证据整合项目的本地优先工作台。它把文献导入、保守去重、规则筛选、人工复核、质量评价、PRISMA 2020 导出和审计包放在同一个浏览器流程里。
+一个本地优先的系统综述筛选工作台：把多来源文献导入、保守去重、规则筛选、双人复核、质量评价、历史回溯、PRISMA 2020 导出和审计证据包放进同一个浏览器流程。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![V2.5.1 plan](https://img.shields.io/badge/V2.5.1-History%20Rollback-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -13,9 +13,15 @@
 
 [在线使用](https://quzhiii.github.io/-PRISMA-/) · [提交问题](https://github.com/quzhiii/-PRISMA-/issues) · [版本历史](#版本历史)
 
+如果你需要的不只是“画一张 PRISMA 图”，而是能交代清楚每一步证据链的筛选流程，这个项目重点解决三件事：
+
+- 数据默认留在本地浏览器，适合还不方便上传到云端的研究资料。
+- 导入、去重、筛选、全文复核、质量评价和导出都有可追溯记录。
+- 双人复核冲突、来源文件调整和误操作可以被发现、阻断或回滚。
+
 ## 为什么选择这个工作台
 
-系统综述的难点通常不在画一张 PRISMA 图，而在前面的每一步都要说得清楚：哪些文献进来了，哪些被去重，哪些被规则筛掉，全文阶段为什么排除，最后的数字能不能复核。这个项目围绕这些真实问题设计，默认在浏览器本地运行，适合处理还不方便上传到云端的研究资料。
+系统综述真正难的不是最后的图，而是过程是否经得起复查：哪些文献进来了，哪些被去重，哪些被规则筛掉，全文阶段为什么排除，双人复核冲突如何解决，调整来源文件后能不能回到上一版。这个项目围绕这些真实问题设计，尽量让筛选过程留下可复核的证据，而不是只留下一个最终数字。
 
 | 研究工作中的问题 | 这个工作台的处理方式 |
 |---|---|
@@ -25,7 +31,8 @@
 | PRISMA 图里的数字难以追溯 | V2.2 增加 `AuditEvent` 和 `ScreeningDecision`，计数可从审计数据重算 |
 | 全文排除理由分散在表格或备注里 | 内置标准 exclusion reason taxonomy，并导出排除理由汇总 |
 | 质量评价经常脱离筛选流程 | 纳入研究可以进入条目级质量评价表单，并导出质量评价表、证据表和 GRADE 摘要 |
-| 双人复核冲突影响最终导出可信度 | V2.5 closeout 正在把筛选和质量评价分歧纳入 resolver workflow、agreement metrics 和 unresolved conflict gate |
+| 双人复核冲突影响最终导出可信度 | V2.5 已把筛选和质量评价分歧纳入 resolver workflow、agreement metrics 和 unresolved conflict gate |
+| 上传错文件或调整来源后很难回退 | V2.5.1 已加入本地项目快照、历史恢复和来源文件增减记录 |
 | 使用 AI 辅助时担心不可解释 | AI 默认关闭；示例 AI 建议必须经过人工确认，并写入审计日志 |
 
 ## 适合谁
@@ -64,14 +71,14 @@ flowchart LR
 | 版本线 | 路径 | 状态 |
 |---|---|---|
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
-| V2.5.1 project history rollback | `literature-screening-v2.2/` | 下一小版本计划。增加本地历史快照、版本回溯、来源文件增减后的可恢复状态，以及筛选规则/结果回看。 |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | 已完成。增加本地历史快照、版本恢复、来源文件增减后的可恢复状态，并在导入、筛选重跑、全文复核完成、质量保存、冲突解决和导出前生成恢复点。 |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
 | V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出 |
 | V2.1 stable | `literature-screening-v2.0/` | 历史稳定路径，保留 6 步工作流和早期质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
 
-V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、可阻断风险的正式流程。V2.5 已作为当前公开版本线保留在同一个 `literature-screening-v2.2/` 兼容路径中，并保持真实 AI provider 默认禁用。下一步 V2.5.1 聚焦本地历史记录和回溯，避免用户上传错文件、调整来源或想回看上一版筛选结果时只能重来。当前重点导出包括：
+V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、可阻断风险的正式流程。V2.5 已作为当前公开版本线保留在同一个 `literature-screening-v2.2/` 兼容路径中，并保持真实 AI provider 默认禁用。V2.5.1 已补上本地历史记录和回溯，避免用户上传错文件、调整来源或想回看上一版筛选结果时只能重来。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
@@ -100,7 +107,7 @@ V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、
 | 规则筛选 | 支持语言、年份、关键词、标题、作者、期刊等条件 |
 | 全文复核 | 支持快捷键、排除理由、备注和单篇翻译入口 |
 | 双人复核 | V2.5 closeout 已支持 A/B 决策隔离、冲突队列、resolver workflow、agreement metrics 和 unresolved conflict gate |
-| 历史记录回溯 | V2.5.1 计划增加本地项目快照、版本恢复、来源文件增减记录和筛选规则/结果回看 |
+| 历史记录回溯 | V2.5.1 已支持本地项目快照、版本恢复、来源文件增减记录，以及关键流程节点的恢复点 |
 | 质量评价 | V2.4 已支持模板族、条目级质量表单、人工 judgement、支持性原文 / 页码和审稿备注；V2.5 增加质量评价分歧处理 |
 | 证据整理 | 已支持 `quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv` |
 | PRISMA 2020 导出 | 支持多主题 SVG、纳入/排除表和筛选报告 |
@@ -126,6 +133,7 @@ workspace.html              -> 工作台页面与步骤结构
 app.js                      -> 主流程、规则筛选、复核、导出和状态管理
 audit-engine.js             -> 审计模型、PRISMA-trAIce 数据结构、决策序列化和审计包构建
 dual-review-engine.js       -> V2.5 双人复核冲突、resolver、agreement metrics 和导出逻辑
+project-history-engine.js   -> V2.5.1 本地历史快照、状态克隆和回溯元数据
 db-worker.js                -> IndexedDB 数据层
 parser-worker.js            -> 多格式解析和后台消息编排
 streaming-parser.js         -> 常用格式增量解析状态机
@@ -148,11 +156,12 @@ node tests\run-all-regressions.js
 - audit model、workflow hooks、audit package export
 - AI suggestion panel、human review flow、PRISMA-trAIce report、AI suggestion JSONL trace fields
 - dual-review conflict queue、resolver workflow、agreement metrics、unresolved conflict gate
+- project history snapshots、rollback flow、source-file add/remove recovery
 - dedup engine、candidate duplicate export、benchmark smoke/regression
 - import job state、parser chunk boundaries、import hardening
 - quality engine、study-design classifier、quality appraisal CSV、evidence table、GRADE summary
 
-最近一次 V2.5 closeout 回归结果：`121/121` 通过。
+最近一次 V2.5.1 回归结果：`133/133` 通过。
 
 ## 路线图
 
@@ -162,11 +171,25 @@ node tests\run-all-regressions.js
 | V2.3 | PRISMA-trAIce 数据模型、AI usage registry、AI suggestion log、透明报告 |
 | V2.4 | 已完成：质量评价模板、条目级质量表单、evidence table、GRADE summary |
 | V2.5 | 当前公开版本线：双人复核隔离、冲突队列、resolver workflow、agreement metrics、unresolved conflict gate |
-| V2.5.1 | 计划：本地历史记录、项目快照、来源文件增减回溯、筛选规则/结果版本恢复 |
+| V2.5.1 | 已完成：本地历史记录、项目快照、来源文件增减回溯、关键流程恢复点 |
 | V2.6 | Conservative AI screening、ranking、prompt registry、provider abstraction |
 | V3.0 | landing page、demo dataset、benchmark、paper skeleton、发布材料 |
 
 ## 版本历史
+
+<details>
+<summary><b>V2.5.1 project history rollback（已完成，2026-06）</b></summary>
+
+- 新增 `project-history-engine.js`，用于创建有界本地项目历史快照
+- 新增历史记录面板和恢复入口，支持恢复到较早筛选状态
+- 在 `before_import`、`after_import`、`screening_rerun`、`fulltext_finalized`、`quality_saved`、`conflict_resolved` 和 `before_export` 等节点生成恢复点
+- 新增来源文件 add/remove 历史，移除来源文件前自动保留可恢复状态
+- 恢复旧快照时保留当前完整历史时间线，避免回滚后丢失后续恢复点
+- 为缺少稳定标识的记录保留 fallback audit id，避免来源文件移除后误删幸存记录的决策、AI 建议或质量评价状态
+- 示例数据加载会写入 `_source` 和 `_sourceFile`，来源文件移除同样适用于内置示例数据
+- 完整回归 `133/133` 通过
+
+</details>
 
 <details>
 <summary><b>V2.5 dual-review closeout（当前公开版本线，2026-06）</b></summary>
@@ -178,7 +201,7 @@ node tests\run-all-regressions.js
 - Quality resolver actions write final quality values and `quality_conflict_resolved` audit events
 - Added `dual_review_conflicts.csv` and `dual_review_agreement.json`
 - Final result exports are blocked while unresolved dual-review conflicts remain; conflict evidence exports remain available
-- Full regression currently passes `121/121`; headless Chrome smoke passed with 0 console errors and 0 runtime exceptions
+- V2.5 closeout regression passed `121/121`; headless Chrome smoke passed with 0 console errors and 0 runtime exceptions
 
 </details>
 
