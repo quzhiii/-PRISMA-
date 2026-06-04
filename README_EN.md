@@ -1,11 +1,12 @@
-# PRISMA Literature Screening Assistant
+# PRISMA Screening & Audit Workbench
 
-A local-first systematic-review workspace that keeps literature import, conservative deduplication, rule-based screening, dual review, quality assessment, history rollback, PRISMA 2020 export, and audit evidence in one browser workflow.
+A local-first, research-grade workspace for systematic reviews, meta-analyses, and evidence synthesis. It keeps literature import, conservative deduplication, dual review, quality assessment, history rollback, PRISMA 2020 export, and audit evidence in one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![Audit trail](https://img.shields.io/badge/Audit%20trail-events%20%2B%20decision%20ledger-0969da.svg)](./literature-screening-v2.2/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -18,6 +19,7 @@ This is for teams that need more than a final PRISMA diagram. It focuses on keep
 - Project data stays in the local browser by default.
 - Import, deduplication, screening, full-text review, quality appraisal, and export actions leave audit evidence.
 - Dual-review conflicts, source-file changes, and accidental workflow changes can be detected, blocked, or rolled back.
+- Final outputs are not limited to diagrams and result tables; the workspace can also export audit evidence suited to review, defense, and methods appendices.
 
 ## Why use this workspace
 
