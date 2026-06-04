@@ -422,7 +422,7 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);
-  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.4/);
+  assert.match(workspaceHtml, /PRISMA Literature Screening v2\.5/);
   assert.match(workspaceHtml, /no real AI provider is connected by default/i);
   assert.match(workspaceHtml, /GRADE remains human-confirmed/i);
   assert.match(workspaceHtml, /final GRADE and downgrade reasons stay human-confirmed/i);

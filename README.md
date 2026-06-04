@@ -3,9 +3,9 @@
 面向系统综述、Meta 分析和证据整合项目的本地优先工作台。它把文献导入、保守去重、规则筛选、人工复核、质量评价、PRISMA 2020 导出和审计包放在同一个浏览器流程里。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.4%20Quality%20Appraisal-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![Current demo](https://img.shields.io/badge/Current%20demo-V2.4-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![V2.5 closeout](https://img.shields.io/badge/V2.5-Dual%20Review%20Closeout-blueviolet.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![V2.5.1 plan](https://img.shields.io/badge/V2.5.1-History%20Rollback-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -63,14 +63,15 @@ flowchart LR
 
 | 版本线 | 路径 | 状态 |
 |---|---|---|
-| V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前完善线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；headless Chrome smoke 已通过，公开发布前仍需与 `origin/main` 合流并完成 release 切换。 |
-| V2.4 quality appraisal | `literature-screening-v2.2/` | 当前公开稳定线。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
+| V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | 下一小版本计划。增加本地历史快照、版本回溯、来源文件增减后的可恢复状态，以及筛选规则/结果回看。 |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
 | V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出 |
 | V2.1 stable | `literature-screening-v2.0/` | 历史稳定路径，保留 6 步工作流和早期质量评价入口 |
 | v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
 
-V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、可阻断风险的正式流程。V2.4 仍是当前公开稳定线；V2.5 在同一个 `literature-screening-v2.2/` 兼容路径中收尾，并保持真实 AI provider 默认禁用。当前重点导出包括：
+V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、可阻断风险的正式流程。V2.5 已作为当前公开版本线保留在同一个 `literature-screening-v2.2/` 兼容路径中，并保持真实 AI provider 默认禁用。下一步 V2.5.1 聚焦本地历史记录和回溯，避免用户上传错文件、调整来源或想回看上一版筛选结果时只能重来。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
@@ -99,6 +100,7 @@ V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、
 | 规则筛选 | 支持语言、年份、关键词、标题、作者、期刊等条件 |
 | 全文复核 | 支持快捷键、排除理由、备注和单篇翻译入口 |
 | 双人复核 | V2.5 closeout 已支持 A/B 决策隔离、冲突队列、resolver workflow、agreement metrics 和 unresolved conflict gate |
+| 历史记录回溯 | V2.5.1 计划增加本地项目快照、版本恢复、来源文件增减记录和筛选规则/结果回看 |
 | 质量评价 | V2.4 已支持模板族、条目级质量表单、人工 judgement、支持性原文 / 页码和审稿备注；V2.5 增加质量评价分歧处理 |
 | 证据整理 | 已支持 `quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv` |
 | PRISMA 2020 导出 | 支持多主题 SVG、纳入/排除表和筛选报告 |
@@ -159,14 +161,15 @@ node tests\run-all-regressions.js
 | V2.2 | 审计基础层、事件日志、可重算 PRISMA counts、审计包导出 |
 | V2.3 | PRISMA-trAIce 数据模型、AI usage registry、AI suggestion log、透明报告 |
 | V2.4 | 已完成：质量评价模板、条目级质量表单、evidence table、GRADE summary |
-| V2.5 | 收尾中：双人复核隔离、冲突队列、resolver workflow、agreement metrics、unresolved conflict gate |
+| V2.5 | 当前公开版本线：双人复核隔离、冲突队列、resolver workflow、agreement metrics、unresolved conflict gate |
+| V2.5.1 | 计划：本地历史记录、项目快照、来源文件增减回溯、筛选规则/结果版本恢复 |
 | V2.6 | Conservative AI screening、ranking、prompt registry、provider abstraction |
 | V3.0 | landing page、demo dataset、benchmark、paper skeleton、发布材料 |
 
 ## 版本历史
 
 <details>
-<summary><b>V2.5 dual-review closeout（当前完善线，2026-06）</b></summary>
+<summary><b>V2.5 dual-review closeout（当前公开版本线，2026-06）</b></summary>
 
 - Reviewer A/B full-text decisions are isolated as durable `ScreeningDecision` records
 - Screening conflicts generate a conflict queue across include / exclude / uncertain disagreements
@@ -180,7 +183,7 @@ node tests\run-all-regressions.js
 </details>
 
 <details>
-<summary><b>V2.4 quality appraisal（当前公开稳定线，2026-05）</b></summary>
+<summary><b>V2.4 quality appraisal（已完成稳定能力，2026-05）</b></summary>
 
 - 保留 `literature-screening-v2.2/` 作为兼容发布路径
 - 新增质量评价模板 schema，覆盖 RCT、cohort、case-control、cross-sectional、diagnostic accuracy 和 systematic review

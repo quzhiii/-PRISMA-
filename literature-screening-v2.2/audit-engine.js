@@ -189,7 +189,7 @@
       reviewType: normalizeString(payload.reviewType || payload.review_type, 'systematic_review'),
       prismaVersion: normalizeString(payload.prismaVersion || payload.prisma_version, 'PRISMA_2020'),
       aiMode: normalizeAiMode(payload.aiMode || payload.ai_mode),
-      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.3'),
+      appVersion: normalizeString(payload.appVersion || payload.app_version, 'v2.5'),
       dataResidency: normalizeString(payload.dataResidency || payload.data_residency, 'local_browser'),
       exportGeneratedAt: normalizeString(payload.exportGeneratedAt || payload.export_generated_at, timestamp),
       dataSources: normalizeArray(payload.dataSources || payload.data_sources),

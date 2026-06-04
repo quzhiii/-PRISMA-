@@ -3,9 +3,9 @@
 A local-first workspace for systematic reviews, meta-analyses, and evidence synthesis. It brings literature import, conservative deduplication, rule-based screening, manual review, quality assessment, PRISMA 2020 export, and audit-package output into one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-V2.4%20Quality%20Appraisal-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![Current demo](https://img.shields.io/badge/Current%20demo-V2.4-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![V2.5 closeout](https://img.shields.io/badge/V2.5-Dual%20Review%20Closeout-blueviolet.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
+[![V2.5.1 plan](https://img.shields.io/badge/V2.5.1-History%20Rollback-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
 
@@ -63,14 +63,15 @@ flowchart LR
 
 | Line | Path | Status |
 |---|---|---|
-| V2.5 dual-review closeout | `literature-screening-v2.2/` | Current improvement line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; headless Chrome smoke passed, and public tagging still requires reconciling with `origin/main` plus release cutover. |
-| V2.4 quality appraisal | `literature-screening-v2.2/` | Current public stable line. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
+| V2.5 dual-review closeout | `literature-screening-v2.2/` | Current public release line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; the page shell, project snapshot version, and manifest default version now align on V2.5. |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | Next patch-line plan. Adds local history snapshots, version rollback, recoverable state after adding/removing source files, and rule/result history review. |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
 | v1.7.x | Root legacy entry | Historical maintenance line |
 
-V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.4 remains the current public stable line; V2.5 is closing out in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. Current key exports include:
+V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.5 is now the current public release line in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. The next V2.5.1 patch focuses on local project history and rollback so users can recover after uploading the wrong files, changing source sets, or needing to inspect an earlier screening pass. Current key exports include:
 
 | File | Purpose |
 |---|---|
@@ -99,6 +100,7 @@ V2.5 closeout turns dual review from a usable entry point into an auditable, ris
 | Rule-based screening | Language, year, keyword, title, author, and journal filters |
 | Full-text review | Keyboard shortcuts, exclusion reasons, notes, and record-level translation entry |
 | Dual review | V2.5 closeout supports A/B decision isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate |
+| History rollback | V2.5.1 plans local project snapshots, version restore, source-file add/remove history, and rule/result history review |
 | Quality assessment | V2.4 supports template families, item-level forms, human judgement, supporting quote / page, and reviewer notes; V2.5 adds quality conflict handling |
 | Evidence synthesis | Supports `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv` |
 | PRISMA 2020 export | Multi-theme SVG, included/excluded tables, and screening report |
@@ -159,14 +161,15 @@ Latest V2.5 closeout regression result: `121/121` passed.
 | V2.2 | Audit foundation, event log, recalculable PRISMA counts, audit-package export |
 | V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
 | V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
-| V2.5 | Closing out: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
+| V2.5 | Current public release line: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
+| V2.5.1 | Planned: local history records, project snapshots, source-file add/remove rollback, screening rule/result version restore |
 | V2.6 | Conservative AI screening, ranking, prompt registry, provider abstraction |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history
 
 <details>
-<summary><b>V2.5 dual-review closeout (current improvement line, 2026-06)</b></summary>
+<summary><b>V2.5 dual-review closeout (current public release line, 2026-06)</b></summary>
 
 - Reviewer A/B full-text decisions are isolated as durable `ScreeningDecision` records
 - Screening conflicts generate a conflict queue across include / exclude / uncertain disagreements
@@ -180,7 +183,7 @@ Latest V2.5 closeout regression result: `121/121` passed.
 </details>
 
 <details>
-<summary><b>V2.4 quality appraisal (current public stable line, 2026-05)</b></summary>
+<summary><b>V2.4 quality appraisal (completed stable capability, 2026-05)</b></summary>
 
 - keeps `literature-screening-v2.2/` as the compatibility release path
 - adds quality-appraisal template schema for RCT, cohort, case-control, cross-sectional, diagnostic accuracy, and systematic review studies

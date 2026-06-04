@@ -1,6 +1,6 @@
 # PRISMA Workbench 2026 Roadmap
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 
 ## Roadmap 原则
 
@@ -18,8 +18,9 @@ Last updated: 2026-06-02
 | V2.1 stable | 历史稳定路径 | `literature-screening-v2.0/` |
 | V2.3 PRISMA-trAIce readiness | completed | `literature-screening-v2.2/` compatibility path |
 | V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
-| V2.4 quality appraisal | current public stable line | `literature-screening-v2.2/` compatibility path |
-| V2.5 dual-review closeout | current improvement line | `literature-screening-v2.2/` compatibility path |
+| V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
+| V2.5 dual-review closeout | current public release line | `literature-screening-v2.2/` compatibility path |
+| V2.5.1 project history rollback | next patch-line plan | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
 
@@ -101,7 +102,7 @@ Current status: V2.3 readiness is release-ready in `literature-screening-v2.2/` 
 
 目标：把质量评价从“队列和建议”推进到可正式导出的结构化模块。
 
-Current status: V2.4 is the current public stable line. It adds item-level quality forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`, while keeping final GRADE certainty and downgrade reasons human-controlled.
+Current status: V2.4 is a completed stable capability inside the V2.5 public release line. It adds item-level quality forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`, while keeping final GRADE certainty and downgrade reasons human-controlled.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
@@ -119,9 +120,9 @@ Current status: V2.4 is the current public stable line. It adds item-level quali
 
 ## P4：V2.5 双人复核与冲突解决
 
-目标：让双人复核从“可用入口”变成可审计的正式流程。
+目标：让双人复核从“可用入口”变成可审计的正式流程，并让公开页面、项目快照和 manifest 版本号统一到 V2.5。
 
-Current status: V2.5 closeout is in progress on the compatibility path. Node regression and headless Chrome smoke pass; reconciling with `origin/main` and an intentional release cutover remain the release gate.
+Current status: V2.5 is the current public release line on the compatibility path. Node regression and headless Chrome smoke pass; page shell labels, project snapshot version, and manifest default version are synchronized to V2.5.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
@@ -130,7 +131,8 @@ Current status: V2.5 closeout is in progress on the compatibility path. Node reg
 | Resolver workflow | 第三方或主审确认最终筛选决定和质量评价值 | 已完成 |
 | Agreement metrics | Kappa、percent agreement、配对决策、一致/分歧统计 | 已完成 |
 | Conflict evidence exports | `dual_review_conflicts.csv`、`dual_review_agreement.json` | 已完成 |
-| Export gate | 未解决冲突时阻止最终结果导出，保留冲突证据导出 | 本阶段推进 |
+| Export gate | 未解决冲突时阻止最终结果导出，保留冲突证据导出 | 已完成 |
+| Version label sync | `index.html`、`workspace.html`、`landing.html`、project snapshot、manifest 默认版本统一到 V2.5 | 已完成 |
 
 V2.5 readiness gate:
 
@@ -138,6 +140,29 @@ V2.5 readiness gate:
 - README、README_EN、roadmap、V2.5 checklist 必须同步当前状态。
 - 未解决双审冲突时，最终结果导出必须被阻断；冲突证据和审计证据导出仍可下载。
 - Headless Chrome smoke 已覆盖 Reviewer A/B 分歧、screening resolver、quality resolver、dual-review exports 和 blocked final export。
+
+## P4.1：V2.5.1 本地历史记录与回溯
+
+目标：在不引入后端和账号系统的前提下，为用户提供本地项目历史、版本回溯和来源文件增减后的恢复路径。
+
+Current status: planned in [`docs/plans/2026-06-03-v2-5-history-rollback.md`](plans/2026-06-03-v2-5-history-rollback.md). This is a V2.5 patch-line feature, not a V2.6 AI feature.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| Snapshot schema | 在项目状态中增加 `projectHistory`，每个 snapshot 包含 id、label、reason、created_at、step、source_files、rule_hash、counts 和 state payload | 计划 |
+| Snapshot triggers | import 成功、来源文件增减、规则筛选运行、全文复核完成、质量评价保存、冲突解决、导出前自动创建快照 | 计划 |
+| Restore workflow | 新增历史面板，支持预览上一版筛选规则/PRISMA counts/来源文件，再确认调用 `restoreProjectState(snapshot)` | 计划 |
+| Source file add/remove | 上传错文件时可从项目源列表移除文件并生成 `source_file_removed` audit event；追加新文件生成 `source_file_added` 和新快照 | 计划 |
+| Audit events | 快照创建写 `project_snapshot_created`；恢复写 `project_snapshot_restored`；来源调整写 `source_file_added` / `source_file_removed` | 计划 |
+| Export boundary | 历史快照只留在本地项目文件和可选 history export 中，不改变 V2.3/V2.4/V2.5 既有审计导出字段 | 计划 |
+
+V2.5.1 验收标准：
+
+- 用户上传错文件后，可以回到导入前或上一轮筛选后的状态，不需要清空整个项目重来。
+- 用户追加或移除来源文件后，历史中能看见来源变化、记录数变化和对应 audit event。
+- 用户可以回看上一版筛选规则、筛选统计和 PRISMA counts，并确认后恢复。
+- 恢复历史状态不会绕过 unresolved conflict gate；恢复后仍按当前 V2.5 gate 重新计算冲突状态。
+- 历史记录继续遵守 local-first，不引入后端、账号、云同步或真实 AI provider。
 
 ## P5：V2.6 Conservative AI screening
 

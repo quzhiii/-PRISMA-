@@ -7,6 +7,7 @@ let screeningResults = null;
 let fileFormat = 'unknown';
 let formatSource = 'Unknown';
 let currentTheme = 'subtle';
+const APP_RELEASE_VERSION = '2.5-dual-review-release';
 const FEATURE_FLAGS = Object.freeze({
   ENABLE_QUALITY_ASSESSMENT: true,
   ENABLE_STREAMING_IMPORT_V21: true,
@@ -17,6 +18,7 @@ const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.Import
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
 const DUAL_REVIEW_ENGINE = typeof globalThis !== 'undefined' ? globalThis.DualReviewEngine || null : null;
 const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
+const PROJECT_HISTORY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectHistoryEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
   'audit_events',
@@ -112,6 +114,7 @@ let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
+let projectHistory = [];
 
 // Runtime mode state (Task 8)
 const RUNTIME_MODE = {
@@ -1401,6 +1404,7 @@ function saveQualityAssessmentEdits(recordId) {
     }, { persist: false });
   }
 
+  createProjectHistorySnapshot('quality_saved', `After quality save ${recordId}`);
   persistCurrentProjectState();
   renderQualityAssessmentShell();
   showToast('质量评价已保存，导出的质量表会使用这些人工填写内容。', 'success');
@@ -1509,6 +1513,230 @@ function showQualityConflictResolver() {
   }
 }
 
+function renderProjectHistoryPanel() {
+  const container = document.getElementById('projectHistoryPanel');
+  if (!container) return;
+
+  if (!Array.isArray(projectHistory) || projectHistory.length === 0) {
+    container.innerHTML = `
+      <div class="muted-text">
+        <span class="zh">当前还没有历史快照。导入、重新筛选和后续恢复点会自动生成历史记录。</span>
+        <span class="en">There are no history snapshots yet. Import, rerun, and recovery points will create them automatically.</span>
+      </div>
+    `;
+    if (typeof applyLangVisibility === 'function') applyLangVisibility();
+    return;
+  }
+
+  container.innerHTML = projectHistory.slice(0, 8).map((snapshot) => {
+    const createdAt = escapeHTML(String(snapshot.created_at || ''));
+    const label = escapeHTML(String(snapshot.label || 'Project snapshot'));
+    const reason = escapeHTML(String(snapshot.reason || 'manual_snapshot'));
+    const step = Number(snapshot.step || 1);
+    const recordCount = Number(snapshot.record_count || 0);
+    const sourceFiles = Array.isArray(snapshot.source_files) ? snapshot.source_files : [];
+    const sourceSummary = sourceFiles.length > 0
+      ? escapeHTML(sourceFiles.join(', '))
+      : '<span class="zh">无来源文件</span><span class="en">No source files</span>';
+    return `
+      <div class="project-history-card surface-panel">
+        <div class="project-history-meta">
+          <strong>${label}</strong>
+          <span class="format-tag">step ${step}</span>
+        </div>
+        <div class="muted-text" style="margin-top: 6px;">
+          <span class="zh">原因：${reason}</span>
+          <span class="en">Reason: ${reason}</span>
+        </div>
+        <div class="muted-text" style="margin-top: 6px;">
+          <span class="zh">时间：${createdAt}；记录数：${recordCount}</span>
+          <span class="en">Time: ${createdAt}; records: ${recordCount}</span>
+        </div>
+        <div class="muted-text" style="margin-top: 6px;">${sourceSummary}</div>
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="restoreProjectHistorySnapshot('${escapeHTML(String(snapshot.snapshot_id || ''))}')">
+            <span class="zh">恢复这一版</span><span class="en">Restore Snapshot</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (typeof applyLangVisibility === 'function') applyLangVisibility();
+}
+
+function renderSourceFileHistoryPanel() {
+  const container = document.getElementById('sourceFileHistoryPanel');
+  if (!container) return;
+
+  if (!Array.isArray(uploadedFiles) || uploadedFiles.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="muted-text" style="margin-bottom: 8px;">
+      <span class="zh">当前来源文件</span><span class="en">Current source files</span>
+    </div>
+    ${uploadedFiles.map((file) => {
+      const rawName = String(file?.name || file?.file_name || 'unknown');
+      const safeName = escapeHTML(rawName);
+      const quotedName = JSON.stringify(rawName);
+      const count = Number(file?.recordCount || file?.record_count || 0);
+      return `
+        <div class="project-history-card surface-panel" style="margin-top: 8px;">
+          <div class="project-history-meta">
+            <strong>${safeName}</strong>
+            <span class="format-tag">${count}</span>
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick='removeSourceFileFromProject(${quotedName})'>
+              <span class="zh">移除来源文件</span><span class="en">Remove Source File</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  if (typeof applyLangVisibility === 'function') applyLangVisibility();
+}
+
+function removeSourceFileFromProject(fileName) {
+  const normalizedName = String(fileName || '').trim();
+  if (!normalizedName) return;
+
+  const currentFiles = Array.isArray(uploadedFiles) ? uploadedFiles : [];
+  const currentRecords = ensureStableRecordAuditIds(uploadedData);
+  const matchedFile = currentFiles.find((file) => String(file?.name || file?.file_name || '').trim() === normalizedName);
+  if (!matchedFile) return;
+
+  const shouldRemove = confirm(`确定移除来源文件 ${normalizedName} 吗？相关记录会从当前项目中删除，并保留历史快照。`);
+  if (!shouldRemove) return;
+
+  createProjectHistorySnapshot('source_file_removed', `Before removing ${normalizedName}`);
+
+  const remainingFiles = currentFiles.filter((file) => String(file?.name || file?.file_name || '').trim() !== normalizedName);
+  const remainingRecords = currentRecords.filter((record) => String(record?._sourceFile || '').trim() !== normalizedName);
+  const remainingRecordIds = new Set(remainingRecords.map((record, index) => getRecordAuditId(record, index)));
+
+  uploadedFiles = remainingFiles;
+  uploadedData = remainingRecords;
+  screeningDecisions = (Array.isArray(screeningDecisions) ? screeningDecisions : []).filter((decision) => remainingRecordIds.has(String(decision?.recordId || '')));
+  aiSuggestionEvents = (Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : []).filter((entry) => remainingRecordIds.has(String(entry?.recordId || entry?.record_id || '')));
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments).filter((assessment) => remainingRecordIds.has(String(assessment?.record_id || assessment?.recordId || '')));
+  importJobs = normalizeImportJobsState(importJobs).filter((job) => String(job?.file_name || job?.fileName || '').trim() !== normalizedName);
+
+  updateProjectManifestSafe({
+    dataSources: remainingFiles.map((file) => ({
+      name: file.name,
+      format: file.format,
+      source: file.source,
+      recordCount: file.recordCount,
+    })),
+  }, { persist: false });
+
+  appendAuditEventsSafe({
+    eventType: 'source_file_removed',
+    recordId: '',
+    after: {
+      fileName: normalizedName,
+      removedRecordCount: Number(matchedFile?.recordCount || 0),
+      remainingFileCount: remainingFiles.length,
+      remainingRecordCount: remainingRecords.length,
+    },
+    source: 'human',
+  }, { persist: false });
+
+  if (remainingRecords.length > 0) {
+    if (filterRules) {
+      screeningResults = performScreening(remainingRecords, filterRules);
+    } else {
+      screeningResults = null;
+    }
+
+    detectColumns();
+    displayUploadInfo();
+
+    if (screeningResults) {
+      displayResults(screeningResults);
+      if (currentStep >= 4) {
+        displayFulltextReviewUI();
+      }
+      if (currentStep >= 5) {
+        prepareQualityAssessmentShell({ persist: false, silent: true });
+      }
+    }
+
+    currentStep = Math.min(Math.max(filterRules ? currentStep : 2, 2), WORKFLOW_STEP_COUNT);
+    setStep(currentStep);
+  } else {
+    screeningResults = null;
+    qualityAssessments = [];
+    dualReviewResults = { A: {}, B: {}, final: {} };
+    dualReviewConflictState = getEmptyDualReviewConflictState();
+    currentStep = 1;
+    document.getElementById('uploadInfo')?.classList.add('hidden');
+    setStep(1);
+  }
+
+  refreshDualReviewConflictState();
+  persistCurrentProjectState();
+  renderImportJobShell();
+  renderQualityAssessmentShell();
+  renderSourceFileHistoryPanel();
+  renderProjectHistoryPanel();
+  updateStep4EntryLock();
+  showToast(`已移除来源文件 ${normalizedName}`, 'success');
+}
+
+function restoreProjectHistorySnapshot(snapshotId) {
+  const historySnapshot = Array.isArray(projectHistory)
+    ? projectHistory.find((snapshot) => String(snapshot?.snapshot_id || '') === String(snapshotId || ''))
+    : null;
+  if (!historySnapshot || !historySnapshot.state) return;
+
+  const shouldRestore = confirm('确定恢复到这个历史版本吗？当前未保存的变更会被覆盖。');
+  if (!shouldRestore) return;
+
+  const existingHistory = Array.isArray(projectHistory) ? projectHistory.slice() : [];
+  restoreProjectState(historySnapshot.state);
+  projectHistory = existingHistory;
+
+  if (uploadedData && uploadedData.length > 0) {
+    if (!columnMapping || Object.keys(columnMapping).length === 0) {
+      try { detectColumns(); } catch (_) {}
+    }
+    try { displayUploadInfo(); } catch (_) {}
+  }
+  if (filterRules) {
+    try { setFormRules(filterRules); } catch (_) {}
+  }
+  if (screeningResults) {
+    try { displayResults(screeningResults); } catch (_) {}
+    if (currentStep >= 4) {
+      try { displayFulltextReviewUI(); } catch (_) {}
+    }
+  }
+  setStep(Math.min(currentStep || 1, WORKFLOW_STEP_COUNT));
+  try { refreshDualReviewConflictState(); } catch (_) {}
+  appendAuditEventsSafe({
+    eventType: 'project_snapshot_restored',
+    recordId: '',
+    after: {
+      snapshotId: historySnapshot.snapshot_id,
+      reason: historySnapshot.reason,
+      label: historySnapshot.label,
+      step: historySnapshot.step,
+      recordCount: historySnapshot.record_count,
+    },
+    source: 'human',
+  }, { persist: false });
+  persistCurrentProjectState();
+  renderProjectHistoryPanel();
+  showToast('已恢复历史版本', 'success');
+}
+
 function closeQualityConflictModal() {
   const modal = document.getElementById('quality-conflict-modal');
   if (modal) modal.remove();
@@ -1549,6 +1777,7 @@ function applyQualityConflictResolutions() {
   });
 
   refreshDualReviewConflictState();
+  createProjectHistorySnapshot('conflict_resolved', `After resolving ${resolvedCount} quality conflicts`);
   persistCurrentProjectState();
   renderQualityAssessmentShell();
   closeQualityConflictModal();
@@ -2730,7 +2959,9 @@ async function handleImportFiles(files) {
     }
   }
 
-  startNewProjectSession();
+  createProjectHistorySnapshot('before_import', 'Before import');
+  const preservedHistory = Array.isArray(projectHistory) ? projectHistory.slice() : [];
+  startNewProjectSession({ projectHistory: preservedHistory });
   importJobs = [];
 
   const fileJobIds = new Map();
@@ -2914,6 +3145,20 @@ async function handleImportFiles(files) {
     }
     
     uploadedFiles = uploadedFilesInfo;
+    uploadedFilesInfo.forEach((fileInfo) => {
+      appendAuditEventsSafe({
+        eventType: 'source_file_added',
+        recordId: '',
+        after: {
+          fileName: fileInfo.name,
+          format: fileInfo.format,
+          source: fileInfo.source,
+          recordCount: fileInfo.recordCount,
+        },
+        source: 'human',
+      }, { persist: false });
+      createProjectHistorySnapshot('source_file_added', `After adding ${fileInfo.name}`);
+    });
     updateProjectManifestSafe({
       dataSources: uploadedFilesInfo.map((file) => ({
         name: file.name,
@@ -4160,6 +4405,7 @@ function displayUploadInfo() {
 
   displayPreviewTable();
   document.getElementById('uploadInfo').classList.remove('hidden');
+  renderSourceFileHistoryPanel();
 }
 
 function displayPreviewTable() {
@@ -4222,6 +4468,28 @@ function getRecordAuditId(record, fallbackIndex) {
   return `record-${Number.isFinite(fallbackIndex) ? fallbackIndex + 1 : Date.now()}`;
 }
 
+function ensureStableRecordAuditIds(records) {
+  return (Array.isArray(records) ? records : []).map((record, index) => {
+    if (!record || typeof record !== 'object') return record;
+    const hasStableCandidate = Boolean(
+      record.record_id ||
+      record.recordId ||
+      record.id ||
+      record._engine_record_id ||
+      record.doi ||
+      record.DOI ||
+      record.DO ||
+      record.title ||
+      record.TI ||
+      record.T1
+    );
+    if (!hasStableCandidate) {
+      record._engine_record_id = getRecordAuditId(record, index);
+    }
+    return record;
+  });
+}
+
 function normalizeAuditExclusionReason(reason) {
   const value = String(reason || '').trim();
   const taxonomy = AUDIT_ENGINE?.EXCLUSION_REASONS || [];
@@ -4263,6 +4531,7 @@ function ensureProjectManifest() {
     projectName: projectManifest?.projectName || 'Untitled systematic review',
     reviewType: projectManifest?.reviewType || 'systematic_review',
     prismaVersion: 'PRISMA_2020',
+    appVersion: 'v2.5',
     aiMode: projectManifest?.aiMode || 'off',
     dataSources: uploadedFiles.map((file) => file.source || file.name || file.format).filter(Boolean),
     settings: {
@@ -4981,6 +5250,7 @@ function persistAuditState() {
       auditEvents,
       screeningDecisions,
       aiSuggestionEvents,
+      projectHistory,
     }));
   } catch (error) {
     console.warn('Failed to persist audit state:', error);
@@ -5079,7 +5349,7 @@ function ensureProjectId() {
   return currentProjectId;
 }
 
-function startNewProjectSession() {
+function startNewProjectSession(options = {}) {
   const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
     ? runtimeSession.projectId.trim()
     : '';
@@ -5101,6 +5371,7 @@ function startNewProjectSession() {
   auditEvents = [];
   screeningDecisions = [];
   aiSuggestionEvents = [];
+  projectHistory = Array.isArray(options.projectHistory) ? options.projectHistory : [];
   dualReviewResults = { A: {}, B: {}, final: {} };
   dualReviewConflictState = getEmptyDualReviewConflictState();
   projectManifest = null;
@@ -5117,10 +5388,60 @@ function startNewProjectSession() {
   updateStep4EntryLock();
 }
 
+function buildCurrentProjectHistoryState() {
+  return {
+    uploadedData,
+    uploadedFiles,
+    screeningResults,
+    columnMapping,
+    fileFormat,
+    formatSource,
+    currentStep,
+    filterRules,
+    exclusionReasons,
+    qualityAssessments,
+    importJobs,
+    projectManifest: ensureProjectManifest(),
+    auditEvents,
+    screeningDecisions,
+    aiSuggestionEvents,
+    projectHistory,
+    dualReviewResults,
+    dualReviewConflictState,
+  };
+}
+
+function createProjectHistorySnapshot(reason, label, options = {}) {
+  if (!PROJECT_HISTORY_ENGINE || typeof PROJECT_HISTORY_ENGINE.addProjectSnapshot !== 'function') return null;
+  const beforeLength = projectHistory.length;
+  projectHistory = PROJECT_HISTORY_ENGINE.addProjectSnapshot(projectHistory, buildCurrentProjectHistoryState(), {
+    reason,
+    label,
+    limit: 20,
+    ...options,
+  });
+  const snapshot = projectHistory[0] || null;
+  if (snapshot && projectHistory.length !== beforeLength) {
+    appendAuditEventsSafe({
+      eventType: 'project_snapshot_created',
+      recordId: '',
+      after: {
+        snapshotId: snapshot.snapshot_id,
+        reason: snapshot.reason,
+        label: snapshot.label,
+        step: snapshot.step,
+        recordCount: snapshot.record_count,
+      },
+      source: 'human',
+    }, { persist: false });
+  }
+  return snapshot;
+}
+
 function persistCurrentProjectState() {
   const projectId = ensureProjectId();
   const snapshot = {
-    version: '2.3-prisma-traice-release',
+    version: APP_RELEASE_VERSION,
     timestamp: new Date().toISOString(),
     projectId,
     uploadedData,
@@ -5138,6 +5459,7 @@ function persistCurrentProjectState() {
     auditEvents,
     screeningDecisions,
     aiSuggestionEvents,
+    projectHistory,
     dualReviewResults,
     dualReviewConflictState,
   };
@@ -5167,6 +5489,7 @@ function restoreProjectState(snapshot) {
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
+  projectHistory = Array.isArray(snapshot.projectHistory) ? snapshot.projectHistory : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
   dualReviewConflictState = {
     ...getEmptyDualReviewConflictState(),
@@ -5184,6 +5507,8 @@ function restoreProjectState(snapshot) {
 
   renderImportJobShell();
   renderQualityAssessmentShell();
+  renderProjectHistoryPanel();
+  renderSourceFileHistoryPanel();
   renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
 }
@@ -5880,6 +6205,7 @@ function startScreening() {
   
   setTimeout(() => {
     const rules = getFormRules();
+    createProjectHistorySnapshot('screening_rerun', 'Before screening rerun');
     filterRules = rules;
     ensureProjectId();
     persistCurrentProjectState();
@@ -7123,6 +7449,7 @@ function buildAuditExportContent(type) {
 function downloadFile(type) {
   const isAuditExport = isAuditExportType(type);
   const isDualReviewExport = isDualReviewExportType(type);
+  const finalExportTypes = new Set(V25_FINAL_CONFLICT_GATED_EXPORT_TYPES);
 
   if (!screeningResults && !isAuditExport && !isDualReviewExport) {
     showToast('没有可下载的结果', 'error');
@@ -7141,6 +7468,10 @@ function downloadFile(type) {
   if (isDualReviewExport && !DUAL_REVIEW_ENGINE) {
     showToast('Dual-review export module is not loaded', 'error');
     return;
+  }
+
+  if (finalExportTypes.has(type)) {
+    createProjectHistorySnapshot('before_export', `Before export ${type}`);
   }
 
   let content = '';
@@ -7320,6 +7651,8 @@ function downloadAllFiles() {
     showToast('没有可下载的结果', 'error');
     return;
   }
+
+  createProjectHistorySnapshot('before_export', 'Before exporting all deliverables');
   
   showToast('正在下载所有文件...', 'success');
   
@@ -7730,13 +8063,20 @@ function applySampleDataPayload(payload) {
     throw new Error('示例数据为空');
   }
 
+  const sourceFileName = payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json';
+  const sourceLabel = payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置';
+
   startNewProjectSession();
-  uploadedData = records;
+  uploadedData = records.map((record) => ({
+    ...record,
+    _source: record._source || sourceLabel,
+    _sourceFile: record._sourceFile || sourceFileName,
+  }));
   uploadedFiles = [{
-    name: payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json',
+    name: sourceFileName,
     format: 'JSON',
     recordCount: records.length,
-    source: payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置',
+    source: sourceLabel,
   }];
   fileFormat = 'JSON';
   formatSource = '示例数据';
@@ -7746,6 +8086,7 @@ function applySampleDataPayload(payload) {
   setStep(2);
   syncFormToYAML();
   displayRulesPreview();
+  createProjectHistorySnapshot('after_import', 'After import');
   persistCurrentProjectState();
   updateStep4EntryLock();
 
@@ -8484,6 +8825,7 @@ function finalizeFulltextReview() {
   }
   goToStep5();
   scrollToStep(5);
+  createProjectHistorySnapshot('fulltext_finalized', 'After fulltext review finalized');
   showToast('✅ 全文复核完成，已进入质量评价步骤', 'success');
 }
 
@@ -8892,7 +9234,7 @@ function saveProject() {
   const safeTemplate = sanitizeExclusionTemplate(exclusionReasons);
 
   const project = {
-    version: '2.1-shell',
+    version: APP_RELEASE_VERSION,
     timestamp: new Date().toISOString(),
     projectId: currentProjectId,
     uploadedData: uploadedData,
@@ -8910,6 +9252,7 @@ function saveProject() {
     auditEvents: auditEvents,
     screeningDecisions: screeningDecisions,
     aiSuggestionEvents: aiSuggestionEvents,
+    projectHistory: projectHistory,
     dualReviewResults: dualReviewResults,
     dualReviewConflictState: dualReviewConflictState
   };
@@ -8965,6 +9308,7 @@ function loadProject() {
         auditEvents = Array.isArray(project.auditEvents) ? project.auditEvents : [];
         screeningDecisions = Array.isArray(project.screeningDecisions) ? project.screeningDecisions : [];
         aiSuggestionEvents = Array.isArray(project.aiSuggestionEvents) ? project.aiSuggestionEvents : [];
+        projectHistory = Array.isArray(project.projectHistory) ? project.projectHistory : [];
         dualReviewResults = project.dualReviewResults || { A: {}, B: {}, final: {} };
         dualReviewConflictState = project.dualReviewConflictState || dualReviewConflictState;
 
@@ -9028,7 +9372,7 @@ function autoSaveToggle() {
     autoSaveInterval = setInterval(() => {
       if (uploadedData && uploadedData.length > 0) {
         localStorage.setItem('prisma_autosave', JSON.stringify({
-          version: '2.1-shell',
+          version: APP_RELEASE_VERSION,
           timestamp: new Date().toISOString(),
           projectId: currentProjectId || null,
           uploadedData: uploadedData,
@@ -9046,6 +9390,7 @@ function autoSaveToggle() {
           auditEvents: auditEvents,
           screeningDecisions: screeningDecisions,
           aiSuggestionEvents: aiSuggestionEvents,
+          projectHistory: projectHistory,
           dualReviewResults: dualReviewResults,
           dualReviewConflictState: dualReviewConflictState
         }));
@@ -9437,6 +9782,7 @@ function applyFinalDecisions() {
   });
   
   refreshDualReviewConflictState();
+  createProjectHistorySnapshot('conflict_resolved', `After resolving ${resolvedCount} screening conflicts`);
   persistCurrentProjectState();
   updateFulltextStats();
   closeDisagreementModal();
@@ -9680,6 +10026,7 @@ function saveProjectData() {
   projectData.auditEvents = auditEvents;
   projectData.screeningDecisions = screeningDecisions;
   projectData.aiSuggestionEvents = aiSuggestionEvents;
+  projectData.projectHistory = projectHistory;
   projectData.dualReviewResults = dualReviewResults;
   projectData.dualReviewConflictState = dualReviewConflictState;
   projectData.lastSync = new Date().toISOString();

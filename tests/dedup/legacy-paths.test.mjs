@@ -20,13 +20,24 @@ async function loadDataset(datasetId) {
 async function loadPatchContext(relativePath, uploadedData) {
   const source = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
   const downloads = [];
+  const infoDiv = {
+    innerHTML: '',
+    classList: {
+      remove() {},
+    },
+  };
   const context = {
     console,
     DedupEngine,
     uploadedData,
+    fileFormat: 'CSV',
+    formatSource: 'Fixture',
     window: {},
     document: {
-      getElementById() { return null; },
+      getElementById(id) {
+        if (id === 'uploadInfo') return infoDiv;
+        return null;
+      },
       querySelectorAll() { return []; },
       querySelector() { return null; },
     },
@@ -39,6 +50,8 @@ async function loadPatchContext(relativePath, uploadedData) {
     downloadFile(...args) { downloads.push(args); },
     getValue(row, field) { return String(row?.[field] ?? ''); },
     normalizeTitle: DedupEngine.normalizeTitle,
+    displayPreviewTable() {},
+    renderSourceFileHistoryPanel() {},
     convertToCSV(records) {
       return buildCsv(records);
     },
@@ -136,6 +149,19 @@ test('v2 export-only dedup exports the same retained rows as the shared engine h
 
   assert.equal(downloads.length, 1, 'expected one CSV download');
   assert.equal(countCsvRows(downloads[0][0]), engineResult.retainedRecords.length);
+});
+
+test('v2.5 upload summary patch refreshes the source file history panel', async () => {
+  const dataset = await loadDataset('dedup-case-007');
+  let refreshedPanels = 0;
+  const { context } = await loadPatchContext('literature-screening-v2.2/v1.7-core-patch.js', dataset.records);
+  context.renderSourceFileHistoryPanel = () => {
+    refreshedPanels += 1;
+  };
+
+  context.displayUploadInfoV17();
+
+  assert.equal(refreshedPanels, 1);
 });
 
 test('root worker DEDUP matches the shared engine hard-duplicate layer', async () => {
