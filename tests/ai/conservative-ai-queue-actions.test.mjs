@@ -159,13 +159,32 @@ let aiSuggestionEvents = [
       uncertaintyFlags: ['protocol_or_non_result_record'],
     },
   },
+  {
+    suggestionId: 'suggestion-4',
+    recordId: 'record-1',
+    stage: 'title_abstract',
+    inputSummary: 'Reviewed randomized trial record',
+    humanAction: 'accepted',
+    metadata: {
+      advisoryOnly: true,
+      recommendedQueue: 'likely_relevant',
+      priorityScore: 88,
+      uncertaintyFlags: [],
+    },
+  },
 ];
 let conservativeAiQueueFilter = 'all';
 let currentConservativeAiQueueContext = null;
 let step4OpenCount = 0;
 let lastGoToStep4Preserve = null;
+const CONSERVATIVE_AI_QUEUE_LABELS = Object.freeze({
+  likely_relevant: { zh: '优先保留', en: 'Likely relevant' },
+  needs_human_attention: { zh: '需要人工关注', en: 'Needs human attention' },
+  needs_human_exclusion_check: { zh: '需要重点排除核查', en: 'Needs human exclusion check' },
+});
 const documentElements = new Map();
 const document = {
+  documentElement: { lang: 'en' },
   getElementById(id) {
     return documentElements.get(id) || null;
   },
@@ -258,12 +277,27 @@ function renderConservativeAiQueuePanel() {
   const entries = aiSuggestionEvents.filter((entry) => (
     entry?.stage === 'title_abstract' && entry?.metadata?.advisoryOnly === true
   ));
+  const summary = getConservativeAiQueueSummary(entries);
+  const bucketSummary = Object.keys(summary.buckets)
+    .map((bucketKey) => getConservativeAiQueueLabel(bucketKey) + ': ' + summary.buckets[bucketKey])
+    .join(' | ');
   const filtered = conservativeAiQueueFilter === 'all'
     ? entries
     : entries.filter((entry) => entry?.metadata?.recommendedQueue === conservativeAiQueueFilter);
-  container.innerHTML = filtered.map((entry) => entry.inputSummary).join(' | ');
+  container.innerHTML = [
+    'Queue summary',
+    'Total suggestions: ' + summary.total,
+    'Pending review: ' + summary.pending,
+    'Reviewed: ' + summary.reviewed,
+    bucketSummary,
+    filtered.map((entry) => entry.inputSummary).join(' | '),
+  ].join(' | ');
 }
 `,
+    extractFunctionBlock(source, 'getAiSuggestionPanelLang'),
+    extractFunctionBlock(source, 'getAiSuggestionLocalizedLabel'),
+    extractFunctionBlock(source, 'getConservativeAiQueueLabel'),
+    extractFunctionBlock(source, 'getConservativeAiQueueSummary'),
     extractFunctionBlock(source, 'getRecordAuditId'),
     extractFunctionBlock(source, 'getAuditRecordIndexMap'),
     extractFunctionBlock(source, 'setConservativeAiQueueFilter'),
@@ -337,6 +371,21 @@ test('queue filters can narrow the Step 3 conservative AI buckets', async () => 
   assert.match(state.queueHtml, /Needs attention record/);
   assert.doesNotMatch(state.queueHtml, /Randomized trial record/);
   assert.doesNotMatch(state.queueHtml, /Exclusion check record/);
+});
+
+test('queue summary shows advisory workload and review state without changing metadata', async () => {
+  const harness = await loadQueueActionsHarness();
+
+  harness.renderConservativeAiQueuePanel();
+  const state = harness.getState();
+
+  assert.match(state.queueHtml, /Queue summary/);
+  assert.match(state.queueHtml, /Total suggestions[^0-9]*4/);
+  assert.match(state.queueHtml, /Pending review[^0-9]*3/);
+  assert.match(state.queueHtml, /Reviewed[^0-9]*1/);
+  assert.match(state.queueHtml, /Likely relevant[^0-9]*2/);
+  assert.match(state.queueHtml, /Needs human attention[^0-9]*1/);
+  assert.match(state.queueHtml, /Needs human exclusion check[^0-9]*1/);
 });
 
 test('queue record focus targets the matching Step 4 full-text controls', async () => {

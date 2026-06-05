@@ -5269,6 +5269,36 @@ function getConservativeAiQueueLabel(queueKey) {
   return getAiSuggestionLocalizedLabel(CONSERVATIVE_AI_QUEUE_LABELS, queueKey, queueKey || '-');
 }
 
+function getConservativeAiQueueSummary(entries) {
+  const summary = {
+    total: 0,
+    pending: 0,
+    reviewed: 0,
+    buckets: {
+      likely_relevant: 0,
+      needs_human_attention: 0,
+      needs_human_exclusion_check: 0,
+    },
+  };
+
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    summary.total += 1;
+    const action = String(entry?.humanAction || entry?.human_action || 'pending').trim();
+    if (!action || action === 'pending') {
+      summary.pending += 1;
+    } else {
+      summary.reviewed += 1;
+    }
+
+    const bucketKey = String(entry?.metadata?.recommendedQueue || '').trim();
+    if (Object.prototype.hasOwnProperty.call(summary.buckets, bucketKey)) {
+      summary.buckets[bucketKey] += 1;
+    }
+  });
+
+  return summary;
+}
+
 function applyAiSuggestionPanelLangVisibility() {
   if (typeof applyLangVisibility === 'function') {
     applyLangVisibility();
@@ -7204,6 +7234,10 @@ function renderConservativeAiQueuePanel() {
     ['needs_human_attention', '需要人工关注', 'Needs human attention'],
     ['needs_human_exclusion_check', '需要重点排除核查', 'Needs human exclusion check'],
   ];
+  const queueSummary = getConservativeAiQueueSummary(entries);
+  const bucketSummaryHtml = buckets.map(([bucketKey]) => `
+    <span class="status-chip">${escapeHTML(getConservativeAiQueueLabel(bucketKey))}: ${escapeHTML(String(queueSummary.buckets[bucketKey] || 0))}</span>
+  `).join('');
 
   const activeFilter = ['all', ...buckets.map(([bucketKey]) => bucketKey)].includes(conservativeAiQueueFilter)
     ? conservativeAiQueueFilter
@@ -7261,6 +7295,17 @@ function renderConservativeAiQueuePanel() {
   }).join('');
 
   container.innerHTML = `
+    <div class="surface-panel" style="padding: 12px; margin-bottom: 12px;">
+      <div style="font-weight: var(--font-weight-semibold); margin-bottom: 8px;">
+        <span class="zh">队列摘要</span><span class="en">Queue summary</span>
+      </div>
+      <div class="grid grid-3" style="gap: var(--space-12); margin-bottom: 8px;">
+        <div><span class="zh">建议总数</span><span class="en">Total suggestions</span>: <strong>${escapeHTML(String(queueSummary.total))}</strong></div>
+        <div><span class="zh">待人工复核</span><span class="en">Pending review</span>: <strong>${escapeHTML(String(queueSummary.pending))}</strong></div>
+        <div><span class="zh">已人工复核</span><span class="en">Reviewed</span>: <strong>${escapeHTML(String(queueSummary.reviewed))}</strong></div>
+      </div>
+      <div class="button-group" style="gap: var(--space-8);">${bucketSummaryHtml}</div>
+    </div>
     <div class="button-group" style="margin-bottom: 12px;">
       ${filterHtml}
     </div>

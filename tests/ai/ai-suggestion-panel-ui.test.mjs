@@ -169,9 +169,13 @@ test('conservative AI queue panel renders workflow-facing recommendation buckets
   const source = await readV22App();
 
   assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /function getConservativeAiQueueSummary/);
   assert.match(source, /CONSERVATIVE_AI_QUEUE_LABELS/);
   assert.match(source, /function setConservativeAiQueueFilter/);
   assert.match(source, /function openConservativeAiQueueRecord/);
+  assert.match(source, /Queue summary/);
+  assert.match(source, /Pending review/);
+  assert.match(source, /Reviewed/);
   assert.match(source, /likely_relevant/);
   assert.match(source, /needs_human_attention/);
   assert.match(source, /needs_human_exclusion_check/);
