@@ -117,6 +117,7 @@ let screeningDecisions = [];
 let aiSuggestionEvents = [];
 let conservativeAiQueueFilter = 'all';
 let conservativeAiQueueSortMode = 'original';
+let conservativeAiQueueReviewStateFilter = 'all';
 let currentConservativeAiQueueContext = null;
 let projectHistory = [];
 
@@ -5085,6 +5086,22 @@ function setConservativeAiQueueSortMode(mode = 'original') {
   return conservativeAiQueueSortMode;
 }
 
+function setConservativeAiQueueReviewStateFilter(filter = 'all') {
+  const normalized = String(filter || '').trim();
+  conservativeAiQueueReviewStateFilter = ['pending', 'reviewed'].includes(normalized) ? normalized : 'all';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueReviewStateFilter;
+}
+
+function matchesConservativeAiQueueReviewState(entry, filter = conservativeAiQueueReviewStateFilter) {
+  const normalizedFilter = String(filter || '').trim();
+  if (!normalizedFilter || normalizedFilter === 'all') return true;
+
+  const action = String(entry?.humanAction || entry?.human_action || 'pending').trim();
+  const isPending = !action || action === 'pending';
+  return normalizedFilter === 'pending' ? isPending : !isPending;
+}
+
 function getSortedConservativeAiQueueEntries(entries) {
   const list = Array.isArray(entries) ? [...entries] : [];
   if (conservativeAiQueueSortMode !== 'priority') return list;
@@ -7256,7 +7273,8 @@ function renderConservativeAiQueuePanel() {
   const bucketSummaryHtml = buckets.map(([bucketKey]) => `
     <span class="status-chip">${escapeHTML(getConservativeAiQueueLabel(bucketKey))}: ${escapeHTML(String(queueSummary.buckets[bucketKey] || 0))}</span>
   `).join('');
-  const sortedEntries = getSortedConservativeAiQueueEntries(entries);
+  const displayEntries = entries.filter((entry) => matchesConservativeAiQueueReviewState(entry));
+  const sortedEntries = getSortedConservativeAiQueueEntries(displayEntries);
 
   const activeFilter = ['all', ...buckets.map(([bucketKey]) => bucketKey)].includes(conservativeAiQueueFilter)
     ? conservativeAiQueueFilter
@@ -7285,6 +7303,20 @@ function renderConservativeAiQueuePanel() {
     const buttonClass = sortMode === conservativeAiQueueSortMode ? 'btn btn-primary' : 'btn btn-secondary';
     return `
       <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueSortMode('${sortMode}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const reviewStateHtml = [
+    ['all', '全部复核状态', 'All review states'],
+    ['pending', '待复核', 'Pending'],
+    ['reviewed', '已复核', 'Reviewed'],
+  ].map(([reviewState, zhLabel, enLabel]) => {
+    const buttonClass = reviewState === conservativeAiQueueReviewStateFilter ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueReviewStateFilter('${reviewState}')">
         <span class="zh">${escapeHTML(zhLabel)}</span>
         <span class="en">${escapeHTML(enLabel)}</span>
       </button>
@@ -7340,6 +7372,9 @@ function renderConservativeAiQueuePanel() {
     </div>
     <div class="button-group" style="margin-bottom: 12px;">
       ${filterHtml}
+    </div>
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${reviewStateHtml}
     </div>
     <div class="button-group" style="margin-bottom: 12px;">
       ${sortHtml}
