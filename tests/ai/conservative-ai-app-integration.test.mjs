@@ -142,6 +142,7 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(source, /function renderConservativeAiQueuePanel/);
   assert.match(source, /function setConservativeAiQueueFilter/);
   assert.match(source, /function setConservativeAiQueueContext/);
+  assert.match(source, /function clearConservativeAiQueueContext/);
   assert.match(source, /function renderConservativeAiStep4ContextBanner/);
   assert.match(source, /function focusFulltextReviewRecord/);
   assert.match(source, /function openConservativeAiQueueRecord/);
@@ -166,4 +167,8 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(fulltextUi, /renderConservativeAiStep4ContextBanner\(\)/);
   assert.match(fulltextUi, /fulltext-review-row-/);
   assert.match(fulltextUi, /data-record-id/);
+
+  const goToStep4 = extractFunctionBlock(source, 'goToStep4');
+  assert.match(goToStep4, /preserveQueueContext/);
+  assert.match(goToStep4, /clearConservativeAiQueueContext\(\)/);
 });

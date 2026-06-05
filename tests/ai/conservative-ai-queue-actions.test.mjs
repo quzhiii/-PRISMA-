@@ -163,6 +163,7 @@ let aiSuggestionEvents = [
 let conservativeAiQueueFilter = 'all';
 let currentConservativeAiQueueContext = null;
 let step4OpenCount = 0;
+let lastGoToStep4Preserve = null;
 const documentElements = new Map();
 const document = {
   getElementById(id) {
@@ -190,8 +191,22 @@ function createElement(id, patch = {}) {
 }
 createElement('conservativeAiQueuePanel');
 createElement('conservativeAiStep4ContextBanner');
-function goToStep4() {
+function clearConservativeAiQueueContext() {
+  currentConservativeAiQueueContext = null;
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+function displayFulltextReviewUI() {
+  renderConservativeAiStep4ContextBanner();
+}
+function goToStep4(options = {}) {
   step4OpenCount += 1;
+  const preserveQueueContext = options?.preserveQueueContext === true;
+  lastGoToStep4Preserve = preserveQueueContext;
+  if (!preserveQueueContext) {
+    clearConservativeAiQueueContext();
+  }
+  displayFulltextReviewUI();
 }
 function setConservativeAiQueueContext(recordId) {
   const normalizedRecordId = String(recordId || '').trim();
@@ -265,6 +280,7 @@ function getState() {
     conservativeAiQueueFilter,
     currentConservativeAiQueueContext,
     step4OpenCount,
+    lastGoToStep4Preserve,
     queueHtml: document.getElementById('conservativeAiQueuePanel')?.innerHTML || '',
     bannerHtml: document.getElementById('conservativeAiStep4ContextBanner')?.innerHTML || '',
     row1: document.getElementById('fulltext-review-row-1'),
@@ -274,6 +290,8 @@ function getState() {
 this.__exports = {
   renderConservativeAiQueuePanel,
   setConservativeAiQueueFilter,
+  setConservativeAiQueueContext,
+  goToStep4,
   focusFulltextReviewRecord,
   openConservativeAiQueueRecord,
   seedFulltextRow,
@@ -293,10 +311,12 @@ test('queue action helpers are wired into the Step 3 advisory surface', async ()
 
   assert.match(source, /function setConservativeAiQueueFilter/);
   assert.match(source, /function setConservativeAiQueueContext/);
+  assert.match(source, /function clearConservativeAiQueueContext/);
   assert.match(source, /function renderConservativeAiStep4ContextBanner/);
   assert.match(source, /function focusFulltextReviewRecord/);
   assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /openConservativeAiQueueRecord\(/);
+  assert.match(source, /preserveQueueContext/);
   assert.match(source, /setConservativeAiQueueFilter\('/);
   assert.match(source, /const activeFilter = \['all'/);
   assert.match(source, /const visibleBuckets = activeFilter === 'all'/);
@@ -340,8 +360,21 @@ test('opening a queue record hands off into Step 4 before focusing the record', 
 
   assert.equal(opened, true);
   assert.equal(state.step4OpenCount, 1);
+  assert.equal(state.lastGoToStep4Preserve, true);
   assert.equal(state.row1.scrollCalls, 1);
   assert.equal(state.select1.focusCalls, 1);
+});
+
+test('normal Step 4 entry clears stale advisory context', async () => {
+  const harness = await loadQueueActionsHarness();
+
+  harness.setConservativeAiQueueContext('record-2');
+  harness.goToStep4();
+  const state = harness.getState();
+
+  assert.equal(state.lastGoToStep4Preserve, false);
+  assert.equal(state.currentConservativeAiQueueContext, null);
+  assert.equal(state.bannerHtml, '');
 });
 
 test('opening a queue record captures and renders Step 4 advisory context', async () => {

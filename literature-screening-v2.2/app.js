@@ -5104,6 +5104,12 @@ function setConservativeAiQueueContext(recordId) {
   return currentConservativeAiQueueContext;
 }
 
+function clearConservativeAiQueueContext() {
+  currentConservativeAiQueueContext = null;
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+
 function renderConservativeAiStep4ContextBanner() {
   const container = document.getElementById('conservativeAiStep4ContextBanner');
   if (!container) return;
@@ -5167,7 +5173,7 @@ function focusFulltextReviewRecord(recordId) {
 function openConservativeAiQueueRecord(recordId) {
   if (!String(recordId || '').trim()) return false;
   setConservativeAiQueueContext(recordId);
-  goToStep4();
+  goToStep4({ preserveQueueContext: true });
   return focusFulltextReviewRecord(recordId);
 }
 
@@ -6168,11 +6174,17 @@ function goToStep3() {
 }
 
 // v3.0: New step 4 for manual fulltext review
-function goToStep4() {
+function goToStep4(options = {}) {
   if (!screeningResults) {
     showToast('请先完成文献筛选', 'warning');
     return;
   }
+
+  const preserveQueueContext = options?.preserveQueueContext === true;
+  if (!preserveQueueContext) {
+    clearConservativeAiQueueContext();
+  }
+
   setStep(4);
   displayFulltextReviewUI();
 }
