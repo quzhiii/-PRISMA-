@@ -176,6 +176,7 @@ test('conservative AI queue panel renders workflow-facing recommendation buckets
   assert.match(source, /function getSortedConservativeAiQueueEntries/);
   assert.match(source, /function setConservativeAiQueueReviewStateFilter/);
   assert.match(source, /function matchesConservativeAiQueueReviewState/);
+  assert.match(source, /function getConservativeAiQueueEmptyStateText/);
   assert.match(source, /CONSERVATIVE_AI_QUEUE_LABELS/);
   assert.match(source, /function setConservativeAiQueueFilter/);
   assert.match(source, /function openConservativeAiQueueRecord/);
@@ -186,6 +187,7 @@ test('conservative AI queue panel renders workflow-facing recommendation buckets
   assert.match(source, /Priority score/);
   assert.match(source, /All review states/);
   assert.match(source, /Pending/);
+  assert.match(source, /No advisory suggestions match these filters/);
   assert.match(source, /likely_relevant/);
   assert.match(source, /needs_human_attention/);
   assert.match(source, /needs_human_exclusion_check/);

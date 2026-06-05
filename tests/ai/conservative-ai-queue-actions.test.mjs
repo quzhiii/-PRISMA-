@@ -288,13 +288,14 @@ function renderConservativeAiQueuePanel() {
     : entries.filter((entry) => entry?.metadata?.recommendedQueue === conservativeAiQueueFilter);
   const reviewStateFiltered = bucketFiltered.filter((entry) => matchesConservativeAiQueueReviewState(entry));
   const filtered = getSortedConservativeAiQueueEntries(reviewStateFiltered);
+  const emptyState = getConservativeAiQueueEmptyStateText();
   container.innerHTML = [
     'Queue summary',
     'Total suggestions: ' + summary.total,
     'Pending review: ' + summary.pending,
     'Reviewed: ' + summary.reviewed,
     bucketSummary,
-    filtered.map((entry) => entry.inputSummary).join(' | '),
+    filtered.length ? filtered.map((entry) => entry.inputSummary).join(' | ') : emptyState,
   ].join(' | ');
 }
 `,
@@ -306,6 +307,7 @@ function renderConservativeAiQueuePanel() {
     extractFunctionBlock(source, 'getSortedConservativeAiQueueEntries'),
     extractFunctionBlock(source, 'setConservativeAiQueueReviewStateFilter'),
     extractFunctionBlock(source, 'matchesConservativeAiQueueReviewState'),
+    extractFunctionBlock(source, 'getConservativeAiQueueEmptyStateText'),
     extractFunctionBlock(source, 'getRecordAuditId'),
     extractFunctionBlock(source, 'getAuditRecordIndexMap'),
     extractFunctionBlock(source, 'setConservativeAiQueueFilter'),
@@ -453,6 +455,18 @@ test('queue review-state filters pending and reviewed advisory suggestions', asy
     'Exclusion check record',
     'Reviewed randomized trial record',
   ]));
+});
+
+test('queue empty states explain filtered buckets instead of rendering bare zero', async () => {
+  const harness = await loadQueueActionsHarness();
+
+  harness.setConservativeAiQueueFilter('needs_human_attention');
+  harness.setConservativeAiQueueReviewStateFilter('reviewed');
+  const state = harness.getState();
+
+  assert.match(state.queueHtml, /No advisory suggestions match these filters/);
+  assert.doesNotMatch(state.queueHtml, /\|\s*0\s*\|/);
+  assert.doesNotMatch(state.queueHtml, />0</);
 });
 
 test('queue record focus targets the matching Step 4 full-text controls', async () => {

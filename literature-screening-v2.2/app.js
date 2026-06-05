@@ -5304,6 +5304,12 @@ function getConservativeAiQueueLabel(queueKey) {
   return getAiSuggestionLocalizedLabel(CONSERVATIVE_AI_QUEUE_LABELS, queueKey, queueKey || '-');
 }
 
+function getConservativeAiQueueEmptyStateText() {
+  return getAiSuggestionPanelLang() === 'en'
+    ? 'No advisory suggestions match these filters.'
+    : '当前筛选条件下没有匹配的 advisory suggestions。';
+}
+
 function getConservativeAiQueueSummary(entries) {
   const summary = {
     total: 0,
@@ -7344,7 +7350,7 @@ function renderConservativeAiQueuePanel() {
             </li>
           `;
         }).join('')
-      : '<li class="muted-text">0</li>';
+      : `<li class="muted-text">${escapeHTML(getConservativeAiQueueEmptyStateText())}</li>`;
 
     return `
       <div class="surface-panel" style="padding: 12px;">
