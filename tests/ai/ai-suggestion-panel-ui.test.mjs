@@ -167,10 +167,13 @@ test('conservative AI queue panel renders workflow-facing recommendation buckets
   const source = await readV22App();
 
   assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /function setConservativeAiQueueFilter/);
+  assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /likely_relevant/);
   assert.match(source, /needs_human_attention/);
   assert.match(source, /needs_human_exclusion_check/);
   assert.match(source, /uncertaintyFlags/);
+  assert.match(source, /Go to full-text review/);
 });
 
 test('AI suggestion panel disables accept edit and reject actions after review', async () => {

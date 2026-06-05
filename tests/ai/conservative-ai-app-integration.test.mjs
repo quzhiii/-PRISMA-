@@ -139,6 +139,9 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(source, /function buildConservativeAiSuggestionForRecord/);
   assert.match(source, /function generateConservativeAiSuggestions/);
   assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /function setConservativeAiQueueFilter/);
+  assert.match(source, /function focusFulltextReviewRecord/);
+  assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /renderConservativeAiQueuePanel\(\)/);
   assert.match(source, /priorityScore/);
   assert.match(source, /recommendedQueue/);
@@ -155,4 +158,8 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
 
   const displayResults = extractFunctionBlock(source, 'displayResults');
   assert.match(displayResults, /renderConservativeAiQueuePanel\(\)/);
+
+  const fulltextUi = extractFunctionBlock(source, 'displayFulltextReviewUI');
+  assert.match(fulltextUi, /fulltext-review-row-/);
+  assert.match(fulltextUi, /data-record-id/);
 });

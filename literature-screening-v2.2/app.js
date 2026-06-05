@@ -115,6 +115,7 @@ let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
+let conservativeAiQueueFilter = 'all';
 let projectHistory = [];
 
 // Runtime mode state (Task 8)
@@ -5062,6 +5063,46 @@ function generateConservativeAiSuggestions(limit = 5) {
   return suggestions;
 }
 
+function setConservativeAiQueueFilter(nextFilter = 'all') {
+  const allowed = new Set([
+    'all',
+    'likely_relevant',
+    'needs_human_attention',
+    'needs_human_exclusion_check',
+  ]);
+  conservativeAiQueueFilter = allowed.has(String(nextFilter || '').trim())
+    ? String(nextFilter || '').trim()
+    : 'all';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueFilter;
+}
+
+function focusFulltextReviewRecord(recordId) {
+  const normalizedRecordId = String(recordId || '').trim();
+  if (!normalizedRecordId || !screeningResults || !Array.isArray(screeningResults.included)) return false;
+
+  const recordIndex = getAuditRecordIndexMap(screeningResults.included).get(normalizedRecordId);
+  if (!Number.isFinite(recordIndex)) return false;
+
+  const row = document.getElementById(`fulltext-review-row-${recordIndex}`);
+  const select = document.getElementById(`exclude-${recordIndex}`);
+
+  if (row && typeof row.scrollIntoView === 'function') {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (select && typeof select.focus === 'function') {
+    select.focus();
+  }
+
+  return Boolean(row || select);
+}
+
+function openConservativeAiQueueRecord(recordId) {
+  if (!String(recordId || '').trim()) return false;
+  goToStep4();
+  return focusFulltextReviewRecord(recordId);
+}
+
 function getAiSuggestionById(suggestionId) {
   return aiSuggestionEvents.find((entry) => String(entry?.suggestionId || '') === String(suggestionId || '')) || null;
 }
@@ -5563,6 +5604,7 @@ function restoreProjectState(snapshot) {
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
+  conservativeAiQueueFilter = 'all';
   projectHistory = Array.isArray(snapshot.projectHistory) ? snapshot.projectHistory : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
   dualReviewConflictState = {
@@ -7071,16 +7113,43 @@ function renderConservativeAiQueuePanel() {
     ['needs_human_exclusion_check', '需要重点排除核查', 'Needs human exclusion check'],
   ];
 
-  const bucketHtml = buckets.map(([bucketKey, zhLabel, enLabel]) => {
+  const activeFilter = ['all', ...buckets.map(([bucketKey]) => bucketKey)].includes(conservativeAiQueueFilter)
+    ? conservativeAiQueueFilter
+    : 'all';
+  const visibleBuckets = activeFilter === 'all'
+    ? buckets
+    : buckets.filter(([bucketKey]) => bucketKey === activeFilter);
+
+  const filterHtml = [
+    ['all', '全部建议', 'All suggestions'],
+    ...buckets,
+  ].map(([filterKey, zhLabel, enLabel]) => {
+    const buttonClass = filterKey === activeFilter ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueFilter('${filterKey}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const bucketHtml = visibleBuckets.map(([bucketKey, zhLabel, enLabel]) => {
     const bucketEntries = entries.filter((entry) => (entry?.metadata?.recommendedQueue || '') === bucketKey);
     const rowHtml = bucketEntries.length > 0
       ? bucketEntries.map((entry) => {
           const uncertaintyFlags = Array.isArray(entry?.metadata?.uncertaintyFlags) ? entry.metadata.uncertaintyFlags : [];
+          const encodedRecordId = encodeURIComponent(String(entry?.recordId || entry?.record_id || ''));
           return `
             <li>
               <strong>${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId || 'Untitled')}</strong>
               <div class="muted-text">Priority score: ${escapeHTML(String(entry?.metadata?.priorityScore ?? '-'))}</div>
               <div class="muted-text">Uncertainty flags: ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}</div>
+              <div style="margin-top: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="openConservativeAiQueueRecord(decodeURIComponent('${encodedRecordId}'))">
+                  <span class="zh">跳转到全文复核</span>
+                  <span class="en">Go to full-text review</span>
+                </button>
+              </div>
             </li>
           `;
         }).join('')
@@ -7099,6 +7168,13 @@ function renderConservativeAiQueuePanel() {
   }).join('');
 
   container.innerHTML = `
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${filterHtml}
+    </div>
+    <div class="muted-text" style="margin-bottom: 12px;">
+      <span class="zh">先按建议队列聚焦，再直接打开对应全文复核记录。</span>
+      <span class="en">Filter the advisory queue first, then open the matching full-text review record directly.</span>
+    </div>
     <div class="grid grid-3" style="gap: var(--space-12);">
       ${bucketHtml}
     </div>
@@ -8440,6 +8516,9 @@ function displayFulltextReviewUI() {
 
   fulltext.forEach((record, idx) => {
     const tr = document.createElement('tr');
+    const recordId = getRecordAuditId(record, idx);
+    tr.id = `fulltext-review-row-${idx}`;
+    tr.setAttribute('data-record-id', recordId);
     const excludeSelect = `
       <select id="exclude-${idx}" class="form-input" onchange="updateFulltextStats()" style="width: 100%; padding: var(--space-8);">
         <option value="">保留</option>
