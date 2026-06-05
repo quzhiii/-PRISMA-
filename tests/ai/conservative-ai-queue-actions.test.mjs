@@ -168,12 +168,13 @@ let aiSuggestionEvents = [
     metadata: {
       advisoryOnly: true,
       recommendedQueue: 'likely_relevant',
-      priorityScore: 88,
+      priorityScore: 99,
       uncertaintyFlags: [],
     },
   },
 ];
 let conservativeAiQueueFilter = 'all';
+let conservativeAiQueueSortMode = 'original';
 let currentConservativeAiQueueContext = null;
 let step4OpenCount = 0;
 let lastGoToStep4Preserve = null;
@@ -282,8 +283,8 @@ function renderConservativeAiQueuePanel() {
     .map((bucketKey) => getConservativeAiQueueLabel(bucketKey) + ': ' + summary.buckets[bucketKey])
     .join(' | ');
   const filtered = conservativeAiQueueFilter === 'all'
-    ? entries
-    : entries.filter((entry) => entry?.metadata?.recommendedQueue === conservativeAiQueueFilter);
+    ? getSortedConservativeAiQueueEntries(entries)
+    : getSortedConservativeAiQueueEntries(entries.filter((entry) => entry?.metadata?.recommendedQueue === conservativeAiQueueFilter));
   container.innerHTML = [
     'Queue summary',
     'Total suggestions: ' + summary.total,
@@ -298,6 +299,8 @@ function renderConservativeAiQueuePanel() {
     extractFunctionBlock(source, 'getAiSuggestionLocalizedLabel'),
     extractFunctionBlock(source, 'getConservativeAiQueueLabel'),
     extractFunctionBlock(source, 'getConservativeAiQueueSummary'),
+    extractFunctionBlock(source, 'setConservativeAiQueueSortMode'),
+    extractFunctionBlock(source, 'getSortedConservativeAiQueueEntries'),
     extractFunctionBlock(source, 'getRecordAuditId'),
     extractFunctionBlock(source, 'getAuditRecordIndexMap'),
     extractFunctionBlock(source, 'setConservativeAiQueueFilter'),
@@ -312,6 +315,8 @@ function seedFulltextRow(index, recordId) {
 function getState() {
   return {
     conservativeAiQueueFilter,
+    conservativeAiQueueSortMode,
+    sourceOrder: aiSuggestionEvents.map((entry) => entry.inputSummary),
     currentConservativeAiQueueContext,
     step4OpenCount,
     lastGoToStep4Preserve,
@@ -324,6 +329,7 @@ function getState() {
 this.__exports = {
   renderConservativeAiQueuePanel,
   setConservativeAiQueueFilter,
+  setConservativeAiQueueSortMode,
   setConservativeAiQueueContext,
   goToStep4,
   focusFulltextReviewRecord,
@@ -386,6 +392,31 @@ test('queue summary shows advisory workload and review state without changing me
   assert.match(state.queueHtml, /Likely relevant[^0-9]*2/);
   assert.match(state.queueHtml, /Needs human attention[^0-9]*1/);
   assert.match(state.queueHtml, /Needs human exclusion check[^0-9]*1/);
+});
+
+test('queue sorting toggles display order without mutating source events', async () => {
+  const harness = await loadQueueActionsHarness();
+
+  harness.setConservativeAiQueueFilter('likely_relevant');
+  harness.renderConservativeAiQueuePanel();
+  let state = harness.getState();
+  assert.equal(state.conservativeAiQueueSortMode, 'original');
+  assert.ok(state.queueHtml.indexOf('Randomized trial record') < state.queueHtml.indexOf('Reviewed randomized trial record'));
+
+  harness.setConservativeAiQueueSortMode('priority');
+  state = harness.getState();
+  assert.equal(state.conservativeAiQueueSortMode, 'priority');
+  assert.ok(state.queueHtml.indexOf('Reviewed randomized trial record') < state.queueHtml.indexOf('Randomized trial record'));
+  assert.equal(JSON.stringify(state.sourceOrder), JSON.stringify([
+    'Randomized trial record',
+    'Needs attention record',
+    'Exclusion check record',
+    'Reviewed randomized trial record',
+  ]));
+
+  harness.setConservativeAiQueueSortMode('original');
+  state = harness.getState();
+  assert.equal(state.conservativeAiQueueSortMode, 'original');
 });
 
 test('queue record focus targets the matching Step 4 full-text controls', async () => {

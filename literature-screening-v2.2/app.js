@@ -116,6 +116,7 @@ let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
 let conservativeAiQueueFilter = 'all';
+let conservativeAiQueueSortMode = 'original';
 let currentConservativeAiQueueContext = null;
 let projectHistory = [];
 
@@ -5078,6 +5079,23 @@ function setConservativeAiQueueFilter(nextFilter = 'all') {
   return conservativeAiQueueFilter;
 }
 
+function setConservativeAiQueueSortMode(mode = 'original') {
+  conservativeAiQueueSortMode = String(mode || '').trim() === 'priority' ? 'priority' : 'original';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueSortMode;
+}
+
+function getSortedConservativeAiQueueEntries(entries) {
+  const list = Array.isArray(entries) ? [...entries] : [];
+  if (conservativeAiQueueSortMode !== 'priority') return list;
+
+  return list.sort((left, right) => {
+    const leftScore = Number(left?.metadata?.priorityScore ?? Number.NEGATIVE_INFINITY);
+    const rightScore = Number(right?.metadata?.priorityScore ?? Number.NEGATIVE_INFINITY);
+    return rightScore - leftScore;
+  });
+}
+
 function setConservativeAiQueueContext(recordId) {
   const normalizedRecordId = String(recordId || '').trim();
   const advisoryEntries = Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : [];
@@ -7238,6 +7256,7 @@ function renderConservativeAiQueuePanel() {
   const bucketSummaryHtml = buckets.map(([bucketKey]) => `
     <span class="status-chip">${escapeHTML(getConservativeAiQueueLabel(bucketKey))}: ${escapeHTML(String(queueSummary.buckets[bucketKey] || 0))}</span>
   `).join('');
+  const sortedEntries = getSortedConservativeAiQueueEntries(entries);
 
   const activeFilter = ['all', ...buckets.map(([bucketKey]) => bucketKey)].includes(conservativeAiQueueFilter)
     ? conservativeAiQueueFilter
@@ -7259,8 +7278,21 @@ function renderConservativeAiQueuePanel() {
     `;
   }).join('');
 
+  const sortHtml = [
+    ['original', '原始顺序', 'Original order'],
+    ['priority', '优先级分数', 'Priority score'],
+  ].map(([sortMode, zhLabel, enLabel]) => {
+    const buttonClass = sortMode === conservativeAiQueueSortMode ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueSortMode('${sortMode}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
   const bucketHtml = visibleBuckets.map(([bucketKey, zhLabel, enLabel]) => {
-    const bucketEntries = entries.filter((entry) => (entry?.metadata?.recommendedQueue || '') === bucketKey);
+    const bucketEntries = sortedEntries.filter((entry) => (entry?.metadata?.recommendedQueue || '') === bucketKey);
     const rowHtml = bucketEntries.length > 0
       ? bucketEntries.map((entry) => {
           const uncertaintyFlags = Array.isArray(entry?.metadata?.uncertaintyFlags) ? entry.metadata.uncertaintyFlags : [];
@@ -7308,6 +7340,9 @@ function renderConservativeAiQueuePanel() {
     </div>
     <div class="button-group" style="margin-bottom: 12px;">
       ${filterHtml}
+    </div>
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${sortHtml}
     </div>
     <div class="muted-text" style="margin-bottom: 12px;">
       <span class="zh">先按建议队列聚焦，再直接打开对应全文复核记录。</span>
