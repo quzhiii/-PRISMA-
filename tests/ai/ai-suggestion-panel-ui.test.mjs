@@ -152,6 +152,8 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   assert.match(source, /Priority score/);
   assert.match(source, /Recommended queue/);
   assert.match(source, /Uncertainty flags/);
+  assert.match(source, /function getConservativeAiQueueLabel/);
+  assert.match(source, /getConservativeAiQueueLabel\(metadata\.recommendedQueue\)/);
   assert.match(source, /AI_SUGGESTION_DECISION_LABELS/);
   assert.match(source, /getAiSuggestionDecisionLabel\(decision\)/);
   assert.match(source, /const decisionOptions = \['include', 'exclude', 'uncertain'\]/);
@@ -167,11 +169,13 @@ test('conservative AI queue panel renders workflow-facing recommendation buckets
   const source = await readV22App();
 
   assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /CONSERVATIVE_AI_QUEUE_LABELS/);
   assert.match(source, /function setConservativeAiQueueFilter/);
   assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /likely_relevant/);
   assert.match(source, /needs_human_attention/);
   assert.match(source, /needs_human_exclusion_check/);
+  assert.match(source, /getConservativeAiQueueLabel\(context\.recommendedQueue\)/);
   assert.match(source, /uncertaintyFlags/);
   assert.match(source, /Go to full-text review/);
 });

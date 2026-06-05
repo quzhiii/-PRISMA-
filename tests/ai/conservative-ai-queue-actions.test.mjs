@@ -246,7 +246,7 @@ function renderConservativeAiStep4ContextBanner() {
     : '-';
 
   container.innerHTML = [
-    context.recommendedQueue || '-',
+    context.recommendedQueue === 'needs_human_attention' ? 'Needs human attention' : (context.recommendedQueue || '-'),
     String(context.priorityScore ?? '-'),
     uncertaintyFlags,
     context.title || context.recordId || '',
@@ -387,7 +387,7 @@ test('opening a queue record captures and renders Step 4 advisory context', asyn
   assert.equal(state.currentConservativeAiQueueContext?.recordId, 'record-2');
   assert.equal(state.currentConservativeAiQueueContext?.recommendedQueue, 'needs_human_attention');
   assert.equal(state.currentConservativeAiQueueContext?.priorityScore, 61);
-  assert.match(state.bannerHtml, /needs_human_attention/);
+  assert.match(state.bannerHtml, /Needs human attention/);
   assert.match(state.bannerHtml, /61/);
   assert.match(state.bannerHtml, /missing_population_detail/);
 });

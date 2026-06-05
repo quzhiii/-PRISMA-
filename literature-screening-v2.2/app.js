@@ -5134,7 +5134,7 @@ function renderConservativeAiStep4ContextBanner() {
       <div class="grid grid-3" style="gap: var(--space-12); margin-top: 12px;">
         <div class="surface-panel" style="padding: 12px;">
           <div class="muted-text"><span class="zh">建议队列</span><span class="en">Recommended queue</span></div>
-          <strong>${escapeHTML(context.recommendedQueue || '-')}</strong>
+          <strong>${escapeHTML(getConservativeAiQueueLabel(context.recommendedQueue))}</strong>
         </div>
         <div class="surface-panel" style="padding: 12px;">
           <div class="muted-text"><span class="zh">优先级分数</span><span class="en">Priority score</span></div>
@@ -5232,6 +5232,12 @@ const AI_SUGGESTION_RATIONALE_LABELS = Object.freeze({
   },
 });
 
+const CONSERVATIVE_AI_QUEUE_LABELS = Object.freeze({
+  likely_relevant: { zh: '优先保留', en: 'Likely relevant' },
+  needs_human_attention: { zh: '需要人工关注', en: 'Needs human attention' },
+  needs_human_exclusion_check: { zh: '需要重点排除核查', en: 'Needs human exclusion check' },
+});
+
 function getAiSuggestionPanelLang() {
   return typeof document !== 'undefined' && document.documentElement?.lang === 'en' ? 'en' : 'zh';
 }
@@ -5257,6 +5263,10 @@ function getAiSuggestionActionLabel(action) {
 function getAiSuggestionRationaleText(entry) {
   const rationale = String(entry?.rationale || '').trim();
   return getAiSuggestionLocalizedLabel(AI_SUGGESTION_RATIONALE_LABELS, rationale, rationale);
+}
+
+function getConservativeAiQueueLabel(queueKey) {
+  return getAiSuggestionLocalizedLabel(CONSERVATIVE_AI_QUEUE_LABELS, queueKey, queueKey || '-');
 }
 
 function applyAiSuggestionPanelLangVisibility() {
@@ -5801,7 +5811,7 @@ function renderAiSuggestionPanel() {
       <div class="muted-text ai-suggestion-meta">
         ${escapeHTML(ui.priorityScore)} ${escapeHTML(String(metadata.priorityScore ?? '-'))}
         <span aria-hidden="true"> | </span>
-        ${escapeHTML(ui.recommendedQueue)} ${escapeHTML(String(metadata.recommendedQueue || '-'))}
+        ${escapeHTML(ui.recommendedQueue)} ${escapeHTML(getConservativeAiQueueLabel(metadata.recommendedQueue))}
       </div>
       <div class="muted-text ai-suggestion-meta">
         ${escapeHTML(ui.uncertaintyFlags)} ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}
@@ -7224,6 +7234,7 @@ function renderConservativeAiQueuePanel() {
           return `
             <li>
               <strong>${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId || 'Untitled')}</strong>
+              <div class="muted-text">Recommended queue: ${escapeHTML(getConservativeAiQueueLabel(bucketKey))}</div>
               <div class="muted-text">Priority score: ${escapeHTML(String(entry?.metadata?.priorityScore ?? '-'))}</div>
               <div class="muted-text">Uncertainty flags: ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}</div>
               <div style="margin-top: 8px;">
