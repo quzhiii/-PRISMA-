@@ -127,6 +127,7 @@ test('workspace loads V2.6 conservative AI before app and exposes advisory actio
   assert.match(workspace, /V2\.6 Conservative AI/);
   assert.match(workspace, /generateConservativeAiSuggestions\(\)/);
   assert.match(workspace, /id="conservativeAiQueuePanel"/);
+  assert.match(workspace, /id="conservativeAiStep4ContextBanner"/);
   assert.match(workspace, /real API dispatch remains disabled/);
   assert.doesNotMatch(workspace, /id="aiProviderApiKey"/);
   assert.doesNotMatch(workspace, /type="password"/);
@@ -140,6 +141,8 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(source, /function generateConservativeAiSuggestions/);
   assert.match(source, /function renderConservativeAiQueuePanel/);
   assert.match(source, /function setConservativeAiQueueFilter/);
+  assert.match(source, /function setConservativeAiQueueContext/);
+  assert.match(source, /function renderConservativeAiStep4ContextBanner/);
   assert.match(source, /function focusFulltextReviewRecord/);
   assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /renderConservativeAiQueuePanel\(\)/);
@@ -160,6 +163,7 @@ test('app wires V2.6 conservative suggestions as advisory-only events', async ()
   assert.match(displayResults, /renderConservativeAiQueuePanel\(\)/);
 
   const fulltextUi = extractFunctionBlock(source, 'displayFulltextReviewUI');
+  assert.match(fulltextUi, /renderConservativeAiStep4ContextBanner\(\)/);
   assert.match(fulltextUi, /fulltext-review-row-/);
   assert.match(fulltextUi, /data-record-id/);
 });

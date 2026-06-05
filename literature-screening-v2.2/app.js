@@ -116,6 +116,7 @@ let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
 let conservativeAiQueueFilter = 'all';
+let currentConservativeAiQueueContext = null;
 let projectHistory = [];
 
 // Runtime mode state (Task 8)
@@ -5077,6 +5078,72 @@ function setConservativeAiQueueFilter(nextFilter = 'all') {
   return conservativeAiQueueFilter;
 }
 
+function setConservativeAiQueueContext(recordId) {
+  const normalizedRecordId = String(recordId || '').trim();
+  const advisoryEntries = Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : [];
+
+  const matchingEntry = normalizedRecordId
+    ? [...advisoryEntries].reverse().find((entry) => {
+        const entryRecordId = String(entry?.recordId || entry?.record_id || '').trim();
+        const stage = String(entry?.stage || '').trim();
+        return entryRecordId === normalizedRecordId && stage === 'title_abstract' && entry?.metadata?.advisoryOnly === true;
+      }) || null
+    : null;
+
+  currentConservativeAiQueueContext = matchingEntry
+    ? {
+        recordId: normalizedRecordId,
+        title: String(matchingEntry.inputSummary || matchingEntry.recordTitle || matchingEntry.recordId || normalizedRecordId),
+        recommendedQueue: String(matchingEntry?.metadata?.recommendedQueue || '').trim(),
+        priorityScore: matchingEntry?.metadata?.priorityScore ?? null,
+        uncertaintyFlags: Array.isArray(matchingEntry?.metadata?.uncertaintyFlags) ? matchingEntry.metadata.uncertaintyFlags : [],
+      }
+    : null;
+
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+
+function renderConservativeAiStep4ContextBanner() {
+  const container = document.getElementById('conservativeAiStep4ContextBanner');
+  if (!container) return;
+
+  if (!currentConservativeAiQueueContext) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const context = currentConservativeAiQueueContext;
+  const uncertaintyFlags = Array.isArray(context.uncertaintyFlags) && context.uncertaintyFlags.length > 0
+    ? context.uncertaintyFlags.join(', ')
+    : '-';
+
+  container.innerHTML = `
+    <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-warning);">
+      <h3><span class="zh">V2.6 保守 AI 承接上下文</span><span class="en">V2.6 Conservative AI Handoff</span></h3>
+      <p>
+        <span class="zh">当前聚焦记录来自 Step 3 advisory queue，仅作为人工全文复核的上下文提示，不会自动改写最终决定。</span>
+        <span class="en">The current record came from the Step 3 advisory queue. This banner is context only and does not automatically rewrite the final decision.</span>
+      </p>
+      <div class="grid grid-3" style="gap: var(--space-12); margin-top: 12px;">
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">建议队列</span><span class="en">Recommended queue</span></div>
+          <strong>${escapeHTML(context.recommendedQueue || '-')}</strong>
+        </div>
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">优先级分数</span><span class="en">Priority score</span></div>
+          <strong>${escapeHTML(String(context.priorityScore ?? '-'))}</strong>
+        </div>
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">不确定性标记</span><span class="en">Uncertainty flags</span></div>
+          <strong>${escapeHTML(uncertaintyFlags)}</strong>
+        </div>
+      </div>
+      <div class="muted-text" style="margin-top: 12px;">${escapeHTML(context.title || context.recordId || '')}</div>
+    </div>
+  `;
+}
+
 function focusFulltextReviewRecord(recordId) {
   const normalizedRecordId = String(recordId || '').trim();
   if (!normalizedRecordId || !screeningResults || !Array.isArray(screeningResults.included)) return false;
@@ -5099,6 +5166,7 @@ function focusFulltextReviewRecord(recordId) {
 
 function openConservativeAiQueueRecord(recordId) {
   if (!String(recordId || '').trim()) return false;
+  setConservativeAiQueueContext(recordId);
   goToStep4();
   return focusFulltextReviewRecord(recordId);
 }
@@ -5605,6 +5673,7 @@ function restoreProjectState(snapshot) {
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
   conservativeAiQueueFilter = 'all';
+  currentConservativeAiQueueContext = null;
   projectHistory = Array.isArray(snapshot.projectHistory) ? snapshot.projectHistory : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
   dualReviewConflictState = {
@@ -5626,6 +5695,7 @@ function restoreProjectState(snapshot) {
   renderProjectHistoryPanel();
   renderSourceFileHistoryPanel();
   renderConservativeAiQueuePanel();
+  renderConservativeAiStep4ContextBanner();
   renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
 }
@@ -8490,6 +8560,7 @@ function displayFulltextReviewUI() {
   const fulltext = screeningResults.included;
   document.getElementById('fulltext-total').textContent = fulltext.length;
   document.getElementById('fulltext-obtained').textContent = fulltext.length;
+  renderConservativeAiStep4ContextBanner();
 
   // Create review table
   const tableContainer = document.getElementById('fulltext-review-table');

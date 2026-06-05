@@ -161,6 +161,7 @@ let aiSuggestionEvents = [
   },
 ];
 let conservativeAiQueueFilter = 'all';
+let currentConservativeAiQueueContext = null;
 let step4OpenCount = 0;
 const documentElements = new Map();
 const document = {
@@ -188,8 +189,53 @@ function createElement(id, patch = {}) {
   return element;
 }
 createElement('conservativeAiQueuePanel');
+createElement('conservativeAiStep4ContextBanner');
 function goToStep4() {
   step4OpenCount += 1;
+}
+function setConservativeAiQueueContext(recordId) {
+  const normalizedRecordId = String(recordId || '').trim();
+  const matchingEntry = normalizedRecordId
+    ? [...aiSuggestionEvents].reverse().find((entry) => {
+        const entryRecordId = String(entry?.recordId || entry?.record_id || '').trim();
+        const stage = String(entry?.stage || '').trim();
+        return entryRecordId === normalizedRecordId && stage === 'title_abstract' && entry?.metadata?.advisoryOnly === true;
+      }) || null
+    : null;
+
+  currentConservativeAiQueueContext = matchingEntry
+    ? {
+        recordId: normalizedRecordId,
+        title: String(matchingEntry.inputSummary || matchingEntry.recordTitle || matchingEntry.recordId || normalizedRecordId),
+        recommendedQueue: String(matchingEntry?.metadata?.recommendedQueue || '').trim(),
+        priorityScore: matchingEntry?.metadata?.priorityScore ?? null,
+        uncertaintyFlags: Array.isArray(matchingEntry?.metadata?.uncertaintyFlags) ? matchingEntry.metadata.uncertaintyFlags : [],
+      }
+    : null;
+
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+function renderConservativeAiStep4ContextBanner() {
+  const container = document.getElementById('conservativeAiStep4ContextBanner');
+  if (!container) return;
+
+  if (!currentConservativeAiQueueContext) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const context = currentConservativeAiQueueContext;
+  const uncertaintyFlags = Array.isArray(context.uncertaintyFlags) && context.uncertaintyFlags.length > 0
+    ? context.uncertaintyFlags.join(', ')
+    : '-';
+
+  container.innerHTML = [
+    context.recommendedQueue || '-',
+    String(context.priorityScore ?? '-'),
+    uncertaintyFlags,
+    context.title || context.recordId || '',
+  ].join(' | ');
 }
 function renderConservativeAiQueuePanel() {
   const container = document.getElementById('conservativeAiQueuePanel');
@@ -217,8 +263,10 @@ function seedFulltextRow(index, recordId) {
 function getState() {
   return {
     conservativeAiQueueFilter,
+    currentConservativeAiQueueContext,
     step4OpenCount,
     queueHtml: document.getElementById('conservativeAiQueuePanel')?.innerHTML || '',
+    bannerHtml: document.getElementById('conservativeAiStep4ContextBanner')?.innerHTML || '',
     row1: document.getElementById('fulltext-review-row-1'),
     select1: document.getElementById('exclude-1'),
   };
@@ -244,6 +292,8 @@ test('queue action helpers are wired into the Step 3 advisory surface', async ()
   const source = await readV22App();
 
   assert.match(source, /function setConservativeAiQueueFilter/);
+  assert.match(source, /function setConservativeAiQueueContext/);
+  assert.match(source, /function renderConservativeAiStep4ContextBanner/);
   assert.match(source, /function focusFulltextReviewRecord/);
   assert.match(source, /function openConservativeAiQueueRecord/);
   assert.match(source, /openConservativeAiQueueRecord\(/);
@@ -292,4 +342,19 @@ test('opening a queue record hands off into Step 4 before focusing the record', 
   assert.equal(state.step4OpenCount, 1);
   assert.equal(state.row1.scrollCalls, 1);
   assert.equal(state.select1.focusCalls, 1);
+});
+
+test('opening a queue record captures and renders Step 4 advisory context', async () => {
+  const harness = await loadQueueActionsHarness();
+  harness.seedFulltextRow(1, 'record-2');
+
+  harness.openConservativeAiQueueRecord('record-2');
+  const state = harness.getState();
+
+  assert.equal(state.currentConservativeAiQueueContext?.recordId, 'record-2');
+  assert.equal(state.currentConservativeAiQueueContext?.recommendedQueue, 'needs_human_attention');
+  assert.equal(state.currentConservativeAiQueueContext?.priorityScore, 61);
+  assert.match(state.bannerHtml, /needs_human_attention/);
+  assert.match(state.bannerHtml, /61/);
+  assert.match(state.bannerHtml, /missing_population_detail/);
 });
