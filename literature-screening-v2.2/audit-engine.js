@@ -46,6 +46,11 @@
     quality_queue_prepared: 'quality_appraisal_started',
     study_design_suggested: 'quality_appraisal_updated',
   });
+  const V26_ADVISORY_QUEUE_BUCKETS = Object.freeze([
+    'likely_relevant',
+    'needs_human_attention',
+    'needs_human_exclusion_check',
+  ]);
 
   function nowIso() {
     return new Date().toISOString();
@@ -652,6 +657,91 @@
     return summary;
   }
 
+  function summarizeV26AdvisoryQueue(events) {
+    const summary = {
+      totalSuggestions: 0,
+      pendingSuggestions: 0,
+      reviewedSuggestions: 0,
+      byRecommendedQueue: createV26QueueBucketCounts(),
+    };
+
+    (Array.isArray(events) ? events : []).forEach((entry) => {
+      const event = createAiSuggestionEvent(entry);
+      const metadata = normalizeObject(event.metadata);
+      const advisoryOnly = normalizeBoolean(
+        metadata.advisoryOnly === undefined ? metadata.advisory_only : metadata.advisoryOnly,
+        false
+      );
+
+      if (event.stage !== 'title_abstract' || !advisoryOnly) {
+        return;
+      }
+
+      summary.totalSuggestions += 1;
+      if (event.humanAction === 'pending') {
+        summary.pendingSuggestions += 1;
+      } else {
+        summary.reviewedSuggestions += 1;
+      }
+
+      const bucketKey = normalizeString(metadata.recommendedQueue || metadata.recommended_queue, '');
+      if (Object.prototype.hasOwnProperty.call(summary.byRecommendedQueue, bucketKey)) {
+        summary.byRecommendedQueue[bucketKey] += 1;
+      }
+    });
+
+    return summary;
+  }
+
+  function createV26QueueBucketCounts() {
+    return V26_ADVISORY_QUEUE_BUCKETS.reduce((counts, bucketKey) => {
+      counts[bucketKey] = 0;
+      return counts;
+    }, {});
+  }
+
+  function buildV26AdvisoryQueueSummaryLines(queueSummary, isZh) {
+    const summary = queueSummary || summarizeV26AdvisoryQueue([]);
+    const bucketRows = V26_ADVISORY_QUEUE_BUCKETS
+      .map((bucketKey) => `| ${bucketKey} | ${summary.byRecommendedQueue?.[bucketKey] || 0} |`);
+
+    if (isZh) {
+      return [
+        '## V2.6 建议队列控件摘要',
+        '',
+        `建议队列总数：${summary.totalSuggestions}`,
+        `待复核建议队列：${summary.pendingSuggestions}`,
+        `已复核建议队列：${summary.reviewedSuggestions}`,
+        '',
+        '| 队列 bucket | 数量 |',
+        '|---|---:|',
+        ...bucketRows,
+        '',
+        'Available Step 3 queue controls: queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity.',
+        'This section reports available controls and derived metadata summaries, not tracked control-click usage.',
+        'V2.6 建议队列仍然只作为人工复核前的 advisory 队列，不会直接改变 `ScreeningDecision` 或 PRISMA 计数。',
+        '',
+      ];
+    }
+
+    return [
+      '## V2.6 Advisory Queue Controls Summary',
+      '',
+      `Total advisory queue suggestions: ${summary.totalSuggestions}`,
+      `Pending advisory queue suggestions: ${summary.pendingSuggestions}`,
+      `Reviewed advisory queue suggestions: ${summary.reviewedSuggestions}`,
+      '',
+      '| Queue bucket | Count |',
+      '|---|---:|',
+      ...bucketRows,
+      '',
+      'Available Step 3 queue controls: queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity.',
+      'This section reports available controls and derived metadata summaries, not tracked control-click usage.',
+      'V2.6 queue metadata remains advisory-only and does not change `ScreeningDecision` records or PRISMA counts.',
+      '',
+    ];
+  }
+
   function increment(target, key) {
     const normalized = normalizeString(key, 'unknown');
     target[normalized] = (target[normalized] || 0) + 1;
@@ -894,6 +984,7 @@
   function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents, options = {}) {
     const manifest = createProjectManifest(manifestInput);
     const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
+    const queueSummary = summarizeV26AdvisoryQueue(aiSuggestionEvents);
     const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
     const isZh = language === 'zh';
     const zhLabels = {
@@ -1046,6 +1137,8 @@
         ''
       );
 
+      reportLines.push(...buildV26AdvisoryQueueSummaryLines(queueSummary, true));
+
       return reportLines.join('\n');
     }
 
@@ -1134,6 +1227,8 @@
       ''
     );
 
+    reportLines.push(...buildV26AdvisoryQueueSummaryLines(queueSummary, false));
+
     return reportLines.join('\n');
   }
 
@@ -1141,6 +1236,7 @@
     const manifest = createProjectManifest(manifestInput);
     const eventSummary = summarizeAuditEvents(events);
     const counts = calculatePrismaCountsFromDecisions(decisions, events);
+    const queueSummary = summarizeV26AdvisoryQueue(options.aiSuggestionEvents || options.ai_suggestion_events || []);
     const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
     const isZh = language === 'zh';
     const eventTypeRows = Object.keys(eventSummary.byType)
@@ -1192,6 +1288,7 @@
         `- 当前 AI 模式为 ${manifest.aiMode}；AI 建议不会在缺少人类决策记录的情况下成为最终筛选决定。`,
         '- 尚未形成最终全文决定的记录不会进入最终纳入研究计数。',
         '',
+        ...buildV26AdvisoryQueueSummaryLines(queueSummary, true),
       ].join('\n');
     }
 
@@ -1224,6 +1321,7 @@
       `- AI mode is ${manifest.aiMode}; AI suggestions are not treated as final decisions unless a human decision is recorded.`,
       '- Records without a final full-text decision remain outside the final included-study count.',
       '',
+      ...buildV26AdvisoryQueueSummaryLines(queueSummary, false),
     ].join('\n');
   }
 
@@ -1256,6 +1354,7 @@
     calculatePrismaCountsFromDecisions,
     summarizeAuditEvents,
     summarizeAiSuggestions,
+    summarizeV26AdvisoryQueue,
     buildProjectManifestExport,
     buildAiUsageRegistryExport,
     serializeEventsJsonl,

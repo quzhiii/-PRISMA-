@@ -7873,6 +7873,7 @@ function buildAuditExportContent(type) {
       return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
     case 'audit_summary':
       return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions, {
+        aiSuggestionEvents,
         language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
       });
     case 'ai_usage_registry':

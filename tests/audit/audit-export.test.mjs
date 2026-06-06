@@ -309,6 +309,7 @@ test('v2.2 app exposes all audit export download types', async () => {
   expectedFiles.forEach((filename) => assert.match(source, new RegExp(filename.replace('.', '\\.'))));
   assert.match(source, /buildAuditExportContent/);
   assert.match(source, /buildPrismaCountsJson/);
+  assert.match(source, /buildAuditSummaryMarkdown\(manifest, auditEvents, screeningDecisions, \{[\s\S]*aiSuggestionEvents,/);
 });
 
 test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit trio', async () => {
