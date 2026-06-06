@@ -170,6 +170,8 @@ V2.5.1 验收标准：
 
 Current status: V2.6 is in progress as a local conservative AI foundation slice on the `literature-screening-v2.2/` compatibility path. AI suggestions stay advisory-only until a human accepts or edits them into a final decision.
 
+Current queue state: Step 3 advisory queue controls are now in progress with queue labels, queue summary, priority sorting, review-state filters, and empty-state clarification. These controls only help reviewers triage and focus attention; they do not turn V2.6 into a one-click or auto-final-decision workflow.
+
 | 任务 | 说明 | 状态 |
 |---|---|---|
 | Local advisory suggestions | 基于本地规则和启发式生成 include/exclude/uncertain 建议，写入 `AISuggestionEvent`，不直接改写 `ScreeningDecision` | 进行中 |
