@@ -309,6 +309,7 @@ test('v2.2 app exposes all audit export download types', async () => {
   expectedFiles.forEach((filename) => assert.match(source, new RegExp(filename.replace('.', '\\.'))));
   assert.match(source, /buildAuditExportContent/);
   assert.match(source, /buildPrismaCountsJson/);
+  assert.match(source, /buildAuditSummaryMarkdown\(manifest, auditEvents, screeningDecisions, \{[\s\S]*aiSuggestionEvents,/);
 });
 
 test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit trio', async () => {
@@ -414,11 +415,11 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
   assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);
-  assert.match(workspaceHtml, /V2\.3 PRISMA-trAIce/);
+  assert.match(workspaceHtml, /V2\.6 Conservative AI \/ PRISMA-trAIce/);
   assert.match(workspaceHtml, /reviewed_at/);
   assert.match(workspaceHtml, /human edit fields/);
   assert.match(workspaceHtml, /prisma_count_boundary/);
-  assert.match(workspaceHtml, /Generate Local Example AI Suggestions/);
+  assert.match(workspaceHtml, /Generate Local Example AI Suggestions|Generate V2\.6 Conservative AI Suggestions/);
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);

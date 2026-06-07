@@ -18,6 +18,7 @@ const IMPORT_JOB_RUNTIME = typeof globalThis !== 'undefined' ? globalThis.Import
 const AUDIT_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AuditEngine || null : null;
 const DUAL_REVIEW_ENGINE = typeof globalThis !== 'undefined' ? globalThis.DualReviewEngine || null : null;
 const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
+const CONSERVATIVE_AI_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ConservativeAiEngine || null : null;
 const PROJECT_HISTORY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectHistoryEngine || null : null;
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
@@ -114,6 +115,10 @@ let projectManifest = null;
 let auditEvents = [];
 let screeningDecisions = [];
 let aiSuggestionEvents = [];
+let conservativeAiQueueFilter = 'all';
+let conservativeAiQueueSortMode = 'original';
+let conservativeAiQueueReviewStateFilter = 'all';
+let currentConservativeAiQueueContext = null;
 let projectHistory = [];
 
 // Runtime mode state (Task 8)
@@ -4933,6 +4938,35 @@ function buildMockAiSuggestionForRecord(record, stage = 'title_abstract') {
   };
 }
 
+function buildConservativeAiSuggestionForRecord(record, stage = 'title_abstract', index = 0) {
+  const criteria = filterRules || {};
+  if (CONSERVATIVE_AI_ENGINE && typeof CONSERVATIVE_AI_ENGINE.buildConservativeSuggestionForRecord === 'function') {
+    return CONSERVATIVE_AI_ENGINE.buildConservativeSuggestionForRecord(record, {
+      projectId: ensureProjectId(),
+      stage,
+      criteria,
+      index,
+    });
+  }
+
+  const fallback = buildMockAiSuggestionForRecord(record, stage);
+  return {
+    ...fallback,
+    metadata: {
+      ...(fallback.metadata || {}),
+      advisoryOnly: true,
+      realProviderConnected: false,
+      rawPayloadIncluded: false,
+      priorityScore: 0.5,
+      priorityReason: 'Fallback conservative advisory suggestion for human review only.',
+      recommendedQueue: 'needs_human_attention',
+      uncertaintyFlags: ['engine_unavailable_fallback'],
+      riskFlags: [],
+      criteriaMatches: [],
+    },
+  };
+}
+
 function getAiSuggestionIdentity(entry) {
   return [
     String(entry?.recordId || entry?.record_id || '').trim(),
@@ -4987,6 +5021,195 @@ function generateMockAiSuggestions(limit = 3) {
   const toastType = suggestions.length > 0 ? 'success' : 'info';
   showToast(`已生成 ${suggestions.length} 条本地示例 AI 建议${skippedMessage}，仍需人工确认`, toastType);
   return suggestions;
+}
+
+function generateConservativeAiSuggestions(limit = 5) {
+  if (!uploadedData || uploadedData.length === 0) {
+    showToast('请先上传或加载示例数据，再生成 V2.6 保守 AI 建议', 'warning');
+    return [];
+  }
+
+  const manifest = setAiModeSafe('assistive', { persist: false });
+  const registry = ensureDefaultAiUsageRegistry({ persist: false });
+  const selected = uploadedData.slice(0, Math.max(1, limit));
+  const candidates = selected.map((record, index) => buildConservativeAiSuggestionForRecord(record, 'title_abstract', index));
+  const suggestions = candidates.filter((suggestion) => !hasAiSuggestionForIdentity(suggestion));
+  const skippedCount = candidates.length - suggestions.length;
+
+  if (suggestions.length > 0) {
+    appendAiSuggestionEventsSafe(suggestions, { persist: false });
+  }
+
+  appendAuditEventsSafe({
+    eventType: 'ai_suggestion_generated',
+    recordId: '',
+    after: {
+      suggestionCount: suggestions.length,
+      skippedExistingSuggestionCount: skippedCount,
+      aiMode: manifest?.aiMode || 'assistive',
+      generator: 'v2_6_conservative_ai',
+    },
+    source: 'system',
+    metadata: {
+      advisoryOnly: true,
+      realProviderConnected: false,
+      registryCount: registry.length,
+    },
+  }, { persist: false });
+
+  persistCurrentProjectState();
+  renderConservativeAiQueuePanel();
+  renderAiSuggestionPanel();
+  const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
+  const toastType = suggestions.length > 0 ? 'success' : 'info';
+  showToast(`已生成 ${suggestions.length} 条 V2.6 保守 AI 建议${skippedMessage}，仍需人工确认`, toastType);
+  return suggestions;
+}
+
+function setConservativeAiQueueFilter(nextFilter = 'all') {
+  const allowed = new Set([
+    'all',
+    'likely_relevant',
+    'needs_human_attention',
+    'needs_human_exclusion_check',
+  ]);
+  conservativeAiQueueFilter = allowed.has(String(nextFilter || '').trim())
+    ? String(nextFilter || '').trim()
+    : 'all';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueFilter;
+}
+
+function setConservativeAiQueueSortMode(mode = 'original') {
+  conservativeAiQueueSortMode = String(mode || '').trim() === 'priority' ? 'priority' : 'original';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueSortMode;
+}
+
+function setConservativeAiQueueReviewStateFilter(filter = 'all') {
+  const normalized = String(filter || '').trim();
+  conservativeAiQueueReviewStateFilter = ['pending', 'reviewed'].includes(normalized) ? normalized : 'all';
+  renderConservativeAiQueuePanel();
+  return conservativeAiQueueReviewStateFilter;
+}
+
+function matchesConservativeAiQueueReviewState(entry, filter = conservativeAiQueueReviewStateFilter) {
+  const normalizedFilter = String(filter || '').trim();
+  if (!normalizedFilter || normalizedFilter === 'all') return true;
+
+  const action = String(entry?.humanAction || entry?.human_action || 'pending').trim();
+  const isPending = !action || action === 'pending';
+  return normalizedFilter === 'pending' ? isPending : !isPending;
+}
+
+function getSortedConservativeAiQueueEntries(entries) {
+  const list = Array.isArray(entries) ? [...entries] : [];
+  if (conservativeAiQueueSortMode !== 'priority') return list;
+
+  return list.sort((left, right) => {
+    const leftScore = Number(left?.metadata?.priorityScore ?? Number.NEGATIVE_INFINITY);
+    const rightScore = Number(right?.metadata?.priorityScore ?? Number.NEGATIVE_INFINITY);
+    return rightScore - leftScore;
+  });
+}
+
+function setConservativeAiQueueContext(recordId) {
+  const normalizedRecordId = String(recordId || '').trim();
+  const advisoryEntries = Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : [];
+
+  const matchingEntry = normalizedRecordId
+    ? [...advisoryEntries].reverse().find((entry) => {
+        const entryRecordId = String(entry?.recordId || entry?.record_id || '').trim();
+        const stage = String(entry?.stage || '').trim();
+        return entryRecordId === normalizedRecordId && stage === 'title_abstract' && entry?.metadata?.advisoryOnly === true;
+      }) || null
+    : null;
+
+  currentConservativeAiQueueContext = matchingEntry
+    ? {
+        recordId: normalizedRecordId,
+        title: String(matchingEntry.inputSummary || matchingEntry.recordTitle || matchingEntry.recordId || normalizedRecordId),
+        recommendedQueue: String(matchingEntry?.metadata?.recommendedQueue || '').trim(),
+        priorityScore: matchingEntry?.metadata?.priorityScore ?? null,
+        uncertaintyFlags: Array.isArray(matchingEntry?.metadata?.uncertaintyFlags) ? matchingEntry.metadata.uncertaintyFlags : [],
+      }
+    : null;
+
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+
+function clearConservativeAiQueueContext() {
+  currentConservativeAiQueueContext = null;
+  renderConservativeAiStep4ContextBanner();
+  return currentConservativeAiQueueContext;
+}
+
+function renderConservativeAiStep4ContextBanner() {
+  const container = document.getElementById('conservativeAiStep4ContextBanner');
+  if (!container) return;
+
+  if (!currentConservativeAiQueueContext) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const context = currentConservativeAiQueueContext;
+  const uncertaintyFlags = Array.isArray(context.uncertaintyFlags) && context.uncertaintyFlags.length > 0
+    ? context.uncertaintyFlags.join(', ')
+    : '-';
+
+  container.innerHTML = `
+    <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-warning);">
+      <h3><span class="zh">V2.6 保守 AI 承接上下文</span><span class="en">V2.6 Conservative AI Handoff</span></h3>
+      <p>
+        <span class="zh">当前聚焦记录来自 Step 3 advisory queue，仅作为人工全文复核的上下文提示，不会自动改写最终决定。</span>
+        <span class="en">The current record came from the Step 3 advisory queue. This banner is context only and does not automatically rewrite the final decision.</span>
+      </p>
+      <div class="grid grid-3" style="gap: var(--space-12); margin-top: 12px;">
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">建议队列</span><span class="en">Recommended queue</span></div>
+          <strong>${escapeHTML(getConservativeAiQueueLabel(context.recommendedQueue))}</strong>
+        </div>
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">优先级分数</span><span class="en">Priority score</span></div>
+          <strong>${escapeHTML(String(context.priorityScore ?? '-'))}</strong>
+        </div>
+        <div class="surface-panel" style="padding: 12px;">
+          <div class="muted-text"><span class="zh">不确定性标记</span><span class="en">Uncertainty flags</span></div>
+          <strong>${escapeHTML(uncertaintyFlags)}</strong>
+        </div>
+      </div>
+      <div class="muted-text" style="margin-top: 12px;">${escapeHTML(context.title || context.recordId || '')}</div>
+    </div>
+  `;
+}
+
+function focusFulltextReviewRecord(recordId) {
+  const normalizedRecordId = String(recordId || '').trim();
+  if (!normalizedRecordId || !screeningResults || !Array.isArray(screeningResults.included)) return false;
+
+  const recordIndex = getAuditRecordIndexMap(screeningResults.included).get(normalizedRecordId);
+  if (!Number.isFinite(recordIndex)) return false;
+
+  const row = document.getElementById(`fulltext-review-row-${recordIndex}`);
+  const select = document.getElementById(`exclude-${recordIndex}`);
+
+  if (row && typeof row.scrollIntoView === 'function') {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (select && typeof select.focus === 'function') {
+    select.focus();
+  }
+
+  return Boolean(row || select);
+}
+
+function openConservativeAiQueueRecord(recordId) {
+  if (!String(recordId || '').trim()) return false;
+  setConservativeAiQueueContext(recordId);
+  goToStep4({ preserveQueueContext: true });
+  return focusFulltextReviewRecord(recordId);
 }
 
 function getAiSuggestionById(suggestionId) {
@@ -5044,6 +5267,12 @@ const AI_SUGGESTION_RATIONALE_LABELS = Object.freeze({
   },
 });
 
+const CONSERVATIVE_AI_QUEUE_LABELS = Object.freeze({
+  likely_relevant: { zh: '优先保留', en: 'Likely relevant' },
+  needs_human_attention: { zh: '需要人工关注', en: 'Needs human attention' },
+  needs_human_exclusion_check: { zh: '需要重点排除核查', en: 'Needs human exclusion check' },
+});
+
 function getAiSuggestionPanelLang() {
   return typeof document !== 'undefined' && document.documentElement?.lang === 'en' ? 'en' : 'zh';
 }
@@ -5069,6 +5298,46 @@ function getAiSuggestionActionLabel(action) {
 function getAiSuggestionRationaleText(entry) {
   const rationale = String(entry?.rationale || '').trim();
   return getAiSuggestionLocalizedLabel(AI_SUGGESTION_RATIONALE_LABELS, rationale, rationale);
+}
+
+function getConservativeAiQueueLabel(queueKey) {
+  return getAiSuggestionLocalizedLabel(CONSERVATIVE_AI_QUEUE_LABELS, queueKey, queueKey || '-');
+}
+
+function getConservativeAiQueueEmptyStateText() {
+  return getAiSuggestionPanelLang() === 'en'
+    ? 'No advisory suggestions match these filters.'
+    : '当前筛选条件下没有匹配的 advisory suggestions。';
+}
+
+function getConservativeAiQueueSummary(entries) {
+  const summary = {
+    total: 0,
+    pending: 0,
+    reviewed: 0,
+    buckets: {
+      likely_relevant: 0,
+      needs_human_attention: 0,
+      needs_human_exclusion_check: 0,
+    },
+  };
+
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    summary.total += 1;
+    const action = String(entry?.humanAction || entry?.human_action || 'pending').trim();
+    if (!action || action === 'pending') {
+      summary.pending += 1;
+    } else {
+      summary.reviewed += 1;
+    }
+
+    const bucketKey = String(entry?.metadata?.recommendedQueue || '').trim();
+    if (Object.prototype.hasOwnProperty.call(summary.buckets, bucketKey)) {
+      summary.buckets[bucketKey] += 1;
+    }
+  });
+
+  return summary;
 }
 
 function applyAiSuggestionPanelLangVisibility() {
@@ -5139,6 +5408,7 @@ function acceptAiSuggestion(suggestionId) {
     source: 'human',
   }, { persist: false });
   persistCurrentProjectState();
+  renderConservativeAiQueuePanel();
   renderAiSuggestionPanel();
   showToast('已接受 AI 建议，并生成对应的人类确认 decision', 'success');
 }
@@ -5489,6 +5759,8 @@ function restoreProjectState(snapshot) {
   auditEvents = Array.isArray(snapshot.auditEvents) ? snapshot.auditEvents : [];
   screeningDecisions = Array.isArray(snapshot.screeningDecisions) ? snapshot.screeningDecisions : [];
   aiSuggestionEvents = Array.isArray(snapshot.aiSuggestionEvents) ? snapshot.aiSuggestionEvents : [];
+  conservativeAiQueueFilter = 'all';
+  currentConservativeAiQueueContext = null;
   projectHistory = Array.isArray(snapshot.projectHistory) ? snapshot.projectHistory : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
   dualReviewConflictState = {
@@ -5509,6 +5781,8 @@ function restoreProjectState(snapshot) {
   renderQualityAssessmentShell();
   renderProjectHistoryPanel();
   renderSourceFileHistoryPanel();
+  renderConservativeAiQueuePanel();
+  renderConservativeAiStep4ContextBanner();
   renderAiProviderConfigPanel();
   renderAiSuggestionPanel();
 }
@@ -5552,6 +5826,9 @@ function renderAiSuggestionPanel() {
         rewriteDecision: 'Human rewrite decision',
         exclusionReason: 'Exclusion reason',
         confidence: 'Confidence:',
+        priorityScore: 'Priority score:',
+        recommendedQueue: 'Recommended queue:',
+        uncertaintyFlags: 'Uncertainty flags:',
         promptHash: 'Prompt hash:',
         accept: 'Accept',
         edit: 'Edit',
@@ -5599,6 +5876,18 @@ function renderAiSuggestionPanel() {
     const linkedDecision = entry.linkedDecisionId
       ? `<div class="muted-text" style="margin-top: 6px;">${escapeHTML(ui.linkedDecision)} <code>${escapeHTML(entry.linkedDecisionId)}</code></div>`
       : '';
+    const metadata = entry.metadata || {};
+    const uncertaintyFlags = Array.isArray(metadata.uncertaintyFlags) ? metadata.uncertaintyFlags : [];
+    const advisoryMeta = `
+      <div class="muted-text ai-suggestion-meta">
+        ${escapeHTML(ui.priorityScore)} ${escapeHTML(String(metadata.priorityScore ?? '-'))}
+        <span aria-hidden="true"> | </span>
+        ${escapeHTML(ui.recommendedQueue)} ${escapeHTML(getConservativeAiQueueLabel(metadata.recommendedQueue))}
+      </div>
+      <div class="muted-text ai-suggestion-meta">
+        ${escapeHTML(ui.uncertaintyFlags)} ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}
+      </div>
+    `;
     const editControls = isPending
       ? `
         <div class="ai-suggestion-edit-grid">
@@ -5636,6 +5925,7 @@ function renderAiSuggestionPanel() {
               <span aria-hidden="true"> | </span>
               ${escapeHTML(ui.promptHash)} <code>${escapeHTML(entry.promptHash || '-')}</code>
             </div>
+            ${advisoryMeta}
             ${linkedDecision}
             ${editControls}
           </div>
@@ -5965,11 +6255,17 @@ function goToStep3() {
 }
 
 // v3.0: New step 4 for manual fulltext review
-function goToStep4() {
+function goToStep4(options = {}) {
   if (!screeningResults) {
     showToast('请先完成文献筛选', 'warning');
     return;
   }
+
+  const preserveQueueContext = options?.preserveQueueContext === true;
+  if (!preserveQueueContext) {
+    clearConservativeAiQueueContext();
+  }
+
   setStep(4);
   displayFulltextReviewUI();
 }
@@ -6954,6 +7250,151 @@ function renderDedupReviewSummary(results) {
   });
 }
 
+function renderConservativeAiQueuePanel() {
+  const container = document.getElementById('conservativeAiQueuePanel');
+  if (!container) return;
+
+  const entries = (Array.isArray(aiSuggestionEvents) ? aiSuggestionEvents : []).filter((entry) => {
+    const stage = String(entry?.stage || '').trim();
+    const metadata = entry?.metadata || {};
+    return stage === 'title_abstract' && metadata.advisoryOnly === true;
+  });
+
+  if (entries.length === 0) {
+    container.innerHTML = `
+      <div class="muted-text">
+        <span class="zh">当前还没有 V2.6 conservative AI 队列。可在这里生成本地 advisory suggestions，再决定是否进入全文复核。</span>
+        <span class="en">There is no V2.6 conservative AI queue yet. Generate local advisory suggestions here before moving to full-text review.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const buckets = [
+    ['likely_relevant', '优先保留', 'Likely relevant'],
+    ['needs_human_attention', '需要人工关注', 'Needs human attention'],
+    ['needs_human_exclusion_check', '需要重点排除核查', 'Needs human exclusion check'],
+  ];
+  const queueSummary = getConservativeAiQueueSummary(entries);
+  const bucketSummaryHtml = buckets.map(([bucketKey]) => `
+    <span class="status-chip">${escapeHTML(getConservativeAiQueueLabel(bucketKey))}: ${escapeHTML(String(queueSummary.buckets[bucketKey] || 0))}</span>
+  `).join('');
+  const displayEntries = entries.filter((entry) => matchesConservativeAiQueueReviewState(entry));
+  const sortedEntries = getSortedConservativeAiQueueEntries(displayEntries);
+
+  const activeFilter = ['all', ...buckets.map(([bucketKey]) => bucketKey)].includes(conservativeAiQueueFilter)
+    ? conservativeAiQueueFilter
+    : 'all';
+  const visibleBuckets = activeFilter === 'all'
+    ? buckets
+    : buckets.filter(([bucketKey]) => bucketKey === activeFilter);
+
+  const filterHtml = [
+    ['all', '全部建议', 'All suggestions'],
+    ...buckets,
+  ].map(([filterKey, zhLabel, enLabel]) => {
+    const buttonClass = filterKey === activeFilter ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueFilter('${filterKey}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const sortHtml = [
+    ['original', '原始顺序', 'Original order'],
+    ['priority', '优先级分数', 'Priority score'],
+  ].map(([sortMode, zhLabel, enLabel]) => {
+    const buttonClass = sortMode === conservativeAiQueueSortMode ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueSortMode('${sortMode}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const reviewStateHtml = [
+    ['all', '全部复核状态', 'All review states'],
+    ['pending', '待复核', 'Pending'],
+    ['reviewed', '已复核', 'Reviewed'],
+  ].map(([reviewState, zhLabel, enLabel]) => {
+    const buttonClass = reviewState === conservativeAiQueueReviewStateFilter ? 'btn btn-primary' : 'btn btn-secondary';
+    return `
+      <button type="button" class="${buttonClass}" onclick="setConservativeAiQueueReviewStateFilter('${reviewState}')">
+        <span class="zh">${escapeHTML(zhLabel)}</span>
+        <span class="en">${escapeHTML(enLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const bucketHtml = visibleBuckets.map(([bucketKey, zhLabel, enLabel]) => {
+    const bucketEntries = sortedEntries.filter((entry) => (entry?.metadata?.recommendedQueue || '') === bucketKey);
+    const rowHtml = bucketEntries.length > 0
+      ? bucketEntries.map((entry) => {
+          const uncertaintyFlags = Array.isArray(entry?.metadata?.uncertaintyFlags) ? entry.metadata.uncertaintyFlags : [];
+          const encodedRecordId = encodeURIComponent(String(entry?.recordId || entry?.record_id || ''));
+          return `
+            <li>
+              <strong>${escapeHTML(entry.inputSummary || entry.recordId || entry.suggestionId || 'Untitled')}</strong>
+              <div class="muted-text">Recommended queue: ${escapeHTML(getConservativeAiQueueLabel(bucketKey))}</div>
+              <div class="muted-text">Priority score: ${escapeHTML(String(entry?.metadata?.priorityScore ?? '-'))}</div>
+              <div class="muted-text">Uncertainty flags: ${escapeHTML(uncertaintyFlags.length ? uncertaintyFlags.join(', ') : '-')}</div>
+              <div style="margin-top: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="openConservativeAiQueueRecord(decodeURIComponent('${encodedRecordId}'))">
+                  <span class="zh">跳转到全文复核</span>
+                  <span class="en">Go to full-text review</span>
+                </button>
+              </div>
+            </li>
+          `;
+        }).join('')
+      : `<li class="muted-text">${escapeHTML(getConservativeAiQueueEmptyStateText())}</li>`;
+
+    return `
+      <div class="surface-panel" style="padding: 12px;">
+        <div style="font-weight: var(--font-weight-semibold); margin-bottom: 8px;">
+          <span class="zh">${escapeHTML(zhLabel)}</span>
+          <span class="en">${escapeHTML(enLabel)}</span>
+          <span class="muted-text">(${bucketEntries.length})</span>
+        </div>
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.7;">${rowHtml}</ul>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="surface-panel" style="padding: 12px; margin-bottom: 12px;">
+      <div style="font-weight: var(--font-weight-semibold); margin-bottom: 8px;">
+        <span class="zh">队列摘要</span><span class="en">Queue summary</span>
+      </div>
+      <div class="grid grid-3" style="gap: var(--space-12); margin-bottom: 8px;">
+        <div><span class="zh">建议总数</span><span class="en">Total suggestions</span>: <strong>${escapeHTML(String(queueSummary.total))}</strong></div>
+        <div><span class="zh">待人工复核</span><span class="en">Pending review</span>: <strong>${escapeHTML(String(queueSummary.pending))}</strong></div>
+        <div><span class="zh">已人工复核</span><span class="en">Reviewed</span>: <strong>${escapeHTML(String(queueSummary.reviewed))}</strong></div>
+      </div>
+      <div class="button-group" style="gap: var(--space-8);">${bucketSummaryHtml}</div>
+    </div>
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${filterHtml}
+    </div>
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${reviewStateHtml}
+    </div>
+    <div class="button-group" style="margin-bottom: 12px;">
+      ${sortHtml}
+    </div>
+    <div class="muted-text" style="margin-bottom: 12px;">
+      <span class="zh">先按建议队列聚焦，再直接打开对应全文复核记录。</span>
+      <span class="en">Filter the advisory queue first, then open the matching full-text review record directly.</span>
+    </div>
+    <div class="grid grid-3" style="gap: var(--space-12);">
+      ${bucketHtml}
+    </div>
+  `;
+}
+
 function displayResults(results) {
   if (!results || !results.counts) {
     showToast('没有可显示的结果，请先完成文献筛选', 'warning');
@@ -6988,6 +7429,7 @@ function displayResults(results) {
   renderDedupReviewSummary(results);
   renderFilterRulesOverview(results.rules || filterRules);
   renderScreeningDiagnostics(results);
+  renderConservativeAiQueuePanel();
   
   // Render rules overview in Step5 if exists
   const rulesOverviewFinal = document.getElementById('filterRulesOverviewFinal');
@@ -7431,6 +7873,7 @@ function buildAuditExportContent(type) {
       return JSON.stringify(AUDIT_ENGINE.buildPrismaCountsJson(screeningDecisions, auditEvents), null, 2);
     case 'audit_summary':
       return AUDIT_ENGINE.buildAuditSummaryMarkdown(manifest, auditEvents, screeningDecisions, {
+        aiSuggestionEvents,
         language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
       });
     case 'ai_usage_registry':
@@ -8262,6 +8705,7 @@ function displayFulltextReviewUI() {
   const fulltext = screeningResults.included;
   document.getElementById('fulltext-total').textContent = fulltext.length;
   document.getElementById('fulltext-obtained').textContent = fulltext.length;
+  renderConservativeAiStep4ContextBanner();
 
   // Create review table
   const tableContainer = document.getElementById('fulltext-review-table');
@@ -8288,6 +8732,9 @@ function displayFulltextReviewUI() {
 
   fulltext.forEach((record, idx) => {
     const tr = document.createElement('tr');
+    const recordId = getRecordAuditId(record, idx);
+    tr.id = `fulltext-review-row-${idx}`;
+    tr.setAttribute('data-record-id', recordId);
     const excludeSelect = `
       <select id="exclude-${idx}" class="form-input" onchange="updateFulltextStats()" style="width: 100%; padding: var(--space-8);">
         <option value="">保留</option>

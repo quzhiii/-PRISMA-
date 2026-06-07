@@ -187,6 +187,7 @@ function showToast(message, type) {
 function renderAiSuggestionPanel() {
   renderedPanels += 1;
 }
+function renderConservativeAiQueuePanel() {}
 function renderAiProviderConfigPanel() {
   renderedProviderPanels += 1;
 }

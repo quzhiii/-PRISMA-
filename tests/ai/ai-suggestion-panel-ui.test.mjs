@@ -97,16 +97,27 @@ this.__exports = {
 test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion panel mount', async () => {
   const workspace = await readV22Workspace();
 
-  assert.match(workspace, /V2\.3 PRISMA-trAIce/);
+  assert.match(workspace, /V2\.6 Conservative AI/);
+  assert.match(workspace, /PRISMA-trAIce/);
   assert.match(workspace, /name="aiMode" value="off"/);
   assert.match(workspace, /name="aiMode" value="assistive"/);
   assert.match(workspace, /name="aiMode" value="experimental"/);
+  assert.match(workspace, /onclick="generateConservativeAiSuggestions\(\)"/);
   assert.match(workspace, /onclick="generateMockAiSuggestions\(\)"/);
   assert.match(workspace, /id="aiSuggestionPanel"/);
   assert.match(workspace, /ai-provider-engine\.js/);
+  assert.match(workspace, /conservative-ai-engine\.js/);
   assert.match(workspace, /Provider boundary/);
   assert.match(workspace, /real API dispatch remains disabled/);
   assert.match(workspace, /id="aiProviderConfigPanel"/);
+});
+
+test('Step 3 workspace exposes the conservative AI queue surface', async () => {
+  const workspace = await readV22Workspace();
+
+  assert.match(workspace, /STEP 03/);
+  assert.match(workspace, /id="conservativeAiQueuePanel"/);
+  assert.match(workspace, /generateConservativeAiSuggestions\(\)/);
 });
 
 test('AI provider configuration shell is boundary-only and does not expose API key input', async () => {
@@ -138,6 +149,11 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   assert.match(source, /\$\{escapeHTML\(ui\.summaryNote\)\}/);
   assert.match(source, /const isPending = entry\.humanAction === 'pending'/);
   assert.match(source, /Human rewrite decision/);
+  assert.match(source, /Priority score/);
+  assert.match(source, /Recommended queue/);
+  assert.match(source, /Uncertainty flags/);
+  assert.match(source, /function getConservativeAiQueueLabel/);
+  assert.match(source, /getConservativeAiQueueLabel\(metadata\.recommendedQueue\)/);
   assert.match(source, /AI_SUGGESTION_DECISION_LABELS/);
   assert.match(source, /getAiSuggestionDecisionLabel\(decision\)/);
   assert.match(source, /const decisionOptions = \['include', 'exclude', 'uncertain'\]/);
@@ -147,6 +163,37 @@ test('AI suggestion panel renders explicit rewrite selectors for pending suggest
   assert.match(source, /Choose a reason/);
   assert.match(source, /reasonOptions/);
   assert.match(source, /editAiSuggestion\('\$\{suggestionId\}', document\.getElementById\('\$\{editDecisionId\}'\)\?\.value, document\.getElementById\('\$\{editReasonId\}'\)\?\.value\)/);
+});
+
+test('conservative AI queue panel renders workflow-facing recommendation buckets', async () => {
+  const source = await readV22App();
+
+  assert.match(source, /function renderConservativeAiQueuePanel/);
+  assert.match(source, /function getConservativeAiQueueSummary/);
+  assert.match(source, /conservativeAiQueueSortMode/);
+  assert.match(source, /conservativeAiQueueReviewStateFilter/);
+  assert.match(source, /function setConservativeAiQueueSortMode/);
+  assert.match(source, /function getSortedConservativeAiQueueEntries/);
+  assert.match(source, /function setConservativeAiQueueReviewStateFilter/);
+  assert.match(source, /function matchesConservativeAiQueueReviewState/);
+  assert.match(source, /function getConservativeAiQueueEmptyStateText/);
+  assert.match(source, /CONSERVATIVE_AI_QUEUE_LABELS/);
+  assert.match(source, /function setConservativeAiQueueFilter/);
+  assert.match(source, /function openConservativeAiQueueRecord/);
+  assert.match(source, /Queue summary/);
+  assert.match(source, /Pending review/);
+  assert.match(source, /Reviewed/);
+  assert.match(source, /Original order/);
+  assert.match(source, /Priority score/);
+  assert.match(source, /All review states/);
+  assert.match(source, /Pending/);
+  assert.match(source, /No advisory suggestions match these filters/);
+  assert.match(source, /likely_relevant/);
+  assert.match(source, /needs_human_attention/);
+  assert.match(source, /needs_human_exclusion_check/);
+  assert.match(source, /getConservativeAiQueueLabel\(context\.recommendedQueue\)/);
+  assert.match(source, /uncertaintyFlags/);
+  assert.match(source, /Go to full-text review/);
 });
 
 test('AI suggestion panel disables accept edit and reject actions after review', async () => {

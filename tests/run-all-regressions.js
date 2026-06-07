@@ -6,6 +6,8 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const testFiles = [
   'tests/ai/ai-provider-engine.test.mjs',
+  'tests/ai/conservative-ai-engine.test.mjs',
+  'tests/ai/conservative-ai-queue-actions.test.mjs',
   'tests/ai/ai-suggestion-panel-ui.test.mjs',
   'tests/ai/ai-suggestion-review-flow.test.mjs',
   'tests/audit/audit-engine.test.mjs',

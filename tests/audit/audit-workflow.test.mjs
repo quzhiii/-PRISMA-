@@ -241,20 +241,126 @@ test('public docs mark V2.5 as current and history rollback as completed', async
   assert.match(readme, /Audit%20trail-events%20%2B%20decision%20ledger/);
   assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
   assert.match(readme, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| 已完成/);
-  assert.match(readme, /最近一次 V2\.5\.1 回归结果：`133\/133` 通过/);
+  assert.match(readme, /最近一次 V2\.6 foundation 回归结果：`151\/151` 通过/);
   assert.match(readmeEn, /# PRISMA Screening & Audit Workbench/);
   assert.match(readmeEn, /Version-V2\.5%20Dual%20Review/);
   assert.match(readmeEn, /Current%20demo-V2\.5/);
   assert.match(readmeEn, /Audit%20trail-events%20%2B%20decision%20ledger/);
   assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
   assert.match(readmeEn, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| Completed/);
-  assert.match(readmeEn, /Latest V2\.5\.1 regression result: `133\/133` passed/);
+  assert.match(readmeEn, /Latest V2\.6 foundation regression result: `151\/151` passed/);
   assert.match(roadmap, /V2\.5\.1 本地历史记录与回溯/);
   assert.match(roadmap, /project_snapshot_created/);
   assert.match(roadmap, /source_file_removed/);
   assert.match(historyPlan, /# V2\.5\.1 Project History and Rollback Implementation Plan/);
   assert.match(historyPlan, /restoreProjectState\(snapshot\)/);
   assert.match(historyPlan, /project_snapshot_restored/);
+});
+
+test('public positioning copy reflects completed V2.5 and V2.5.1 status', async () => {
+  const [rootIndexHtml, indexHtml, landingHtml, roadmap, positioning] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
+    readV22File('index.html'),
+    readV22File('landing.html'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/PRODUCT_POSITIONING_2026.md'), 'utf8'),
+  ]);
+
+  assert.match(roadmap, /V2\.5\.1 project history rollback \| completed patch-line capability/);
+  assert.match(roadmap, /Current status: V2\.5\.1 is completed and merged into the V2\.5 public release line/);
+  assert.doesNotMatch(roadmap, /V2\.5\.1 project history rollback \| next patch-line plan/);
+  assert.doesNotMatch(roadmap, /Current status: planned/);
+  assert.doesNotMatch(roadmap, /\| 计划 \|/);
+
+  assert.match(positioning, /\| V2\.4 quality appraisal \| 已完成稳定能力/);
+  assert.match(positioning, /\| V2\.5 dual-review closeout \| 当前公开版本线/);
+  assert.match(positioning, /\| V2\.5\.1 project history rollback \| 已完成 patch line/);
+  assert.match(positioning, /\| V2\.6 Conservative AI \| 已完成 foundation slice/);
+  assert.match(positioning, /V2\.6 Conservative AI foundation 已完成/);
+  assert.doesNotMatch(positioning, /V2\.4 计划/);
+  assert.doesNotMatch(positioning, /V2\.5 计划/);
+  assert.doesNotMatch(positioning, /下一步才是 V2\.6 Conservative AI/);
+  assert.doesNotMatch(positioning, /next step remains V2\.4/);
+
+  assert.match(rootIndexHtml, /PRISMA 文献筛选助手入口/);
+  assert.match(rootIndexHtml, /默认已切换到 V2\.3 PRISMA-trAIce 工作台/);
+  assert.match(rootIndexHtml, /v1\.7 历史版本/);
+  assert.match(rootIndexHtml, /继续访问 v1\.7 双人协作模式/);
+  assert.match(rootIndexHtml, /v1\.7 新功能/);
+
+  assert.match(indexHtml, /双人复核、冲突队列和 resolver workflow 已纳入当前 V2\.5 工作台/);
+  assert.match(indexHtml, /真实 AI provider 仍未默认启用/);
+  assert.match(indexHtml, /历史回溯已完成/);
+  assert.doesNotMatch(indexHtml, /dual review and real AI provider integration remain roadmap items/);
+  assert.doesNotMatch(indexHtml, /双人复核和真实 AI 接入仍在后续路线中/);
+
+  assert.match(landingHtml, /V2\.5 product overview/);
+  assert.match(landingHtml, /后续会强化冲突队列和 resolver workflow/);
+  assert.match(landingHtml, /Future work strengthens conflict queues and resolver workflows/);
+});
+
+test('public docs describe V2.6 as a completed conservative AI foundation slice, not the current release', async () => {
+  const [readme, readmeEn, roadmap, positioning, conservativeAiDesign] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/PRODUCT_POSITIONING_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/design/CONSERVATIVE_AI_DESIGN.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
+  assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
+  assert.match(readme, /V2\.6 \| `literature-screening-v2\.2\/` \| 已完成：本地保守 AI foundation slice/);
+  assert.match(readmeEn, /V2\.6 \| `literature-screening-v2\.2\/` \| Completed: local conservative AI foundation slice/);
+  assert.match(readme, /Step 3 advisory queue/);
+  assert.match(readme, /queue summary/);
+  assert.match(readme, /priority sorting/);
+  assert.match(readme, /review-state filters/);
+  assert.match(readme, /empty-state clarity/);
+  assert.match(readme, /audit summary queue summary/);
+  assert.match(readme, /最近一次 V2\.6 foundation 回归结果：`151\/151` 通过/);
+  assert.match(readmeEn, /Step 3 advisory queue/);
+  assert.match(readmeEn, /queue summary/);
+  assert.match(readmeEn, /priority sorting/);
+  assert.match(readmeEn, /review-state filters/);
+  assert.match(readmeEn, /empty-state clarity/);
+  assert.match(readmeEn, /audit summary queue summary/);
+  assert.match(readmeEn, /Latest V2\.6 foundation regression result: `151\/151` passed/);
+  assert.doesNotMatch(readme, /V2\.6.*当前公开版本线/);
+  assert.doesNotMatch(readmeEn, /V2\.6.*Current public release line/);
+  assert.doesNotMatch(readme, /自动 AI screening/);
+  assert.doesNotMatch(readmeEn, /automatic AI screening/);
+
+  assert.match(roadmap, /Current status: V2\.6 local conservative AI foundation slice is completed/);
+  assert.match(roadmap, /AI suggestions stay advisory-only until a human accepts or edits them into a final decision/);
+  assert.match(roadmap, /Prompt registry foundation/);
+  assert.match(roadmap, /Provider boundary remains disabled by default/);
+  assert.match(roadmap, /Step 3 advisory queue controls/);
+  assert.match(roadmap, /queue summary, priority sorting, review-state filters, and empty-state clarification/);
+  assert.match(roadmap, /PRISMA-trAIce and audit summary queue summaries/);
+  assert.doesNotMatch(roadmap, /V2\.6 Conservative AI screening \| current public release line/);
+  assert.doesNotMatch(roadmap, /automatic AI screening/);
+  assert.doesNotMatch(roadmap, /real provider dispatch enabled by default/i);
+
+  assert.match(positioning, /V2\.6 Conservative AI \| 已完成 foundation slice/);
+  assert.match(positioning, /本地 advisory suggestions、prioritisation、uncertainty flags 和 prompt registry trace/);
+  assert.match(positioning, /Step 3 advisory queue/);
+  assert.match(positioning, /queue summary、priority sorting、review-state filters 和 empty-state clarity/);
+  assert.match(positioning, /PRISMA-trAIce 和 audit summary queue summary/);
+  assert.match(positioning, /PRISMA Workbench 当前不定位为：/);
+  assert.match(positioning, /一键自动完成系统综述的平台/);
+
+  assert.match(conservativeAiDesign, /Last updated: 2026-06-07/);
+  assert.match(conservativeAiDesign, /V2\.6 foundation slice completed implementation/);
+  assert.match(conservativeAiDesign, /local advisory suggestions/);
+  assert.match(conservativeAiDesign, /priorityScore/);
+  assert.match(conservativeAiDesign, /recommendedQueue/);
+  assert.match(conservativeAiDesign, /uncertaintyFlags/);
+  assert.match(conservativeAiDesign, /Step 3 advisory queue controls/);
+  assert.match(conservativeAiDesign, /PRISMA-trAIce and audit summary queue summaries/);
+  assert.match(conservativeAiDesign, /real provider dispatch remains disabled/);
+  assert.match(conservativeAiDesign, /当前不做：/);
+  assert.match(conservativeAiDesign, /自动生成最终纳入\/排除结论/);
 });
 
 test('v2.5.1 app persists project history snapshots', async () => {

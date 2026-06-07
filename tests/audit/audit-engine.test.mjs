@@ -117,6 +117,129 @@ test('summarizes AI suggestion review boundaries for PRISMA-trAIce reporting', (
   assert.equal(summary.bySuggestedDecision.include, 2);
 });
 
+test('summarizes V2.6 advisory queue metadata without control-click usage claims', () => {
+  const suggestions = [
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-1',
+      recordId: 'record-1',
+      stage: 'title_abstract',
+      humanAction: 'pending',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'likely_relevant',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-2',
+      recordId: 'record-2',
+      stage: 'title_abstract',
+      humanAction: 'rejected',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'needs_human_attention',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-3',
+      recordId: 'record-3',
+      stage: 'title_abstract',
+      humanAction: 'edited',
+      linkedDecisionId: 'decision-3',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'needs_human_exclusion_check',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-full-text-ignored',
+      recordId: 'record-4',
+      stage: 'full_text',
+      humanAction: 'pending',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'likely_relevant',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-non-advisory-ignored',
+      recordId: 'record-5',
+      stage: 'title_abstract',
+      humanAction: 'pending',
+      metadata: {
+        advisoryOnly: false,
+        recommendedQueue: 'likely_relevant',
+      },
+    }),
+  ];
+
+  assert.equal(typeof AuditEngine.summarizeV26AdvisoryQueue, 'function');
+  const summary = AuditEngine.summarizeV26AdvisoryQueue(suggestions);
+
+  assert.equal(summary.totalSuggestions, 3);
+  assert.equal(summary.pendingSuggestions, 1);
+  assert.equal(summary.reviewedSuggestions, 2);
+  assert.equal(summary.byRecommendedQueue.likely_relevant, 1);
+  assert.equal(summary.byRecommendedQueue.needs_human_attention, 1);
+  assert.equal(summary.byRecommendedQueue.needs_human_exclusion_check, 1);
+});
+
+test('PRISMA-trAIce and audit summaries describe V2.6 queue controls conservatively', () => {
+  const manifest = AuditEngine.createProjectManifest({
+    projectId: 'project-queue-summary',
+    projectName: 'Queue summary review',
+    aiMode: 'assistive',
+  });
+  const suggestions = [
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-1',
+      recordId: 'record-1',
+      stage: 'title_abstract',
+      humanAction: 'pending',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'likely_relevant',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-2',
+      recordId: 'record-2',
+      stage: 'title_abstract',
+      humanAction: 'rejected',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'needs_human_attention',
+      },
+    }),
+    AuditEngine.createAiSuggestionEvent({
+      suggestionId: 'queue-3',
+      recordId: 'record-3',
+      stage: 'title_abstract',
+      humanAction: 'edited',
+      linkedDecisionId: 'decision-3',
+      metadata: {
+        advisoryOnly: true,
+        recommendedQueue: 'needs_human_exclusion_check',
+      },
+    }),
+  ];
+
+  const report = AuditEngine.buildPrismaTraiceReportMarkdown(manifest, suggestions);
+  const auditSummary = AuditEngine.buildAuditSummaryMarkdown(manifest, [], [], { aiSuggestionEvents: suggestions });
+
+  [report, auditSummary].forEach((markdown) => {
+    assert.match(markdown, /V2\.6 Advisory Queue Controls Summary/);
+    assert.match(markdown, /Total advisory queue suggestions: 3/);
+    assert.match(markdown, /Pending advisory queue suggestions: 1/);
+    assert.match(markdown, /Reviewed advisory queue suggestions: 2/);
+    assert.match(markdown, /\| likely_relevant \| 1 \|/);
+    assert.match(markdown, /\| needs_human_attention \| 1 \|/);
+    assert.match(markdown, /\| needs_human_exclusion_check \| 1 \|/);
+    assert.match(markdown, /queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity/);
+    assert.match(markdown, /available controls and derived metadata summaries, not tracked control-click usage/);
+    assert.doesNotMatch(markdown, /automatic AI screening/);
+  });
+});
+
 test('creates audit events with normalized actor and source metadata', () => {
   const event = AuditEngine.createAuditEvent({
     projectId: 'project-1',

@@ -1,10 +1,20 @@
 # Conservative AI Design
 
-Last updated: 2026-04-28
+Last updated: 2026-06-07
 
 ## 1. 设计目标
 
 Conservative AI 的目标不是让 AI 替研究者完成系统综述，而是在不破坏 local-first、audit-ready 和人工最终判断的前提下，提供可关闭、可复核、可报告的辅助层。
+
+V2.6 foundation slice completed implementation:
+
+- local advisory suggestions only
+- `priorityScore` / `priorityReason` / `recommendedQueue`
+- `uncertaintyFlags` / `riskFlags` / `criteriaMatches`
+- prompt registry trace via prompt hash, criteria hash, and input hash
+- Step 3 advisory queue controls: queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity
+- PRISMA-trAIce and audit summary queue summaries
+- real provider dispatch remains disabled by default
 
 核心原则：
 
