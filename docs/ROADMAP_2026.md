@@ -168,17 +168,18 @@ V2.5.1 验收标准：
 
 目标：引入 AI 建议和排序，但保持人类最终决定。
 
-Current status: V2.6 is in progress as a local conservative AI foundation slice on the `literature-screening-v2.2/` compatibility path. AI suggestions stay advisory-only until a human accepts or edits them into a final decision.
+Current status: V2.6 local conservative AI foundation slice is completed on the `literature-screening-v2.2/` compatibility path. AI suggestions stay advisory-only until a human accepts or edits them into a final decision.
 
-Current queue state: Step 3 advisory queue controls are now in progress with queue labels, queue summary, priority sorting, review-state filters, and empty-state clarification. These controls only help reviewers triage and focus attention; they do not turn V2.6 into a one-click or auto-final-decision workflow.
+Completed queue state: Step 3 advisory queue controls are completed with queue labels, queue summary, priority sorting, review-state filters, and empty-state clarification. PRISMA-trAIce and audit summary queue summaries report the derived advisory queue metadata. These controls only help reviewers triage and focus attention; they do not turn V2.6 into a one-click or auto-final-decision workflow.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
-| Local advisory suggestions | 基于本地规则和启发式生成 include/exclude/uncertain 建议，写入 `AISuggestionEvent`，不直接改写 `ScreeningDecision` | 进行中 |
-| AI prioritisation foundation | 为记录生成 `priorityScore`、`priorityReason`、`recommendedQueue`，只改变人工处理顺序建议 | 进行中 |
-| Uncertainty flagging foundation | 为低信息量、边界样本和潜在冲突样本生成 `uncertaintyFlags` 和 `riskFlags` | 进行中 |
-| Prompt registry foundation | 为本地 conservative AI 建议生成 prompt trace、criteria hash 和 input hash | 进行中 |
+| Local advisory suggestions | 基于本地规则和启发式生成 include/exclude/uncertain 建议，写入 `AISuggestionEvent`，不直接改写 `ScreeningDecision` | 已完成 foundation |
+| AI prioritisation foundation | 为记录生成 `priorityScore`、`priorityReason`、`recommendedQueue`，只改变人工处理顺序建议 | 已完成 foundation |
+| Uncertainty flagging foundation | 为低信息量、边界样本和潜在冲突样本生成 `uncertaintyFlags` 和 `riskFlags` | 已完成 foundation |
+| Prompt registry foundation | 为本地 conservative AI 建议生成 prompt trace、criteria hash 和 input hash | 已完成 foundation |
 | Provider boundary remains disabled by default | 继续保留 provider abstraction，但默认不发真实请求、不接 API key 输入 | 已完成边界 |
+| PRISMA-trAIce and audit summary queue summaries | 在透明报告和审计摘要中汇总 V2.6 advisory queue total、pending/reviewed 和 bucket counts，不伪造控件点击使用 | 已完成 foundation |
 
 | 模式 | 作用 |
 |---|---|
