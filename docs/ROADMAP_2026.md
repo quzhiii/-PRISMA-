@@ -20,7 +20,7 @@ Last updated: 2026-06-03
 | V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
 | V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
 | V2.5 dual-review closeout | current public release line | `literature-screening-v2.2/` compatibility path |
-| V2.5.1 project history rollback | next patch-line plan | `literature-screening-v2.2/` compatibility path |
+| V2.5.1 project history rollback | completed patch-line capability | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
 
@@ -145,16 +145,16 @@ V2.5 readiness gate:
 
 目标：在不引入后端和账号系统的前提下，为用户提供本地项目历史、版本回溯和来源文件增减后的恢复路径。
 
-Current status: planned in [`docs/plans/2026-06-03-v2-5-history-rollback.md`](plans/2026-06-03-v2-5-history-rollback.md). This is a V2.5 patch-line feature, not a V2.6 AI feature.
+Current status: V2.5.1 is completed and merged into the V2.5 public release line. It follows [`docs/plans/2026-06-03-v2-5-history-rollback.md`](plans/2026-06-03-v2-5-history-rollback.md) as a V2.5 patch-line capability, not a V2.6 AI feature.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
-| Snapshot schema | 在项目状态中增加 `projectHistory`，每个 snapshot 包含 id、label、reason、created_at、step、source_files、rule_hash、counts 和 state payload | 计划 |
-| Snapshot triggers | import 成功、来源文件增减、规则筛选运行、全文复核完成、质量评价保存、冲突解决、导出前自动创建快照 | 计划 |
-| Restore workflow | 新增历史面板，支持预览上一版筛选规则/PRISMA counts/来源文件，再确认调用 `restoreProjectState(snapshot)` | 计划 |
-| Source file add/remove | 上传错文件时可从项目源列表移除文件并生成 `source_file_removed` audit event；追加新文件生成 `source_file_added` 和新快照 | 计划 |
-| Audit events | 快照创建写 `project_snapshot_created`；恢复写 `project_snapshot_restored`；来源调整写 `source_file_added` / `source_file_removed` | 计划 |
-| Export boundary | 历史快照只留在本地项目文件和可选 history export 中，不改变 V2.3/V2.4/V2.5 既有审计导出字段 | 计划 |
+| Snapshot schema | 在项目状态中增加 `projectHistory`，每个 snapshot 包含 id、label、reason、created_at、step、source_files、rule_hash、counts 和 state payload | 已完成 |
+| Snapshot triggers | import 成功、来源文件增减、规则筛选运行、全文复核完成、质量评价保存、冲突解决、导出前自动创建快照 | 已完成 |
+| Restore workflow | 新增历史面板，支持预览上一版筛选规则/PRISMA counts/来源文件，再确认调用 `restoreProjectState(snapshot)` | 已完成 |
+| Source file add/remove | 上传错文件时可从项目源列表移除文件并生成 `source_file_removed` audit event；追加新文件生成 `source_file_added` 和新快照 | 已完成 |
+| Audit events | 快照创建写 `project_snapshot_created`；恢复写 `project_snapshot_restored`；来源调整写 `source_file_added` / `source_file_removed` | 已完成 |
+| Export boundary | 历史快照只留在本地项目文件和可选 history export 中，不改变 V2.3/V2.4/V2.5 既有审计导出字段 | 已完成 |
 
 V2.5.1 验收标准：
 

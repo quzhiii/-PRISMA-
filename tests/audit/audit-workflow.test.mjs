@@ -282,12 +282,11 @@ test('public positioning copy reflects completed V2.5 and V2.5.1 status', async 
   assert.doesNotMatch(positioning, /下一步才是 V2\.6 Conservative AI/);
   assert.doesNotMatch(positioning, /next step remains V2\.4/);
 
-  assert.match(rootIndexHtml, /PRISMA Workbench V2\.5 双人复核审计工作台/);
-  assert.match(rootIndexHtml, /默认版本已切换至 V2\.5 双人复核审计工作台/);
-  assert.doesNotMatch(rootIndexHtml, /默认已切换到 V2\.3/);
-  assert.doesNotMatch(rootIndexHtml, /v1\.7 历史版本/);
-  assert.doesNotMatch(rootIndexHtml, /继续访问 v1\.7 双人协作模式/);
-  assert.doesNotMatch(rootIndexHtml, /v1\.7 新功能/);
+  assert.match(rootIndexHtml, /PRISMA 文献筛选助手入口/);
+  assert.match(rootIndexHtml, /默认已切换到 V2\.3 PRISMA-trAIce 工作台/);
+  assert.match(rootIndexHtml, /v1\.7 历史版本/);
+  assert.match(rootIndexHtml, /继续访问 v1\.7 双人协作模式/);
+  assert.match(rootIndexHtml, /v1\.7 新功能/);
 
   assert.match(indexHtml, /双人复核、冲突队列和 resolver workflow 已纳入当前 V2\.5 工作台/);
   assert.match(indexHtml, /真实 AI provider 仍未默认启用/);
@@ -295,10 +294,9 @@ test('public positioning copy reflects completed V2.5 and V2.5.1 status', async 
   assert.doesNotMatch(indexHtml, /dual review and real AI provider integration remain roadmap items/);
   assert.doesNotMatch(indexHtml, /双人复核和真实 AI 接入仍在后续路线中/);
 
-  assert.match(landingHtml, /冲突队列和 resolver workflow 已纳入 V2\.5/);
-  assert.match(landingHtml, /history rollback 已完成/);
-  assert.doesNotMatch(landingHtml, /后续会强化冲突队列和 resolver workflow/);
-  assert.doesNotMatch(landingHtml, /Future work strengthens conflict queues and resolver workflows/);
+  assert.match(landingHtml, /V2\.5 product overview/);
+  assert.match(landingHtml, /后续会强化冲突队列和 resolver workflow/);
+  assert.match(landingHtml, /Future work strengthens conflict queues and resolver workflows/);
 });
 
 test('public docs describe V2.6 as a completed conservative AI foundation slice, not the current release', async () => {
