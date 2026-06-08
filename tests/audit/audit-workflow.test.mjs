@@ -545,3 +545,23 @@ test('public docs position paper skeleton as the next concrete P6 slice', async 
   assert.match(skeletonDoc, /docs\/benchmarks\/README\.md/);
   assert.match(skeletonDoc, /literature-screening-v2\.2\/sample-data\.json/);
 });
+
+test('release-facing pages surface current workspace entry and V3 preparation assets', async () => {
+  const [rootIndexHtml, indexHtml, landingHtml] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
+    readV22File('index.html'),
+    readV22File('landing.html'),
+  ]);
+
+  assert.match(rootIndexHtml, /public demo dataset/i);
+  assert.match(rootIndexHtml, /benchmark package/i);
+  assert.match(rootIndexHtml, /paper skeleton/i);
+  assert.match(indexHtml, /public demo dataset/i);
+  assert.match(indexHtml, /benchmark package/i);
+  assert.match(indexHtml, /paper skeleton/i);
+  assert.match(landingHtml, /public demo dataset/i);
+  assert.match(landingHtml, /benchmark package/i);
+  assert.match(landingHtml, /paper skeleton/i);
+  assert.match(indexHtml, /Open Workspace/);
+  assert.match(landingHtml, /Open Workspace/);
+});
