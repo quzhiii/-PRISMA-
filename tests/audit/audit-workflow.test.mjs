@@ -443,3 +443,18 @@ test('v2.2 app supports accept, reject, and edit actions for AI suggestions', as
   assert.match(source, /humanEditedDecision: normalizedDecision/);
   assert.doesNotMatch(source, /suggestion\.suggestedDecision === 'include' \? 'uncertain' : 'include'/);
 });
+
+test('v2.7 import reliability warnings surface without automatic final decisions', async () => {
+  const source = await readV22App();
+  const workspaceHtml = await readV22File('workspace.html');
+
+  assert.match(source, /abstract_truncation_suspected/);
+  assert.match(source, /abstract_noise_detected/);
+  assert.match(source, /source_mapping_incomplete/);
+  assert.match(source, /function summarizeImportReliabilityWarnings/);
+  assert.match(source, /source_quality_warning/);
+  assert.match(workspaceHtml, /importJobSummary/);
+  assert.doesNotMatch(source, /abstract_truncation_suspected[\s\S]{0,240}upsertScreeningDecisionSafe/);
+  assert.doesNotMatch(source, /abstract_noise_detected[\s\S]{0,240}upsertScreeningDecisionSafe/);
+  assert.doesNotMatch(source, /source_mapping_incomplete[\s\S]{0,240}upsertScreeningDecisionSafe/);
+});

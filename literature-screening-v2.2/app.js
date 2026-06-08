@@ -1136,9 +1136,13 @@ function renderImportJobShell() {
       failedCount: jobs.filter((job) => job.stage === 'failed').length,
     };
 
+  const reliabilitySummary = summarizeImportReliabilityWarnings(uploadedData);
+  const reliabilityHtml = renderImportReliabilityWarningSummary(reliabilitySummary);
+
   summaryEl.innerHTML = `
     <span class="zh">共 ${summary.totalJobs} 个任务，进行中 ${summary.activeCount} 个，完成 ${summary.completedCount} 个，失败 ${summary.failedCount || 0} 个。</span>
     <span class="en">Total ${summary.totalJobs} jobs, ${summary.activeCount} active, ${summary.completedCount} completed, ${summary.failedCount || 0} failed.</span>
+    ${reliabilityHtml}
   `;
 
   listEl.innerHTML = jobs
@@ -1588,12 +1592,22 @@ function renderSourceFileHistoryPanel() {
       const safeName = escapeHTML(rawName);
       const quotedName = JSON.stringify(rawName);
       const count = Number(file?.recordCount || file?.record_count || 0);
+      const reliabilitySummary = summarizeImportReliabilityWarnings(
+        uploadedData.filter((record) => String(record?._sourceFile || '').trim() === rawName)
+      );
+      const reliabilityText = reliabilitySummary.warningRecordCount > 0
+        ? `<div class="muted-text" style="margin-top: 6px; color: var(--color-warning);">
+            <span class="zh">源质量提醒：截断 ${reliabilitySummary.abstractTruncationCount}，摘要噪音 ${reliabilitySummary.abstractNoiseCount}，映射不完整 ${reliabilitySummary.sourceMappingIncompleteCount}</span>
+            <span class="en">Source-quality warnings: truncation ${reliabilitySummary.abstractTruncationCount}, abstract noise ${reliabilitySummary.abstractNoiseCount}, incomplete mapping ${reliabilitySummary.sourceMappingIncompleteCount}</span>
+          </div>`
+        : '';
       return `
         <div class="project-history-card surface-panel" style="margin-top: 8px;">
           <div class="project-history-meta">
             <strong>${safeName}</strong>
             <span class="format-tag">${count}</span>
           </div>
+          ${reliabilityText}
           <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" onclick='removeSourceFileFromProject(${quotedName})'>
               <span class="zh">移除来源文件</span><span class="en">Remove Source File</span>
@@ -1605,6 +1619,66 @@ function renderSourceFileHistoryPanel() {
   `;
 
   if (typeof applyLangVisibility === 'function') applyLangVisibility();
+}
+
+function summarizeImportReliabilityWarnings(records) {
+  const list = Array.isArray(records) ? records : [];
+  const summary = {
+    totalRecords: list.length,
+    warningRecordCount: 0,
+    abstractTruncationCount: 0,
+    abstractNoiseCount: 0,
+    sourceMappingIncompleteCount: 0,
+  };
+
+  list.forEach((record) => {
+    const hasTruncation = Boolean(record?.abstract_truncation_suspected);
+    const hasNoise = Boolean(record?.abstract_noise_detected);
+    const hasMappingGap = Boolean(record?.source_mapping_incomplete);
+
+    if (hasTruncation) summary.abstractTruncationCount += 1;
+    if (hasNoise) summary.abstractNoiseCount += 1;
+    if (hasMappingGap) summary.sourceMappingIncompleteCount += 1;
+    if (hasTruncation || hasNoise || hasMappingGap) summary.warningRecordCount += 1;
+  });
+
+  return summary;
+}
+
+function renderImportReliabilityWarningSummary(summary) {
+  if (!summary || summary.warningRecordCount <= 0) {
+    return '';
+  }
+
+  return `
+    <div class="source-quality-warning" style="margin-top: 8px; color: var(--color-warning);">
+      <span class="zh">源质量提醒：${summary.warningRecordCount} 条记录带有导入可靠性提示（摘要疑似截断 ${summary.abstractTruncationCount}，摘要噪音 ${summary.abstractNoiseCount}，来源映射不完整 ${summary.sourceMappingIncompleteCount}）。这些提示不会自动改变筛选决定。</span>
+      <span class="en">Source-quality warnings: ${summary.warningRecordCount} records carry import reliability warnings (truncation risk ${summary.abstractTruncationCount}, abstract noise ${summary.abstractNoiseCount}, incomplete mapping ${summary.sourceMappingIncompleteCount}). These warnings do not automatically change screening decisions.</span>
+    </div>
+  `;
+}
+
+function appendImportReliabilityWarningAuditEvents(records, options = {}) {
+  if (typeof appendAuditEventsSafe !== 'function') return;
+  const summary = summarizeImportReliabilityWarnings(records);
+  if (summary.warningRecordCount <= 0) return;
+
+  appendAuditEventsSafe({
+    eventType: 'source_quality_warning',
+    recordId: '',
+    after: {
+      warningRecordCount: summary.warningRecordCount,
+      abstractTruncationCount: summary.abstractTruncationCount,
+      abstractNoiseCount: summary.abstractNoiseCount,
+      sourceMappingIncompleteCount: summary.sourceMappingIncompleteCount,
+    },
+    source: 'system',
+    metadata: {
+      fileName: options.fileName || '',
+      warningOnly: true,
+      createsScreeningDecision: false,
+    },
+  }, { persist: false });
 }
 
 function removeSourceFileFromProject(fileName) {
@@ -3084,7 +3158,8 @@ async function handleImportFiles(files) {
         name: file.name,
         format: ext,
         recordCount: records.length,
-        source: detectSource(ext)
+        source: detectSource(ext),
+        reliabilityWarnings: summarizeImportReliabilityWarnings(records)
       };
       
       uploadedFilesInfo.push(fileData);
@@ -3159,10 +3234,15 @@ async function handleImportFiles(files) {
           format: fileInfo.format,
           source: fileInfo.source,
           recordCount: fileInfo.recordCount,
+          reliabilityWarnings: fileInfo.reliabilityWarnings,
         },
         source: 'human',
       }, { persist: false });
       createProjectHistorySnapshot('source_file_added', `After adding ${fileInfo.name}`);
+      appendImportReliabilityWarningAuditEvents(
+        allRecords.filter((record) => record._sourceFile === fileInfo.name),
+        { fileName: fileInfo.name }
+      );
     });
     updateProjectManifestSafe({
       dataSources: uploadedFilesInfo.map((file) => ({
@@ -3170,6 +3250,7 @@ async function handleImportFiles(files) {
         format: file.format,
         source: file.source,
         recordCount: file.recordCount,
+        reliabilityWarnings: file.reliabilityWarnings,
       })),
     }, { persist: false });
     appendAuditEventsSafe(allRecords.map((record, index) => ({
@@ -3179,15 +3260,18 @@ async function handleImportFiles(files) {
         title: record.title || record.TI || record.T1 || '',
         identifier: record.identifier_raw || record.doi || record.DOI || record.DO || '',
         sourceFile: record._sourceFile || '',
-        sourceDatabase: record._source || '',
+        sourceDatabase: record.source_database || record._source || '',
       },
       source: 'system',
       metadata: {
         importIndex: index,
         sourceFile: record._sourceFile || '',
-        sourceDatabase: record._source || '',
+        sourceDatabase: record.source_database || record._source || '',
         parserFormat: uploadedFilesInfo.find((file) => file.name === record._sourceFile)?.format || '',
         sourceAbstractTruncated: Boolean(record._sourceAbstractTruncated || record.sourceAbstractTruncated),
+        abstract_truncation_suspected: Boolean(record.abstract_truncation_suspected),
+        abstract_noise_detected: Boolean(record.abstract_noise_detected),
+        source_mapping_incomplete: Boolean(record.source_mapping_incomplete),
       },
     })), { persist: false });
     validFiles.forEach((file, index) => {
@@ -3745,8 +3829,10 @@ function parseFile(text, ext, fileName = 'single-upload') {
       name: fileName,
       format: ext,
       recordCount: uploadedData.length,
-      source
+      source,
+      reliabilityWarnings: summarizeImportReliabilityWarnings(uploadedData)
     }];
+    appendImportReliabilityWarningAuditEvents(uploadedData, { fileName });
   }
 
   detectColumns();
