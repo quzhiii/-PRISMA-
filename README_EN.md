@@ -178,7 +178,9 @@ Latest V2.6 foundation regression result: `151/151` passed.
 | V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
 | V2.6 | Completed: local conservative AI foundation slice for advisory suggestions, ranking, prompt registry, provider abstraction boundaries, Step 3 advisory queue controls, PRISMA-trAIce queue summary, and audit summary queue summary |
 | V2.7 | Next: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and unchanged final-decision semantics |
-| V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
+| V3.0 | Starts with a public demo dataset, then expands into benchmark, paper skeleton, and release material |
+
+The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset.
 
 ## Version history
 

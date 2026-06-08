@@ -178,7 +178,9 @@ node tests\run-all-regressions.js
 | V2.5.1 | 已完成：本地历史记录、项目快照、来源文件增减回溯、关键流程恢复点 |
 | V2.6 | 已完成：本地保守 AI foundation slice，覆盖 advisory suggestions、ranking、prompt registry、provider abstraction 边界、Step 3 advisory queue controls、PRISMA-trAIce queue summary 和 audit summary queue summary |
 | V2.7 | 下一阶段：Chinese-source reliability，fixture-backed CNKI / Wanfang / VIP / SinoMed hardening、摘要截断 / 噪音 / 映射不完整导入提示，不改变最终决定语义 |
-| V3.0 | landing page、demo dataset、benchmark、paper skeleton、发布材料 |
+| V3.0 | 先从 public demo dataset 开始，再推进 benchmark、paper skeleton 和发布材料 |
+
+当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。
 
 ## 版本历史
 

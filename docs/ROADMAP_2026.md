@@ -221,11 +221,13 @@ Current status: V2.7 Chinese-source reliability is the next slice after complete
 
 | 任务 | 产物 |
 |---|---|
-| Demo dataset | 可公开的演示数据和导入说明 |
+| Demo dataset | 可公开的演示数据和导入说明；作为 V3.0 第一刀，优先服务 onboarding 和 workflow walkthrough |
 | Benchmark package | 导入、去重、筛选、审计 replay 的可复现测试 |
 | Paper skeleton | JOSS / JMIR AI / Systematic Reviews 候选材料 |
 | Release page | 面向科研用户的 landing page 和使用路径 |
 | Commercial validation | 访谈、试用、模板包、机构部署意向验证 |
+
+Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification.
 
 ## 风险与控制
 
