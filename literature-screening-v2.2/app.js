@@ -8759,7 +8759,7 @@ function cloneSampleRecords(records) {
 
 function getBuiltInSampleDataPayload() {
   return {
-    description: 'Built-in sample literature records',
+    description: 'Public demo dataset for onboarding and workflow walkthrough',
     format: 'json',
     data: cloneSampleRecords(sampleData),
     source: 'built_in_sample',
@@ -8773,7 +8773,7 @@ function applySampleDataPayload(payload) {
   }
 
   const sourceFileName = payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json';
-  const sourceLabel = payload?.source === 'sample-data.json' ? '本地示例文件' : '系统内置';
+  const sourceLabel = '公开演示数据';
 
   startNewProjectSession();
   uploadedData = records.map((record) => ({
@@ -8799,7 +8799,7 @@ function applySampleDataPayload(payload) {
   persistCurrentProjectState();
   updateStep4EntryLock();
 
-  showToast('✅ 示例数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
+  showToast('✅ 公开演示数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
 
   setTimeout(() => {
     const step2 = document.getElementById('step2');
