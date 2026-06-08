@@ -155,7 +155,9 @@ function parseArgs(argv) {
 
 function buildUsage() {
   return [
+    'PRISMA Workbench benchmark package entry (current dedup benchmark scope)',
     'Usage: node scripts/dedup/run-benchmark.mjs --target <target> [--dataset <datasetId>]',
+    'Manifest: tests/fixtures/dedup/benchmark-manifest.csv',
     '',
     'Targets:',
     '  root-app      Frozen root app inline dedup baseline',

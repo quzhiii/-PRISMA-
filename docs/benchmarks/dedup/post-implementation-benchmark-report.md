@@ -1,5 +1,7 @@
 ﻿# Post-Implementation Dedup Benchmark Report
 
+This report is one benchmark artifact inside the current repo-local benchmark package. Package entry: `docs/benchmarks/README.md`.
+
 ## Metadata
 
 - benchmark rerun date: 2026-03-28
