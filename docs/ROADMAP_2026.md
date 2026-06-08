@@ -227,7 +227,7 @@ Current status: V2.7 Chinese-source reliability is the next slice after complete
 | Release page | 面向科研用户的 landing page 和使用路径 |
 | Commercial validation | 访谈、试用、模板包、机构部署意向验证 |
 
-Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification.
+Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports.
 
 ## 风险与控制
 
