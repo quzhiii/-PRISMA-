@@ -521,3 +521,27 @@ test('public docs position benchmark package as the next concrete P6 slice', asy
   assert.match(benchmarkPackageDoc, /scripts\/dedup\/run-benchmark\.mjs/);
   assert.match(benchmarkPackageDoc, /tests\/fixtures\/dedup\/benchmark-manifest\.csv/);
 });
+
+test('public docs position paper skeleton as the next concrete P6 slice', async () => {
+  const [readme, readmeEn, roadmap] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+  ]);
+
+  const skeletonDoc = await fs.readFile(
+    path.join(repoRoot, 'docs/papers/README.md'),
+    'utf8'
+  );
+
+  assert.match(readme, /paper skeleton/i);
+  assert.match(readmeEn, /paper skeleton/i);
+  assert.match(roadmap, /Paper skeleton \| JOSS \/ JMIR AI \/ Systematic Reviews 候选材料/);
+  assert.match(readme, /下一刀.*paper skeleton|下一阶段.*paper skeleton/i);
+  assert.match(readmeEn, /next slice is a `paper skeleton`|next slice is paper skeleton/i);
+  assert.match(roadmap, /next concrete slice is a paper skeleton|下一阶段.*paper skeleton/i);
+  assert.match(skeletonDoc, /Recommended starting venue/i);
+  assert.match(skeletonDoc, /JOSS|JMIR AI|Systematic Reviews/);
+  assert.match(skeletonDoc, /docs\/benchmarks\/README\.md/);
+  assert.match(skeletonDoc, /literature-screening-v2\.2\/sample-data\.json/);
+});
