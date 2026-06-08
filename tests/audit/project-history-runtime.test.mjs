@@ -385,14 +385,15 @@ test('sample data records carry source file metadata for removal', async () => {
 
   const state = harness.getState();
   assert.equal(state.uploadedFiles[0].name, '内置示例数据.json');
+  assert.equal(state.uploadedFiles[0].source, '公开演示数据');
   assert.equal(state.uploadedData.length, 2);
   assert.deepEqual(state.uploadedData.map((record) => record._sourceFile), [
     '内置示例数据.json',
     '内置示例数据.json',
   ]);
   assert.deepEqual(state.uploadedData.map((record) => record._source), [
-    '系统内置',
-    '系统内置',
+    '公开演示数据',
+    '公开演示数据',
   ]);
 
   harness.removeSourceFileFromProject('内置示例数据.json');

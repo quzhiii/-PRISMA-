@@ -484,3 +484,21 @@ test('v2.7 import reliability warnings surface without automatic final decisions
   assert.doesNotMatch(source, /abstract_noise_detected[\s\S]{0,240}upsertScreeningDecisionSafe/);
   assert.doesNotMatch(source, /source_mapping_incomplete[\s\S]{0,240}upsertScreeningDecisionSafe/);
 });
+
+test('public docs and workspace position sample data as a public demo dataset', async () => {
+  const [readme, readmeEn, roadmap, workspaceHtml, landingHtml, appSource] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    readV22File('workspace.html'),
+    readV22File('landing.html'),
+    readV22App(),
+  ]);
+
+  assert.match(readme, /public demo dataset/i);
+  assert.match(readmeEn, /public demo dataset/i);
+  assert.match(roadmap, /Demo dataset \| 可公开的演示数据和导入说明/);
+  assert.match(workspaceHtml, /公开演示数据|public demo dataset/i);
+  assert.match(landingHtml, /公开演示数据|public demo dataset/i);
+  assert.match(appSource, /public demo dataset|公开演示数据/i);
+});
