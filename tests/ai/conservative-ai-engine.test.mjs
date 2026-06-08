@@ -46,3 +46,18 @@ test('creates advisory local suggestions with priority and uncertainty metadata'
   assert.ok(suggestions[2].metadata.uncertaintyFlags.includes('missing_or_short_abstract'));
   assert.doesNotMatch(JSON.stringify(suggestions), /api[_-]?key|authorization|bearer/i);
 });
+
+test('reuses audit-style bibliographic identifiers for conservative suggestion record IDs', () => {
+  const [doiSuggestion, titleSuggestion, aliasSuggestion] = ConservativeAiEngine.buildConservativeSuggestionBatch([
+    { doi: '10.1000/example-doi', title: 'Record without explicit record_id', abstract: 'Eligible intervention and outcome.' },
+    { title: 'Unique bibliographic title', abstract: 'Sparse but still title-identified.' },
+    { TI: 'Alias title field', abstract: 'Uses bibliographic aliases for audit identity.' },
+  ], {
+    projectId: 'project-v26',
+    criteria: { include: ['eligible'] },
+  });
+
+  assert.equal(doiSuggestion.recordId, '10.1000/example-doi');
+  assert.equal(titleSuggestion.recordId, 'Unique bibliographic title');
+  assert.equal(aliasSuggestion.recordId, 'Alias title field');
+});

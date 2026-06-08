@@ -46,7 +46,19 @@
 
   function getRecordId(record, index = 0) {
     return normalizeString(
-      record && (record.record_id || record.recordId || record.id || record.ID),
+      record && (
+        record.record_id ||
+        record.recordId ||
+        record.id ||
+        record.ID ||
+        record._engine_record_id ||
+        record.doi ||
+        record.DOI ||
+        record.DO ||
+        record.title ||
+        record.TI ||
+        record.T1
+      ),
       `record-${index + 1}`
     );
   }
