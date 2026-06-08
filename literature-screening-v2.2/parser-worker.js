@@ -46,7 +46,7 @@ function parseCSV(content, delimiter = ',') {
     headers.forEach((header, idx) => {
       record[header] = values[idx]?.trim() || '';
     });
-    records.push(record);
+    records.push(normalizeChineseSourceRecord(record));
     
     // 定期发送解析进度
     if (i % 1000 === 0) {
@@ -67,35 +67,55 @@ function parseTSV(content) {
 
 function parseRIS(content) {
   const records = [];
-  const entries = content.split(/\n(?=TY  -)/);
-  
+  const entries = content.split(/\n(?=TY\s+-|PMID\s+-)/);
+
   entries.forEach((entry, idx) => {
-    const record = {};
+    let record = {};
     const lines = entry.split(/\r?\n/);
-    
+
+    function applySourceLineValue(value) {
+      const text = String(value || '').trim();
+      const year = extractYear(text);
+      if (year && !record.year) record.year = year;
+      const journal = text
+        .replace(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b[\s\S]*$/, '')
+        .replace(/[.;；。\s]+$/, '')
+        .trim();
+      if (journal && !record.journal) record.journal = journal;
+      record.source_raw = record.source_raw || text;
+    }
+
     lines.forEach(line => {
-      const match = line.match(/^([A-Z]{2})\s*-\s*(.+)$/);
+      const match = line.trim().match(/^([A-Za-z0-9][A-Za-z0-9 ]{1,20})\s*-\s*(.+)$/);
       if (match) {
-        const [, tag, value] = match;
+        const [, rawTag, value] = match;
+        const tag = rawTag.trim().toUpperCase();
         const fieldMap = {
           'TI': 'title', 'AB': 'abstract', 'AU': 'authors',
           'PY': 'year', 'JO': 'journal', 'DO': 'doi',
-          'KW': 'keywords', 'ER': 'end'
+          'KW': 'keywords', 'MH': 'mesh_terms', 'PMID': 'pmid',
+          'SID': 'sinomed_id', 'SINOMED ID': 'sinomed_id', 'SO': 'source', 'ER': 'end'
         };
         
         if (fieldMap[tag]) {
           const field = fieldMap[tag];
-          if (field === 'authors') {
+          if (field === 'authors' || field === 'keywords' || field === 'mesh_terms') {
             record[field] = (record[field] || '') + (record[field] ? '; ' : '') + value;
+          } else if (field === 'pmid') {
+            record.pmid = record.pmid || value;
+            record.identifier_raw = record.identifier_raw || value;
+          } else if (field === 'source') {
+            applySourceLineValue(value);
           } else if (field !== 'end') {
             record[field] = value;
           }
         }
       }
     });
-    
+
     if (Object.keys(record).length > 0) {
-      records.push(record);
+      if (!record.type) record.type = 'JOUR';
+      records.push(normalizeChineseSourceRecord(record));
     }
     
     if (idx % 100 === 0) {
@@ -471,6 +491,161 @@ function cleanXmlText(value) {
     .trim();
 }
 
+function stripInlineHtmlTags(text) {
+  return String(text || '').replace(/<[^>]+>/g, ' ');
+}
+
+function findChineseAbstractNoiseIndex(text) {
+  const markers = [
+    /基金[:：]/i,
+    /下载频次[:：]/i,
+    /被引频次[:：]/i,
+    /分类号[:：]/i,
+    /\bdbcode\s*:/i,
+    /\bdbname\s*:/i,
+    /\bfilename\s*:/i,
+    /CNKICite\s*:/i
+  ];
+  const source = String(text || '');
+  return markers.reduce((firstIndex, marker) => {
+    const match = source.match(marker);
+    if (!match || match.index === undefined) return firstIndex;
+    return firstIndex === -1 ? match.index : Math.min(firstIndex, match.index);
+  }, -1);
+}
+
+function hasAbstractTruncationSignal(text) {
+  const value = String(text || '').trim();
+  return /(?:余略|详见原文|待续)/.test(value) || /(?:…|……|\.\.\.)\s*$/.test(value);
+}
+
+function normalizeChineseSourceAbstractQuality(value, sourceDatabase) {
+  const original = String(value || '').replace(/\u00a0/g, ' ').trim();
+  let abstract = stripInlineHtmlTags(original)
+    .replace(/^摘要\s*[:：]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const noiseIndex = findChineseAbstractNoiseIndex(abstract);
+  const noiseDetected = noiseIndex >= 0;
+
+  if (noiseDetected) {
+    abstract = abstract.slice(0, noiseIndex).replace(/[\s,，;；。]+$/, '').trim();
+  }
+
+  const quality = { abstract };
+  if (noiseDetected) {
+    quality.abstract_noise_detected = true;
+    quality.abstract_quality_note = sourceDatabase === 'CNKI'
+      ? 'CNKI abstract contains source metadata noise.'
+      : 'Abstract contains source metadata noise.';
+  }
+  if (hasAbstractTruncationSignal(original) || hasAbstractTruncationSignal(abstract)) {
+    quality.abstract_truncation_suspected = true;
+  }
+
+  return quality;
+}
+
+function inferChineseSourceDatabase(record) {
+  const values = [
+    record?.source_database,
+    record?.id,
+    record?.doi,
+    record?.identifier_raw,
+    record?.abstract,
+    record?.journal
+  ].map((value) => String(value || '')).join(' ');
+
+  if (/CNKI|link\.cnki\.net|j\.cnki\.|dbcode\s*:|下载频次|被引频次/i.test(values)) {
+    return 'CNKI';
+  }
+
+  return '';
+}
+
+function getFirstChineseSourceField(record, fields) {
+  for (let index = 0; index < fields.length; index += 1) {
+    const field = fields[index];
+    const value = record[field];
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return '';
+}
+
+function assignChineseSourceField(record, targetField, sourceFields) {
+  const value = getFirstChineseSourceField(record, sourceFields);
+  if (value && !record[targetField]) {
+    record[targetField] = value;
+  }
+  return value;
+}
+
+function applyChineseSourceYearVolumeIssue(record, value) {
+  const text = String(value || '').trim();
+  if (!text) return;
+
+  const year = extractYear(text);
+  if (year && !record.year) {
+    record.year = year;
+  }
+
+  const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*\(([^)）]+)\)/);
+  if (volumeIssue) {
+    if (!record.volume) record.volume = volumeIssue[1];
+    if (!record.issue) record.issue = volumeIssue[2];
+  }
+}
+
+function markChineseSourceMappingIncomplete(record) {
+  if (!record.source_database) return;
+  const requiredFields = ['title', 'abstract', 'authors', 'journal', 'year'];
+  if (requiredFields.some((field) => !String(record[field] || '').trim())) {
+    record.source_mapping_incomplete = true;
+  }
+}
+
+function normalizeChineseSourceRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return record;
+  }
+
+  const next = { ...record };
+  assignChineseSourceField(next, 'title', ['title', 'Title', 'TITLE', '题名', '标题', '论文题名']);
+  assignChineseSourceField(next, 'abstract', ['abstract', 'Abstract', 'ABSTRACT', '摘要']);
+  assignChineseSourceField(next, 'authors', ['authors', 'author', 'Author', '作者']);
+  assignChineseSourceField(next, 'journal', ['journal', 'Journal', '刊名', '期刊', '出处', '来源']);
+  assignChineseSourceField(next, 'doi', ['doi', 'DOI']);
+  assignChineseSourceField(next, 'wanfang_id', ['wanfang_id', '万方ID', '万方id', 'articleid', 'ArticleID']);
+  assignChineseSourceField(next, 'vip_id', ['vip_id', '维普ID', '维普id']);
+  assignChineseSourceField(next, 'sinomed_id', ['sinomed_id', 'SinoMed ID', 'SID']);
+  assignChineseSourceField(next, 'classification', ['classification', '分类号']);
+  const directYear = assignChineseSourceField(next, 'year', ['year', 'Year', '年份', '出版年', '年']);
+  applyChineseSourceYearVolumeIssue(next, getFirstChineseSourceField(next, ['年,卷(期)', '年，卷(期)', '年卷期', 'Year,Volume(Issue)']) || directYear);
+
+  const sourceDatabase = next.source_database || inferChineseSourceDatabase(next);
+  if (sourceDatabase) {
+    next.source_database = sourceDatabase;
+  }
+  if (next.wanfang_id) next.source_database = next.source_database || 'Wanfang';
+  if (next.vip_id) next.source_database = next.source_database || 'VIP';
+  if (next.sinomed_id) next.source_database = next.source_database || 'SinoMed';
+
+  const abstractQuality = normalizeChineseSourceAbstractQuality(next.abstract, next.source_database);
+  next.abstract = abstractQuality.abstract;
+  if (abstractQuality.abstract_noise_detected) {
+    next.abstract_noise_detected = true;
+    next.abstract_quality_note = abstractQuality.abstract_quality_note;
+  }
+  if (abstractQuality.abstract_truncation_suspected) {
+    next.abstract_truncation_suspected = true;
+  }
+  markChineseSourceMappingIncomplete(next);
+
+  return next;
+}
+
 function decodeXmlEntities(value) {
   return String(value || '')
     .replace(/&amp;/g, '&')
@@ -560,16 +735,17 @@ function normalizeIdentifierForDedup(identifier) {
 }
 
 function enrichImportedRecord(record, sourceFile) {
-  const title = record.title || record.TI || '';
-  const rawIdentifier = record.identifier_raw || record.doi || record.DOI || '';
+  const normalizedRecord = normalizeChineseSourceRecord(record);
+  const title = normalizedRecord.title || normalizedRecord.TI || '';
+  const rawIdentifier = normalizedRecord.identifier_raw || normalizedRecord.doi || normalizedRecord.DOI || '';
 
   return {
-    ...record,
+    ...normalizedRecord,
     identifier_raw: String(rawIdentifier || '').trim(),
     _normalized_identifier: normalizeIdentifierForDedup(rawIdentifier),
     _normalized_title: normalizeTitle(title),
     title_norm: normalizeTitle(title),
-    doi_norm: normalizeDOI(record.doi || record.DOI),
+    doi_norm: normalizeDOI(normalizedRecord.doi || normalizedRecord.DOI),
     _source_file: sourceFile || 'unknown',
     _import_time: Date.now(),
     _dedup_key: null

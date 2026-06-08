@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:bib="http://purl.org/net/biblio#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:dcterms="http://purl.org/dc/terms/">
+  <bib:Journal rdf:about="journal-cnki-1">
+    <dc:title>中国针灸</dc:title>
+  </bib:Journal>
+  <bib:Article rdf:about="https://doi.org/10.1234/cnki.2024.001">
+    <dc:title>针灸治疗慢性疼痛的真实世界研究</dc:title>
+    <dc:creator>张三</dc:creator>
+    <dc:creator>李四</dc:creator>
+    <dcterms:issued>2024-03-01</dcterms:issued>
+    <dcterms:isPartOf rdf:resource="journal-cnki-1" />
+    <dc:identifier><rdf:value>https://doi.org/10.1234/cnki.2024.001</rdf:value></dc:identifier>
+    <dcterms:abstract><![CDATA[摘要：目的：评价针灸治疗慢性疼痛的临床疗效。结果显示治疗组疼痛评分下降。基金：国家自然科学基金；下载频次：42；被引频次：7；分类号：R246；dbcode:CJFD；余略]]></dcterms:abstract>
+  </bib:Article>
+</rdf:RDF>

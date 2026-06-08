@@ -195,7 +195,7 @@
     session.headers.forEach((header, index) => {
       record[header] = String(row[index] ?? '').trim();
     });
-    records.push(record);
+    records.push(normalizeChineseSourceRecord(record));
     session.parsedCount += 1;
   }
 
@@ -231,6 +231,7 @@
         N2: 'abstract',
         KW: 'keywords',
         OT: 'keywords',
+        MH: 'mesh_terms',
         VL: 'volume',
         VI: 'volume',
         IS: 'issue',
@@ -238,6 +239,9 @@
         SP: 'pages',
         EP: 'pages_end',
         PMID: 'pmid',
+        SID: 'sinomed_id',
+        'SINOMED ID': 'sinomed_id',
+        SO: 'source',
         SN: 'issn',
         UR: 'url',
       },
@@ -270,9 +274,9 @@
       return;
     }
 
-    const match = trimmed.match(/^([A-Z0-9]{2,4})\s*-\s*(.*)$/);
+    const match = trimmed.match(/^([A-Za-z0-9][A-Za-z0-9 ]{1,20})\s*-\s*(.*)$/);
     if (match) {
-      const tag = match[1];
+      const tag = match[1].trim().toUpperCase();
       const rawValue = String(match[2] || '').trim();
 
       if (tag === 'TY' && Object.keys(session.currentRecord).length > 0) {
@@ -315,7 +319,36 @@
       return;
     }
 
+    if (mappedField === 'source') {
+      applyTaggedSourceValue(session, rawValue);
+      return;
+    }
+
     appendTaggedField(session, mappedField, rawValue, false);
+  }
+
+  function applyTaggedSourceValue(session, rawValue) {
+    const value = String(rawValue || '').trim();
+    if (!value) {
+      session.currentField = '';
+      return;
+    }
+
+    const year = extractYearValue(value);
+    if (year && /^\d{4}$/.test(year) && !session.currentRecord.year) {
+      session.currentRecord.year = year;
+    }
+
+    const journal = value
+      .replace(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b[\s\S]*$/, '')
+      .replace(/[.;；。\s]+$/, '')
+      .trim();
+    if (journal && !session.currentRecord.journal) {
+      session.currentRecord.journal = journal;
+    }
+
+    session.currentRecord.source_raw = session.currentRecord.source_raw || value;
+    session.currentField = '';
   }
 
   function appendTaggedField(session, field, rawValue, continuation) {
@@ -330,7 +363,7 @@
       return;
     }
 
-    if (field === 'authors' || field === 'keywords') {
+    if (field === 'authors' || field === 'keywords' || field === 'mesh_terms') {
       session.currentRecord[field] = session.currentRecord[field]
         ? `${session.currentRecord[field]}; ${value}`
         : value;
@@ -344,6 +377,12 @@
         session.currentRecord.identifier_raw = value;
       }
       session.currentField = 'pmid';
+      return;
+    }
+
+    if (field === 'sinomed_id') {
+      session.currentRecord.sinomed_id = session.currentRecord.sinomed_id || value;
+      session.currentField = 'sinomed_id';
       return;
     }
 
@@ -385,7 +424,7 @@
       session.currentRecord.identifier_raw = session.currentRecord.doi;
     }
 
-    records.push(session.currentRecord);
+    records.push(normalizeChineseSourceRecord(session.currentRecord));
     session.currentRecord = {};
     session.currentField = '';
     session.parsedCount += 1;
@@ -551,7 +590,7 @@
     }
 
     if (Array.isArray(records)) {
-      records.push(session.currentRecord);
+      records.push(normalizeChineseSourceRecord(session.currentRecord));
     }
     session.currentRecord = {};
     session.currentField = '';
@@ -600,6 +639,80 @@
     }
 
     return text.includes('[doi]') ? text.replace(/\s*\[doi\]\s*/i, '').trim() : text;
+  }
+
+  function firstField(record, fields) {
+    for (let index = 0; index < fields.length; index += 1) {
+      const field = fields[index];
+      const value = record[field];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+    return '';
+  }
+
+  function assignIfPresent(record, targetField, sourceFields) {
+    const value = firstField(record, sourceFields);
+    if (value && !record[targetField]) {
+      record[targetField] = value;
+    }
+    return value;
+  }
+
+  function applyYearVolumeIssue(record, value) {
+    const text = String(value || '').trim();
+    if (!text) return;
+
+    const year = extractYearValue(text);
+    if (year && /^\d{4}$/.test(year) && !record.year) {
+      record.year = year;
+    }
+
+    const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*\(([^)）]+)\)/);
+    if (volumeIssue) {
+      if (!record.volume) record.volume = volumeIssue[1];
+      if (!record.issue) record.issue = volumeIssue[2];
+    }
+  }
+
+  function hasAbstractTruncationSignal(text) {
+    const value = String(text || '').trim();
+    return /(?:余略|详见原文|待续)/.test(value) || /(?:…|……|\.\.\.)\s*$/.test(value);
+  }
+
+  function markIncompleteMapping(record) {
+    if (!record.source_database) return;
+    const requiredFields = ['title', 'abstract', 'authors', 'journal', 'year'];
+    if (requiredFields.some((field) => !String(record[field] || '').trim())) {
+      record.source_mapping_incomplete = true;
+    }
+  }
+
+  function normalizeChineseSourceRecord(input) {
+    if (!input || typeof input !== 'object') return input;
+
+    const record = { ...input };
+    assignIfPresent(record, 'title', ['title', 'Title', 'TITLE', '题名', '标题', '论文题名']);
+    assignIfPresent(record, 'abstract', ['abstract', 'Abstract', 'ABSTRACT', '摘要']);
+    assignIfPresent(record, 'authors', ['authors', 'author', 'Author', '作者']);
+    assignIfPresent(record, 'journal', ['journal', 'Journal', '刊名', '期刊', '出处', '来源']);
+    assignIfPresent(record, 'doi', ['doi', 'DOI']);
+    assignIfPresent(record, 'wanfang_id', ['wanfang_id', '万方ID', '万方id', 'ArticleID', 'articleid']);
+    assignIfPresent(record, 'vip_id', ['vip_id', '维普ID', '维普id']);
+    assignIfPresent(record, 'sinomed_id', ['sinomed_id', 'SinoMed ID', 'SID']);
+    assignIfPresent(record, 'classification', ['classification', '分类号']);
+
+    const directYear = assignIfPresent(record, 'year', ['year', 'Year', '年份', '出版年', '年']);
+    applyYearVolumeIssue(record, firstField(record, ['年,卷(期)', '年，卷(期)', '年卷期', 'Year,Volume(Issue)']) || directYear);
+
+    if (record.wanfang_id) record.source_database = record.source_database || 'Wanfang';
+    if (record.vip_id) record.source_database = record.source_database || 'VIP';
+    if (record.sinomed_id) record.source_database = record.source_database || 'SinoMed';
+    if (hasAbstractTruncationSignal(record.abstract)) record.abstract_truncation_suspected = true;
+    markIncompleteMapping(record);
+
+    return record;
   }
 
   return {
