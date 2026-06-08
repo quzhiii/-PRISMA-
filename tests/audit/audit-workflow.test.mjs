@@ -363,6 +363,32 @@ test('public docs describe V2.6 as a completed conservative AI foundation slice,
   assert.match(conservativeAiDesign, /自动生成最终纳入\/排除结论/);
 });
 
+test('public docs position V2.7 as a conservative Chinese-source reliability slice', async () => {
+  const [readme, readmeEn, roadmap, positioning, chineseSourceDesign] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/PRODUCT_POSITIONING_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/design/CHINESE_SOURCE_COMPATIBILITY.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| 下一阶段：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强/);
+  assert.match(readmeEn, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| Next: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening/);
+  assert.match(readme, /abstract_truncation_suspected/);
+  assert.match(readmeEn, /abstract_truncation_suspected/);
+  assert.match(roadmap, /P5\.1：V2\.7 中文源可靠性/);
+  assert.match(roadmap, /Current status: V2\.7 Chinese-source reliability is the next slice after completed V2\.6/);
+  assert.match(roadmap, /fixture-backed CNKI \/ Wanfang \/ VIP \/ SinoMed hardening/);
+  assert.match(positioning, /V2\.7 Chinese-source reliability \| 下一阶段 reliability slice/);
+  assert.match(positioning, /中文源可靠性是数据质量可见性层，不是自动筛选决策层/);
+  assert.match(chineseSourceDesign, /Last updated: 2026-06-08/);
+  assert.match(chineseSourceDesign, /V2\.7 Chinese-source reliability/);
+  assert.match(chineseSourceDesign, /fixture-backed CNKI \/ Wanfang \/ VIP \/ SinoMed/);
+  assert.match(chineseSourceDesign, /source_mapping_incomplete/);
+  assert.doesNotMatch(`${readme}\n${readmeEn}\n${roadmap}\n${positioning}\n${chineseSourceDesign}`, /fully supports all Chinese databases|完美支持所有中文数据库/);
+  assert.doesNotMatch(`${readme}\n${readmeEn}\n${roadmap}\n${positioning}`, /V2\.7.*creates automatic final decisions|V2\.7.*自动生成最终/);
+});
+
 test('v2.5.1 app persists project history snapshots', async () => {
   const source = await readV22App();
   const workspaceHtml = await readV22File('workspace.html');

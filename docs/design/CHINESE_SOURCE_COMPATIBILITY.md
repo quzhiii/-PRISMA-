@@ -1,6 +1,8 @@
 # Chinese Source Compatibility Design
 
-Last updated: 2026-04-28
+Last updated: 2026-06-08
+
+V2.7 Chinese-source reliability focuses on fixture-backed CNKI / Wanfang / VIP / SinoMed import hardening. It exposes source-quality warnings such as `abstract_truncation_suspected`, `abstract_noise_detected`, and `source_mapping_incomplete` without changing final screening decision semantics.
 
 ## 1. 设计目标
 
@@ -21,9 +23,9 @@ Last updated: 2026-04-28
 | 中文显示 | 已解决主要乱码问题 |
 | 多格式导入 | 支持 CSV、TSV、RIS、ENW、BibTeX、RDF、TXT、NBIB |
 | 常用格式增量解析 | CSV、TSV、RIS、NBIB、ENW 走 Worker 分块解析 |
-| RDF/BibTeX/TXT | 可导入，但大文件和字段噪音仍需加强 |
+| RDF/BibTeX/TXT | 可导入；V2.7 优先用 CNKI RDF fixture 加强字段噪音识别 |
 | 中英文筛选语言选项 | 已有中文/英文语言筛选 |
-| CNKI RDF 噪音处理 | 已有初步处理，但需要系统化 fixture |
+| CNKI RDF 噪音处理 | V2.7 通过代表性 fixture 固定摘要噪音和截断风险标记 |
 | DOI/PMID | 已在通用字段中使用 |
 
 ## 3. 当前不稳定点
@@ -32,7 +34,7 @@ Last updated: 2026-04-28
 |---|---|
 | CNKI RDF 字段多样且含噪音 | 摘要、基金、机构、关键词可能混入错误字段 |
 | 万方/维普导出格式不统一 | 同一字段可能有中文表头、英文表头或组合字段 |
-| SinoMed 样例不足 | 难以冻结字段映射 |
+| SinoMed 样例不足 | V2.7 先使用代表性 NBIB-like fixture 冻结最小字段映射 |
 | 中文摘要截断 | 工具不能补全，只能标记风险 |
 | 中英文标题并存 | 去重和展示可能选择不稳定 |
 | 作者字段分隔符多样 | 中文顿号、分号、逗号、英文逗号混用 |
@@ -151,6 +153,7 @@ SinoMed 需要补真实导出样例后再冻结 parser 行为。
 | `abstract_truncation_suspected` | 是否疑似截断 |
 | `abstract_noise_detected` | 是否疑似混入噪音 |
 | `abstract_quality_note` | 可读说明 |
+| `source_mapping_incomplete` | 来源记录可导入但关键字段仍不完整 |
 
 ## 6. 标题和作者归一化
 
@@ -192,17 +195,16 @@ landing page 和工作台导入说明应避免过度承诺。推荐表达：
 
 优先级：
 
-1. CNKI RDF fixture 和字段映射回归测试。
-2. 万方 CSV/Excel 导出样例字段映射。
-3. 维普 CSV/TXT 样例字段映射。
-4. SinoMed 样例收集和最小 parser。
-5. 中文摘要截断和噪音检测测试。
+1. 继续扩充真实 CNKI RDF、万方、维普和 SinoMed 导出样例。
+2. 对更多组合字段和中文表头建立 fixture-backed 映射。
+3. 加强中文摘要截断和噪音检测的误报回归。
+4. 将来源质量提示保持为导入和审计提示，不进入自动最终决定。
 
 ## 10. 不要过度承诺
 
 当前不要宣传：
 
-- 完美支持所有中文数据库。
+- 全量覆盖所有中文数据库导出变体。
 - 自动修复所有乱码。
 - 自动补全文献摘要。
 - 自动识别所有研究设计。

@@ -76,6 +76,7 @@ flowchart LR
 | V2.5.1 project history rollback | `literature-screening-v2.2/` | Completed. Adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
 | V2.6 | `literature-screening-v2.2/` | Completed: local conservative AI foundation slice. It covers local advisory suggestions, prioritisation, uncertainty flags, prompt-registry trace records, Step 3 advisory queue controls, queue summary, priority sorting, review-state filters, empty-state clarity, PRISMA-trAIce queue summary, and audit summary queue summary; real provider dispatch stays disabled by default and final decisions remain human-confirmed. |
+| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | Next: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening with `abstract_truncation_suspected`, `abstract_noise_detected`, and `source_mapping_incomplete` import warnings; no backend, real AI dispatch, or automatic final screening decisions. |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
 | V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
 | V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
@@ -176,6 +177,7 @@ Latest V2.6 foundation regression result: `151/151` passed.
 | V2.5 | Current public release line: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
 | V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
 | V2.6 | Completed: local conservative AI foundation slice for advisory suggestions, ranking, prompt registry, provider abstraction boundaries, Step 3 advisory queue controls, PRISMA-trAIce queue summary, and audit summary queue summary |
+| V2.7 | Next: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and unchanged final-decision semantics |
 | V3.0 | Landing page, demo dataset, benchmark, paper skeleton, release material |
 
 ## Version history

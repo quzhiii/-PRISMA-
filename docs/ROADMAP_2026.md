@@ -196,6 +196,25 @@ Completed queue state: Step 3 advisory queue controls are completed with queue l
 - 不覆盖人工决定。
 - 所有 AI 输出必须可导出。
 
+## P5.1：V2.7 中文源可靠性
+
+目标：在完成 V2.6 conservative AI foundation 后，先加强中文源导入可靠性和风险可见性，再进入 V3.0 发布包装。
+
+Current status: V2.7 Chinese-source reliability is the next slice after completed V2.6 on the `literature-screening-v2.2/` compatibility path. It is a fixture-backed CNKI / Wanfang / VIP / SinoMed hardening slice, not a backend, cloud sync, real AI dispatch, or automatic final-decision slice.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| fixture-backed CNKI / Wanfang / VIP / SinoMed hardening | 用代表性样例冻结 CNKI RDF、万方、维普和 SinoMed 字段映射行为 | 下一阶段 |
+| Abstract reliability flags | 导入记录可携带 `abstract_truncation_suspected` 和 `abstract_noise_detected` | 下一阶段 |
+| Source mapping warning | 对可导入但关键字段缺失的记录标记 `source_mapping_incomplete`，不伪造缺失值 | 下一阶段 |
+| Import-facing warnings | 在导入摘要和审计事件中提示来源质量风险 | 下一阶段 |
+
+约束：
+
+- 只作为数据质量可见性层，不自动纳入或排除记录。
+- 不承诺覆盖所有中文数据库导出变体。
+- 不引入账号、后端、云同步或真实 AI provider dispatch。
+
 ## P6：V3.0 发布、论文与商业化准备
 
 目标：形成更清晰的公开产品、demo、benchmark 和论文材料。
