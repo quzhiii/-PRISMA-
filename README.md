@@ -180,7 +180,7 @@ node tests\run-all-regressions.js
 | V2.7 | 下一阶段：Chinese-source reliability，fixture-backed CNKI / Wanfang / VIP / SinoMed hardening、摘要截断 / 噪音 / 映射不完整导入提示，不改变最终决定语义 |
 | V3.0 | 先从 public demo dataset 开始，再推进 benchmark、paper skeleton 和发布材料 |
 
-当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。下一刀是 `benchmark package`：从现有 dedup runner、manifest 和报告开始，整理 repo 内可复现的 import / dedup / audit replay 基准入口。
+当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。下一刀是 `benchmark package`：从现有 dedup runner、manifest 和报告开始，整理 repo 内可复现的 import / dedup / audit replay 基准入口。再下一刀是 `paper skeleton`：先建立 repository-local paper skeleton、statement of need、evidence source map 和 JOSS / JMIR AI / Systematic Reviews 的保守投稿方向，而不是直接声称已有完整投稿稿件。
 
 ## 版本历史
 

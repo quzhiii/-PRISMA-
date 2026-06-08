@@ -180,7 +180,7 @@ Latest V2.6 foundation regression result: `151/151` passed.
 | V2.7 | Next: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and unchanged final-decision semantics |
 | V3.0 | Starts with a public demo dataset, then expands into benchmark, paper skeleton, and release material |
 
-The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset. The next slice is a `benchmark package`: a reproducible repo-local benchmark entry that starts from the current dedup runner, manifest, and reports.
+The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset. The next slice is a `benchmark package`: a reproducible repo-local benchmark entry that starts from the current dedup runner, manifest, and reports. The next slice is a `paper skeleton`: a repository-local paper skeleton with a statement of need, evidence-source map, and conservative venue exploration for JOSS / JMIR AI / Systematic Reviews, not a full submission-ready manuscript.
 
 ## Version history
 
