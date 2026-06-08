@@ -47,3 +47,18 @@ test('benchmark runner rejects an unknown target', async () => {
   assert.notEqual(exitCode, 0, 'expected unknown benchmark target to exit non-zero');
   assert.match(capturedErrors.join(''), /unknown target/i);
 });
+
+test('benchmark runner help text describes the reproducible benchmark package entry', async () => {
+  const { main } = await importFromRepo('scripts/dedup/run-benchmark.mjs');
+  const output = [];
+
+  const exitCode = await main(['--help'], {
+    repoRoot,
+    stdout: { write(chunk) { output.push(String(chunk)); } },
+    stderr: { write() {} },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.match(output.join(''), /benchmark package/i);
+  assert.match(output.join(''), /benchmark-manifest\.csv/i);
+});

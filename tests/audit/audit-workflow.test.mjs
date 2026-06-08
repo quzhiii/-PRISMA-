@@ -502,3 +502,22 @@ test('public docs and workspace position sample data as a public demo dataset', 
   assert.match(landingHtml, /公开演示数据|public demo dataset/i);
   assert.match(appSource, /public demo dataset|公开演示数据/i);
 });
+
+test('public docs position benchmark package as the next concrete P6 slice', async () => {
+  const [readme, readmeEn, roadmap] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+  ]);
+
+  const benchmarkPackageDoc = await fs.readFile(
+    path.join(repoRoot, 'docs/benchmarks/README.md'),
+    'utf8'
+  );
+
+  assert.match(readme, /benchmark package/i);
+  assert.match(readmeEn, /benchmark package/i);
+  assert.match(roadmap, /Benchmark package \| 导入、去重、筛选、审计 replay 的可复现测试/);
+  assert.match(benchmarkPackageDoc, /scripts\/dedup\/run-benchmark\.mjs/);
+  assert.match(benchmarkPackageDoc, /tests\/fixtures\/dedup\/benchmark-manifest\.csv/);
+});
