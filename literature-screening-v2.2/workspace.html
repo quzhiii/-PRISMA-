@@ -559,6 +559,11 @@
             <button type="button" class="btn btn-secondary" onclick="saveProjectFile()"><span class="zh">导出协作项目</span><span class="en">Export Collaboration Project</span></button>
             <button type="button" class="btn btn-secondary" onclick="showProjectStatus()"><span class="zh">查看详细状态</span><span class="en">View Project Status</span></button>
           </div>
+          <div class="button-group" style="margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="exportCollaborationSeedPackage()"><span class="zh">导出 collaboration seed</span><span class="en">Export Collaboration Seed</span></button>
+            <button type="button" class="btn btn-secondary" onclick="exportReviewerDecisionBundle()"><span class="zh">导出 reviewer decision bundle</span><span class="en">Export Reviewer Decision Bundle</span></button>
+            <button type="button" class="btn btn-secondary" onclick="importReviewerDecisionBundle()"><span class="zh">导入 reviewer decision bundle</span><span class="en">Import Reviewer Decision Bundle</span></button>
+          </div>
         </div>
 
         <div id="kappa-analysis" class="info-box hidden workspace-info-panel secondary-info-zone" style="margin-bottom: 20px;">
@@ -1001,6 +1006,7 @@
   <script src="ai-provider-engine.js?v=20260508-v23-provider"></script>
   <script src="conservative-ai-engine.js?v=20260604-v26-foundation"></script>
   <script src="project-history-engine.js?v=20260603-v251-history"></script>
+  <script src="reviewer-bundle-engine.js?v=20260609-reviewer-bundle"></script>
   <script src="app.js?v=20260512-v25-dual-review-exports"></script>
   <script src="v1.7-core-patch.js?v=20260329-uploadfix3"></script>
 </body>

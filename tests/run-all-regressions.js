@@ -11,6 +11,8 @@ const testFiles = [
   'tests/ai/ai-suggestion-panel-ui.test.mjs',
   'tests/ai/ai-suggestion-review-flow.test.mjs',
   'tests/audit/audit-engine.test.mjs',
+  'tests/audit/dual-review-engine.test.mjs',
+  'tests/audit/reviewer-bundle-engine.test.mjs',
   'tests/audit/audit-workflow.test.mjs',
   'tests/audit/audit-export.test.mjs',
   'tests/audit/project-history-engine.test.mjs',

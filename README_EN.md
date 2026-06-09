@@ -1,6 +1,6 @@
 # PRISMA Screening & Audit Workbench
 
-A local-first, research-grade workspace for systematic reviews, meta-analyses, and evidence synthesis. It keeps literature import, conservative deduplication, dual review, quality assessment, history rollback, PRISMA 2020 export, and audit evidence in one browser workflow.
+A local-first, research-grade workspace for systematic reviews, meta-analyses, and evidence synthesis. It keeps literature import, conservative deduplication, dual review, offline reviewer bundles, quality assessment, history rollback, PRISMA 2020 export, and audit evidence in one browser workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -34,6 +34,7 @@ The hard part of a systematic review is rarely the final diagram. The hard part 
 | Full-text exclusion reasons are scattered across notes | Uses a standard exclusion-reason taxonomy and exports a reason summary |
 | Quality appraisal often sits outside screening tools | Included studies can enter item-level quality forms and export quality appraisal, evidence table, and GRADE summary files |
 | Dual-review conflicts weaken final export trust | V2.5 brings screening and quality disagreements into reviewer isolation, resolver workflow, agreement metrics, and an unresolved-conflict gate |
+| Two reviewers work on different machines | Reviewer Bundle protocol supports a collaboration seed package, reviewer decision bundle, and merge import for file-based local-first collaboration. Full-project save/load remains a separate backup path |
 | Wrong source files or source-set changes are hard to undo | V2.5.1 adds local project snapshots, restore flow, and source-file add/remove history |
 | AI assistance needs transparency before adoption | AI mode is `off` by default; example AI suggestions must pass through human confirmation and audit logs |
 
@@ -73,6 +74,7 @@ flowchart LR
 | Line | Path | Status |
 |---|---|---|
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | Current public release line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; the page shell, project snapshot version, and manifest default version now align on V2.5. |
+| Reviewer Bundle protocol | `literature-screening-v2.2/` | Completed local handoff slice. A project owner can export a collaboration seed package, Reviewer A/B can each export a reviewer decision bundle, and the owner can use merge import to bring those decisions back into the existing project while refreshing conflicts, agreement metrics, and the export gate. Full-project save/load remains a separate backup path; this adds no backend, account, or payment layer. |
 | V2.5.1 project history rollback | `literature-screening-v2.2/` | Completed. Adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
 | V2.6 | `literature-screening-v2.2/` | Completed: local conservative AI foundation slice. It covers local advisory suggestions, prioritisation, uncertainty flags, prompt-registry trace records, Step 3 advisory queue controls, queue summary, priority sorting, review-state filters, empty-state clarity, PRISMA-trAIce queue summary, and audit summary queue summary; real provider dispatch stays disabled by default and final decisions remain human-confirmed. |
@@ -111,6 +113,7 @@ V2.5 closeout turns dual review from a usable entry point into an auditable, ris
 | Rule-based screening | Language, year, keyword, title, author, and journal filters |
 | Full-text review | Keyboard shortcuts, exclusion reasons, notes, and record-level translation entry |
 | Dual review | V2.5 closeout supports A/B decision isolation, conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate |
+| Local file collaboration | Reviewer Bundle protocol supports a collaboration seed package, reviewer decision bundle, and merge import, then reuses the existing conflict queue and resolver workflow after cross-machine handoff |
 | History rollback | V2.5.1 supports local project snapshots, version restore, source-file add/remove history, and restore points at key workflow steps |
 | Quality assessment | V2.4 supports template families, item-level forms, human judgement, supporting quote / page, and reviewer notes; V2.5 adds quality conflict handling |
 | Evidence synthesis | Supports `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv` |
@@ -137,6 +140,7 @@ workspace.html              -> Workspace page and step structure
 app.js                      -> Main flow, rule screening, review, export, and state management
 audit-engine.js             -> Audit model, PRISMA-trAIce structures, decision serialization, audit-package builders
 dual-review-engine.js       -> V2.5 conflict queues, resolver workflow, agreement metrics, and dual-review exports
+reviewer-bundle-engine.js   -> Reviewer Bundle protocol, seed package, reviewer bundle, and merge-import pure helpers
 project-history-engine.js   -> V2.5.1 local history snapshots, state cloning, and rollback metadata
 db-worker.js                -> IndexedDB data layer
 parser-worker.js            -> Multi-format parsing and background orchestration
@@ -160,6 +164,7 @@ Current coverage includes:
 - audit model, workflow hooks, audit-package export
 - AI suggestion panel, human review flow, PRISMA-trAIce report, and AI suggestion JSONL trace fields
 - dual-review conflict queue, resolver workflow, agreement metrics, and unresolved-conflict gate
+- reviewer bundle seed export, reviewer-scoped decision bundle, merge import, and conflict-gate round trip
 - project history snapshots, rollback flow, source-file add/remove recovery
 - dedup engine, candidate duplicate export, benchmark smoke/regression
 - import job state, parser chunk boundaries, import hardening
@@ -175,14 +180,27 @@ Latest V2.6 foundation regression result: `151/151` passed.
 | V2.3 | PRISMA-trAIce readiness: AI usage registry, reviewed AI suggestion log, No-AI/assistive transparency report |
 | V2.4 | Completed: quality appraisal templates, item-level forms, evidence table, GRADE summary |
 | V2.5 | Current public release line: reviewer isolation, conflict queue, resolver workflow, agreement metrics, unresolved-conflict gate |
+| Reviewer Bundle protocol | Completed: offline cross-machine handoff through a collaboration seed package, reviewer decision bundle, and merge import; this is file-based local-first collaboration and does not replace full-project backups |
 | V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
 | V2.6 | Completed: local conservative AI foundation slice for advisory suggestions, ranking, prompt registry, provider abstraction boundaries, Step 3 advisory queue controls, PRISMA-trAIce queue summary, and audit summary queue summary |
 | V2.7 | Next: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and unchanged final-decision semantics |
-| V3.0 | Starts with a public demo dataset, then expands into benchmark, paper skeleton, and release material |
+| V3.0 | Starts with a public demo dataset, then expands into benchmark, paper skeleton, release page refresh, and commercial validation |
 
-The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset. The next slice is a `benchmark package`: a reproducible repo-local benchmark entry that starts from the current dedup runner, manifest, and reports. The next slice is a `paper skeleton`: a repository-local paper skeleton with a statement of need, evidence-source map, and conservative venue exploration for JOSS / JMIR AI / Systematic Reviews, not a full submission-ready manuscript.
+The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset. The next slice is a `benchmark package`: a reproducible repo-local benchmark entry that starts from the current dedup runner, manifest, and reports. The next slice is a `paper skeleton`: a repository-local paper skeleton with a statement of need, evidence-source map, and conservative venue exploration for JOSS / JMIR AI / Systematic Reviews, not a full submission-ready manuscript. The next slice is a `commercial validation`: a commercial validation contract with open-core / free-vs-paid boundary checks, interview and trial evidence record structure, and validation before monetization implementation, with no payment code, account system, or product lock rollout.
 
 ## Version history
+
+<details>
+<summary><b>Reviewer Bundle protocol (completed local file-collaboration slice, 2026-06)</b></summary>
+
+- adds `reviewer-bundle-engine.js` so seed, bundle, and merge-import protocol logic stays out of `app.js`
+- lets a project owner export a collaboration seed package without reviewer decisions
+- lets Reviewer A/B export reviewer decision bundle files scoped to their own full-text decisions and reviewer-scoped quality values
+- lets the owner merge import reviewer decision bundle files into an existing project, then refresh dual-review conflicts, agreement metrics, and the unresolved-conflict gate
+- this is file-based local-first collaboration. Full-project save/load remains a separate backup path
+- adds no backend, accounts, permissions, payment system, or online service
+
+</details>
 
 <details>
 <summary><b>V2.6 Conservative AI foundation (completed foundation slice, 2026-06)</b></summary>

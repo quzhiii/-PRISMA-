@@ -1,6 +1,6 @@
 # PRISMA 系统综述筛选与审计工作台
 
-面向系统综述、Meta 分析与证据整合项目的本地优先研究级工作台。支持多来源文献导入、保守去重、双人复核、质量评价、历史回溯、PRISMA 2020 导出和审计证据包。
+面向系统综述、Meta 分析与证据整合项目的本地优先研究级工作台。支持多来源文献导入、保守去重、双人复核、离线 reviewer bundle 交接、质量评价、历史回溯、PRISMA 2020 导出和审计证据包。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -34,6 +34,7 @@
 | 全文排除理由分散在表格或备注里 | 内置标准 exclusion reason taxonomy，并导出排除理由汇总 |
 | 质量评价经常脱离筛选流程 | 纳入研究可以进入条目级质量评价表单，并导出质量评价表、证据表和 GRADE 摘要 |
 | 双人复核冲突影响最终导出可信度 | V2.5 已把筛选和质量评价分歧纳入 resolver workflow、agreement metrics 和 unresolved conflict gate |
+| 两位审稿人不在同一台机器上工作 | Reviewer Bundle protocol 支持 collaboration seed package、reviewer decision bundle 和 merge import，形成 file-based local-first collaboration；完整项目保存/加载仍是单独的备份路径 |
 | 上传错文件或调整来源后很难回退 | V2.5.1 已加入本地项目快照、历史恢复和来源文件增减记录 |
 | 使用 AI 辅助时担心不可解释 | AI 默认关闭；示例 AI 建议必须经过人工确认，并写入审计日志 |
 
@@ -73,6 +74,7 @@ flowchart LR
 | 版本线 | 路径 | 状态 |
 |---|---|---|
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
+| Reviewer Bundle protocol | `literature-screening-v2.2/` | 已完成本地交接切片。项目 owner 可导出 collaboration seed package，Reviewer A/B 可各自导出 reviewer decision bundle，owner 可用 merge import 合并回现有项目并刷新冲突队列、一致性指标和 export gate。完整项目保存/加载仍是单独的备份路径；不新增后端、账号或付费层。 |
 | V2.5.1 project history rollback | `literature-screening-v2.2/` | 已完成。增加本地历史快照、版本恢复、来源文件增减后的可恢复状态，并在导入、筛选重跑、全文复核完成、质量保存、冲突解决和导出前生成恢复点。 |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
 | V2.6 | `literature-screening-v2.2/` | 已完成：本地保守 AI foundation slice。已覆盖 local advisory suggestions、prioritisation、uncertainty flags、prompt registry trace、Step 3 advisory queue controls、queue summary、priority sorting、review-state filters、empty-state clarity、PRISMA-trAIce queue summary 和 audit summary queue summary；真实 AI provider 仍默认关闭，最终决定仍由人工确认。 |
@@ -111,6 +113,7 @@ V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、
 | 规则筛选 | 支持语言、年份、关键词、标题、作者、期刊等条件 |
 | 全文复核 | 支持快捷键、排除理由、备注和单篇翻译入口 |
 | 双人复核 | V2.5 closeout 已支持 A/B 决策隔离、冲突队列、resolver workflow、agreement metrics 和 unresolved conflict gate |
+| 本地文件协作 | Reviewer Bundle protocol 已支持 collaboration seed package、reviewer decision bundle 和 merge import，跨机器交接后复用现有 conflict queue 和 resolver workflow |
 | 历史记录回溯 | V2.5.1 已支持本地项目快照、版本恢复、来源文件增减记录，以及关键流程节点的恢复点 |
 | 质量评价 | V2.4 已支持模板族、条目级质量表单、人工 judgement、支持性原文 / 页码和审稿备注；V2.5 增加质量评价分歧处理 |
 | 证据整理 | 已支持 `quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv` |
@@ -137,6 +140,7 @@ workspace.html              -> 工作台页面与步骤结构
 app.js                      -> 主流程、规则筛选、复核、导出和状态管理
 audit-engine.js             -> 审计模型、PRISMA-trAIce 数据结构、决策序列化和审计包构建
 dual-review-engine.js       -> V2.5 双人复核冲突、resolver、agreement metrics 和导出逻辑
+reviewer-bundle-engine.js   -> Reviewer Bundle protocol、seed package、reviewer bundle 和 merge import 纯协议逻辑
 project-history-engine.js   -> V2.5.1 本地历史快照、状态克隆和回溯元数据
 db-worker.js                -> IndexedDB 数据层
 parser-worker.js            -> 多格式解析和后台消息编排
@@ -160,6 +164,7 @@ node tests\run-all-regressions.js
 - audit model、workflow hooks、audit package export
 - AI suggestion panel、human review flow、PRISMA-trAIce report、AI suggestion JSONL trace fields
 - dual-review conflict queue、resolver workflow、agreement metrics、unresolved conflict gate
+- reviewer bundle seed export、reviewer-scoped decision bundle、merge import 和 conflict gate round-trip
 - project history snapshots、rollback flow、source-file add/remove recovery
 - dedup engine、candidate duplicate export、benchmark smoke/regression
 - import job state、parser chunk boundaries、import hardening
@@ -175,14 +180,27 @@ node tests\run-all-regressions.js
 | V2.3 | PRISMA-trAIce 数据模型、AI usage registry、AI suggestion log、透明报告 |
 | V2.4 | 已完成：质量评价模板、条目级质量表单、evidence table、GRADE summary |
 | V2.5 | 当前公开版本线：双人复核隔离、冲突队列、resolver workflow、agreement metrics、unresolved conflict gate |
+| Reviewer Bundle protocol | 已完成：通过 collaboration seed package、reviewer decision bundle 和 merge import 支持 offline cross-machine handoff；这是 file-based local-first collaboration，不替代完整项目备份 |
 | V2.5.1 | 已完成：本地历史记录、项目快照、来源文件增减回溯、关键流程恢复点 |
 | V2.6 | 已完成：本地保守 AI foundation slice，覆盖 advisory suggestions、ranking、prompt registry、provider abstraction 边界、Step 3 advisory queue controls、PRISMA-trAIce queue summary 和 audit summary queue summary |
 | V2.7 | 下一阶段：Chinese-source reliability，fixture-backed CNKI / Wanfang / VIP / SinoMed hardening、摘要截断 / 噪音 / 映射不完整导入提示，不改变最终决定语义 |
-| V3.0 | 先从 public demo dataset 开始，再推进 benchmark、paper skeleton 和发布材料 |
+| V3.0 | 先从 public demo dataset 开始，再推进 benchmark、paper skeleton、release page refresh 和 commercial validation |
 
-当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。下一刀是 `benchmark package`：从现有 dedup runner、manifest 和报告开始，整理 repo 内可复现的 import / dedup / audit replay 基准入口。再下一刀是 `paper skeleton`：先建立 repository-local paper skeleton、statement of need、evidence source map 和 JOSS / JMIR AI / Systematic Reviews 的保守投稿方向，而不是直接声称已有完整投稿稿件。
+当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。下一刀是 `benchmark package`：从现有 dedup runner、manifest 和报告开始，整理 repo 内可复现的 import / dedup / audit replay 基准入口。再下一刀是 `paper skeleton`：先建立 repository-local paper skeleton、statement of need、evidence source map 和 JOSS / JMIR AI / Systematic Reviews 的保守投稿方向，而不是直接声称已有完整投稿稿件。再下一刀是 `commercial validation`：先冻结 commercial validation contract、open-core / free-vs-paid 边界、interview / trial evidence record 结构，并坚持 validation before monetization implementation，不写支付代码、账号系统或产品锁。
 
 ## 版本历史
+
+<details>
+<summary><b>Reviewer Bundle protocol（已完成本地文件协作切片，2026-06）</b></summary>
+
+- 新增 `reviewer-bundle-engine.js`，把 seed、bundle 和 merge import 的协议逻辑从 `app.js` 中独立出来
+- 项目 owner 可以导出不包含 reviewer decisions 的 collaboration seed package
+- Reviewer A/B 可以分别导出只包含自己 full-text decisions 和 reviewer-scoped quality values 的 reviewer decision bundle
+- owner 可以将 reviewer decision bundle merge import 回现有项目；导入后刷新 dual-review conflicts、agreement metrics 和 unresolved conflict gate
+- 该能力是 file-based local-first collaboration；完整项目保存/加载仍是单独的备份路径
+- 不引入后端、账号、权限、付费系统或在线同步服务
+
+</details>
 
 <details>
 <summary><b>V2.6 Conservative AI foundation（已完成 foundation slice，2026-06）</b></summary>

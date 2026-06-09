@@ -210,6 +210,27 @@ test('v2.2 app wires V2.5 dual-review conflict workflow without changing local-f
   assert.doesNotMatch(source, /fetch\([^)]*openai/i);
 });
 
+test('workspace exposes local-first reviewer bundle workflow entry points', async () => {
+  const source = await readV22App();
+  const workspaceHtml = await readV22File('workspace.html');
+
+  assert.match(workspaceHtml, /collaboration seed/i);
+  assert.match(workspaceHtml, /reviewer decision bundle/i);
+  assert.match(workspaceHtml, /exportCollaborationSeedPackage/);
+  assert.match(workspaceHtml, /exportReviewerDecisionBundle/);
+  assert.match(workspaceHtml, /importReviewerDecisionBundle/);
+  assert.match(workspaceHtml, /reviewer-bundle-engine\.js/);
+  assert.match(source, /reviewer-bundle-engine\.js/);
+  assert.match(source, /const REVIEWER_BUNDLE_ENGINE/);
+  assert.match(source, /function exportCollaborationSeedPackage/);
+  assert.match(source, /function exportReviewerDecisionBundle/);
+  assert.match(source, /function importReviewerDecisionBundle/);
+  assert.match(source, /function applyReviewerDecisionBundle/);
+  assert.match(source, /refreshDualReviewConflictState\(\)/);
+  assert.doesNotMatch(source, /fetch\([^)]*reviewer/i);
+  assert.doesNotMatch(source, /billing|payment|account/i);
+});
+
 test('v2.5 readiness docs describe final export blocking and browser smoke gate', async () => {
   const checklist = await fs.readFile(
     path.join(repoRoot, 'docs/checklists/V2.5_DUAL_REVIEW_READINESS_CHECKLIST.md'),
@@ -255,6 +276,42 @@ test('public docs mark V2.5 as current and history rollback as completed', async
   assert.match(historyPlan, /# V2\.5\.1 Project History and Rollback Implementation Plan/);
   assert.match(historyPlan, /restoreProjectState\(snapshot\)/);
   assert.match(historyPlan, /project_snapshot_restored/);
+});
+
+test('public docs describe reviewer bundles as file-based local-first collaboration', async () => {
+  const [readme, readmeEn, roadmap] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /Reviewer Bundle protocol/i);
+  assert.match(readme, /collaboration seed package/i);
+  assert.match(readme, /reviewer decision bundle/i);
+  assert.match(readme, /merge import/i);
+  assert.match(readme, /file-based local-first collaboration/i);
+  assert.match(readme, /完整项目保存\/加载仍是单独的备份路径/);
+  assert.doesNotMatch(readme, /Reviewer Bundle[\s\S]{0,400}(real-time sync|cloud collaboration|account-based collaboration|billing)/i);
+
+  assert.match(readmeEn, /Reviewer Bundle protocol/i);
+  assert.match(readmeEn, /collaboration seed package/i);
+  assert.match(readmeEn, /reviewer decision bundle/i);
+  assert.match(readmeEn, /merge import/i);
+  assert.match(readmeEn, /file-based local-first collaboration/i);
+  assert.match(readmeEn, /Full-project save\/load remains a separate backup path/);
+  assert.doesNotMatch(readmeEn, /Reviewer Bundle[\s\S]{0,400}(real-time sync|cloud collaboration|account-based collaboration|billing)/i);
+
+  assert.match(roadmap, /Reviewer Bundle protocol \| completed local-first handoff slice/);
+  assert.match(roadmap, /collaboration seed package、reviewer decision bundle、merge import、冲突重算/);
+  assert.match(roadmap, /file-based local-first collaboration/);
+  assert.match(roadmap, /不是 backend sync、real-time sync 或账号协作平台/);
+});
+
+test('full regression runner includes dual-review and reviewer-bundle protocol tests', async () => {
+  const runner = await fs.readFile(path.join(repoRoot, 'tests/run-all-regressions.js'), 'utf8');
+
+  assert.match(runner, /tests\/audit\/dual-review-engine\.test\.mjs/);
+  assert.match(runner, /tests\/audit\/reviewer-bundle-engine\.test\.mjs/);
 });
 
 test('public positioning copy reflects completed V2.5 and V2.5.1 status', async () => {
@@ -544,6 +601,36 @@ test('public docs position paper skeleton as the next concrete P6 slice', async 
   assert.match(skeletonDoc, /JOSS|JMIR AI|Systematic Reviews/);
   assert.match(skeletonDoc, /docs\/benchmarks\/README\.md/);
   assert.match(skeletonDoc, /literature-screening-v2\.2\/sample-data\.json/);
+});
+
+test('public docs position commercial validation as the next concrete P6 slice', async () => {
+  const [readme, readmeEn, roadmap, commercializationNotes] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/COMMERCIALIZATION_NOTES.md'), 'utf8'),
+  ]);
+
+  const validationDocPath = path.join(repoRoot, 'docs/commercial/VALIDATION.md');
+  const validationDocExists = await fs.access(validationDocPath).then(
+    () => true,
+    () => false
+  );
+  const validationDoc = validationDocExists
+    ? await fs.readFile(validationDocPath, 'utf8')
+    : '';
+
+  assert.equal(validationDocExists, true);
+  assert.match(readme, /commercial validation/i);
+  assert.match(readmeEn, /commercial validation/i);
+  assert.match(roadmap, /Commercial validation \| 访谈、试用、模板包、机构部署意向验证/);
+  assert.match(readme, /下一刀.*commercial validation|下一阶段.*commercial validation/i);
+  assert.match(readmeEn, /next slice is a `commercial validation`|next slice is commercial validation/i);
+  assert.match(validationDoc, /open-core/i);
+  assert.match(validationDoc, /individual|team|institution/i);
+  assert.match(validationDoc, /evidence record|interview record|trial record/i);
+  assert.match(validationDoc, /no payment code|不写支付代码/i);
+  assert.match(commercializationNotes, /validation before monetization implementation|commercial validation contract/i);
 });
 
 test('release-facing pages surface current workspace entry and V3 preparation assets', async () => {

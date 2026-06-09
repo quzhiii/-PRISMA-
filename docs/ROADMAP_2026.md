@@ -1,6 +1,6 @@
 # PRISMA Workbench 2026 Roadmap
 
-Last updated: 2026-06-03
+Last updated: 2026-06-09
 
 ## Roadmap 原则
 
@@ -20,6 +20,7 @@ Last updated: 2026-06-03
 | V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
 | V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
 | V2.5 dual-review closeout | current public release line | `literature-screening-v2.2/` compatibility path |
+| Reviewer Bundle protocol | completed local-first handoff slice | `literature-screening-v2.2/` compatibility path |
 | V2.5.1 project history rollback | completed patch-line capability | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
@@ -164,6 +165,22 @@ V2.5.1 验收标准：
 - 恢复历史状态不会绕过 unresolved conflict gate；恢复后仍按当前 V2.5 gate 重新计算冲突状态。
 - 历史记录继续遵守 local-first，不引入后端、账号、云同步或真实 AI provider。
 
+## P4.2：Reviewer Bundle protocol
+
+目标：在不引入后端、账号、权限或在线同步系统的前提下，关闭跨机器双人复核交接缺口。
+
+Current status: Reviewer Bundle protocol is completed as a local-first handoff slice in `literature-screening-v2.2/`. It adds file-based local-first collaboration through seed and reviewer bundle JSON files, while keeping the full-project save/load path as a separate backup and transfer path.
+
+| 任务 | 说明 | 状态 |
+|---|---|---|
+| Collaboration seed package | owner 导出基础项目、来源记录和项目元数据，不包含 reviewer decisions 或 reviewer-scoped quality values | 已完成 |
+| Reviewer decision bundle | Reviewer A/B 各自导出 reviewer-scoped full-text decisions 和质量评价值 | 已完成 |
+| Merge import | owner 将 reviewer decision bundle merge import 回现有项目，upsert reviewer decisions，不替换完整项目 | 已完成 |
+| Conflict refresh | 导入后刷新 dual-review conflicts、agreement metrics 和 unresolved conflict gate | 已完成 |
+| Audit visibility | 导出 seed、导出 reviewer bundle、导入 reviewer bundle 都写入 collaboration audit events | 已完成 |
+
+边界：这是 file-based local-first collaboration，不是 backend sync、real-time sync 或账号协作平台；完整项目保存/加载仍是单独的备份路径。
+
 ## P5：V2.6 Conservative AI screening
 
 目标：引入 AI 建议和排序，但保持人类最终决定。
@@ -227,7 +244,33 @@ Current status: V2.7 Chinese-source reliability is the next slice after complete
 | Release page | 面向科研用户的 landing page 和使用路径 |
 | Commercial validation | 访谈、试用、模板包、机构部署意向验证 |
 
-Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports. The next concrete slice is a paper skeleton: a repository-local manuscript structure and evidence map for JOSS / JMIR AI / Systematic Reviews preparation, not a submission-ready paper.
+Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports. The next concrete slice is a paper skeleton: a repository-local manuscript structure and evidence map for JOSS / JMIR AI / Systematic Reviews preparation, not a submission-ready paper. The next concrete slice is a commercial validation contract: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
+
+## Next 90 Days：Trust Wedge 1.0
+
+目标：把 research、代码现状和商业化验证收敛成一个更窄但更强的产品楔子，在不引入后端和付费基础设施的前提下，优先强化本地可信工作流。
+
+Current status: the repo-local P6 packaging slices are now in place, and the local-first dual-review handoff gap has a completed Reviewer Bundle implementation. Real-world commercial validation still remains. The next 90-day window should execute validation while keeping the reviewer bundle slice file-based and avoiding backend-heavy collaboration expansion.
+
+| 优先级 | 切片 | 为什么现在做 | 目标产物 |
+|---|---|---|---|
+| P0 | Commercial validation execution | 在 monetization implementation 前先拿到 3-5 条真实用户证据，避免拍脑袋定价或做错付费层 | `Validation Record`、demo/trial 反馈、付费意愿信号 |
+| P1 | Reviewer Bundle protocol | 当前最大产品张力是 local-first 与跨机器双人复核之间的缺口；这条线能在不引入后端的情况下把核心卖点闭环 | collaboration seed package、reviewer decision bundle、merge import、冲突重算 |
+| P2 | Defense-ready audit pack | 审计导出是最接近真实付费意愿的方向之一，应从“工具导出”升级成“答辩 / 附录 / 复核可直接使用的证据包” | defense-ready summary、appendix-friendly narrative、dual-review resolution summary |
+| P3 | Chinese-source trust depth | 中文源兼容和清洗是最强护城河之一，应继续加深 fixture、清洗和 reliability story | 更强 fixture coverage、清洗启发式、reliability notes |
+| P4 | Repo and positioning cleanup | 当前差异化需要更容易被看懂；否则产品价值被低估，分发和协作也更难 | 当前版本入口清晰化、README / GitHub 叙事强化、历史版本整理方案 |
+
+推荐策略：以 China-first trust wedge 为主线推进 P0-P3，并并行做一条轻量的分发与定位清理线；暂缓进入 backend-heavy collaboration platform 叙事。
+
+Reviewer Bundle protocol 已实现为 file-based local-first collaboration：collaboration seed package、reviewer decision bundle、merge import、冲突重算。它不是 backend sync、real-time sync 或账号协作平台。
+
+这一阶段明确不做：
+
+- backend sync
+- 登录、支付、license check
+- institution permissions
+- AI-first / auto-final-decision story
+- 为了“像竞品”而扩大产品面
 
 ## 风险与控制
 

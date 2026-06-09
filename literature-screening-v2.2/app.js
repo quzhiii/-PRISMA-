@@ -20,6 +20,8 @@ const DUAL_REVIEW_ENGINE = typeof globalThis !== 'undefined' ? globalThis.DualRe
 const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProviderEngine || null : null;
 const CONSERVATIVE_AI_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ConservativeAiEngine || null : null;
 const PROJECT_HISTORY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectHistoryEngine || null : null;
+const REVIEWER_BUNDLE_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ReviewerBundleEngine || null : null;
+const REVIEWER_BUNDLE_ENGINE_SCRIPT = 'reviewer-bundle-engine.js';
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
   'audit_events',
@@ -5945,6 +5947,159 @@ function buildCurrentProjectHistoryState() {
     dualReviewResults,
     dualReviewConflictState,
   };
+}
+
+function getCurrentReviewerBundleProjectState() {
+  const projectId = ensureProjectId();
+  return {
+    version: APP_RELEASE_VERSION,
+    projectId,
+    currentProjectId: projectId,
+    timestamp: new Date().toISOString(),
+    ...buildCurrentProjectHistoryState(),
+  };
+}
+
+function downloadJsonBundle(bundle, filename) {
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getReviewerBundleDateStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function exportCollaborationSeedPackage() {
+  if (!REVIEWER_BUNDLE_ENGINE) {
+    showToast('Reviewer bundle module is not loaded', 'error');
+    return null;
+  }
+  if (!Array.isArray(uploadedData) || uploadedData.length === 0) {
+    showToast('没有可导出的协作种子项目', 'warning');
+    return null;
+  }
+
+  const state = getCurrentReviewerBundleProjectState();
+  const bundle = REVIEWER_BUNDLE_ENGINE.createCollaborationSeedPackage(state);
+  const projectId = state.projectId || 'local-project';
+  const filename = `PRISMA-Collaboration-Seed-${projectId}-${getReviewerBundleDateStamp()}.json`;
+  downloadJsonBundle(bundle, filename);
+  appendAuditEventsSafe({
+    eventType: 'collaboration_seed_package_exported',
+    recordId: '',
+    after: {
+      filename,
+      baseFingerprint: bundle.baseFingerprint,
+      recordCount: Array.isArray(bundle.uploadedData) ? bundle.uploadedData.length : 0,
+    },
+    source: 'human',
+    metadata: {
+      schemaVersion: bundle.schemaVersion,
+      bundleType: bundle.bundleType,
+    },
+  }, { persist: true });
+  showToast('已导出 collaboration seed package', 'success');
+  return bundle;
+}
+
+function exportReviewerDecisionBundle() {
+  if (!REVIEWER_BUNDLE_ENGINE) {
+    showToast('Reviewer bundle module is not loaded', 'error');
+    return null;
+  }
+
+  const reviewerId = getCurrentReviewerId();
+  const reviewerSlot = DUAL_REVIEW_ENGINE && typeof DUAL_REVIEW_ENGINE.getReviewerSlot === 'function'
+    ? DUAL_REVIEW_ENGINE.getReviewerSlot(reviewerId)
+    : '';
+  const reviewerLabel = reviewerSlot ? getReviewerLabelForSlot(reviewerSlot) : reviewerId;
+  const state = getCurrentReviewerBundleProjectState();
+  const bundle = REVIEWER_BUNDLE_ENGINE.createReviewerDecisionBundle(state, { reviewerId, reviewerLabel });
+  const filename = `PRISMA-Reviewer-Decision-Bundle-${reviewerId}-${getReviewerBundleDateStamp()}.json`;
+  downloadJsonBundle(bundle, filename);
+  appendAuditEventsSafe({
+    eventType: 'reviewer_decision_bundle_exported',
+    recordId: '',
+    after: {
+      filename,
+      reviewerId,
+      baseFingerprint: bundle.baseFingerprint,
+      decisionCount: Array.isArray(bundle.screeningDecisions) ? bundle.screeningDecisions.length : 0,
+    },
+    source: 'human',
+    metadata: {
+      schemaVersion: bundle.schemaVersion,
+      bundleType: bundle.bundleType,
+    },
+  }, { persist: true });
+  showToast('已导出 reviewer decision bundle', 'success');
+  return bundle;
+}
+
+function importReviewerDecisionBundle() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      try {
+        const bundle = JSON.parse(readerEvent.target.result);
+        applyReviewerDecisionBundle(bundle, { filename: file.name });
+      } catch (error) {
+        console.error(error);
+        showToast(`Reviewer decision bundle import failed: ${error.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function applyReviewerDecisionBundle(bundle, options = {}) {
+  if (!REVIEWER_BUNDLE_ENGINE) {
+    showToast('Reviewer bundle module is not loaded', 'error');
+    return null;
+  }
+
+  createProjectHistorySnapshot('before_reviewer_bundle_import', 'Before reviewer decision bundle import');
+  const state = getCurrentReviewerBundleProjectState();
+  const mergedState = REVIEWER_BUNDLE_ENGINE.applyReviewerDecisionBundle(state, bundle);
+  restoreProjectState(mergedState);
+  syncDualReviewResultsFromDecisions();
+  refreshDualReviewConflictState({ auditNewConflicts: true });
+  appendAuditEventsSafe({
+    eventType: 'reviewer_decision_bundle_imported',
+    recordId: '',
+    after: {
+      filename: options.filename || '',
+      reviewerId: bundle?.reviewer?.reviewerId || '',
+      baseFingerprint: bundle?.baseFingerprint || '',
+      decisionCount: Array.isArray(bundle?.screeningDecisions) ? bundle.screeningDecisions.length : 0,
+      unresolvedConflictCount: dualReviewConflictState?.exportGate?.unresolvedConflictCount || 0,
+    },
+    source: 'human',
+    metadata: {
+      schemaVersion: bundle?.schemaVersion || '',
+      bundleType: bundle?.bundleType || '',
+    },
+  }, { persist: false });
+  persistCurrentProjectState();
+
+  if (screeningResults) {
+    displayResults(screeningResults);
+    if (currentStep >= 4) displayFulltextReviewUI();
+  }
+
+  showToast('已导入 reviewer decision bundle 并刷新双审冲突状态', 'success');
+  return mergedState;
 }
 
 function createProjectHistorySnapshot(reason, label, options = {}) {
