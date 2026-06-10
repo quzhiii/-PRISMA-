@@ -10,18 +10,30 @@ Last updated: 2026-06-09
 - 不把当前免费本地能力提前锁到账号、支付或云端系统后面。
 - 所有新增能力默认遵守 local-first 和 audit-ready 原则。
 
-## 当前状态
+## 当前公开版本线与能力切片
 
 | 版本线 | 状态 | 关键路径 |
 |---|---|---|
 | v1.7.x | 历史维护版 | 根目录旧入口 |
 | V2.1 stable | 历史稳定路径 | `literature-screening-v2.0/` |
+| V2.5 dual-review closeout | current public release line | `literature-screening-v2.2/` compatibility path |
+| V2.5.1 project history rollback | completed patch-line capability | `literature-screening-v2.2/` compatibility path |
+
+## 已完成能力切片
+
+| 切片 | 状态 | 关键路径 |
+|---|---|---|
+| Reviewer Bundle protocol | completed local-first handoff slice | `literature-screening-v2.2/` compatibility path |
+| V2.6 Conservative AI foundation | completed foundation slice | `literature-screening-v2.2/` compatibility path |
+| V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
 | V2.3 PRISMA-trAIce readiness | completed | `literature-screening-v2.2/` compatibility path |
 | V2.2 audit-ready | completed foundation | `literature-screening-v2.2/` |
-| V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
-| V2.5 dual-review closeout | current public release line | `literature-screening-v2.2/` compatibility path |
-| Reviewer Bundle protocol | completed local-first handoff slice | `literature-screening-v2.2/` compatibility path |
-| V2.5.1 project history rollback | completed patch-line capability | `literature-screening-v2.2/` compatibility path |
+
+## 下一阶段切片
+
+| 切片 | 状态 | 关键路径 |
+|---|---|---|
+| V2.7 Chinese-source reliability | next reliability slice | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
 
@@ -255,10 +267,9 @@ Current status: the repo-local P6 packaging slices are now in place, and the loc
 | 优先级 | 切片 | 为什么现在做 | 目标产物 |
 |---|---|---|---|
 | P0 | Commercial validation execution | 在 monetization implementation 前先拿到 3-5 条真实用户证据，避免拍脑袋定价或做错付费层 | `Validation Record`、demo/trial 反馈、付费意愿信号 |
-| P1 | Reviewer Bundle protocol | 当前最大产品张力是 local-first 与跨机器双人复核之间的缺口；这条线能在不引入后端的情况下把核心卖点闭环 | collaboration seed package、reviewer decision bundle、merge import、冲突重算 |
-| P2 | Defense-ready audit pack | 审计导出是最接近真实付费意愿的方向之一，应从“工具导出”升级成“答辩 / 附录 / 复核可直接使用的证据包” | defense-ready summary、appendix-friendly narrative、dual-review resolution summary |
-| P3 | Chinese-source trust depth | 中文源兼容和清洗是最强护城河之一，应继续加深 fixture、清洗和 reliability story | 更强 fixture coverage、清洗启发式、reliability notes |
-| P4 | Repo and positioning cleanup | 当前差异化需要更容易被看懂；否则产品价值被低估，分发和协作也更难 | 当前版本入口清晰化、README / GitHub 叙事强化、历史版本整理方案 |
+| P1 | Defense-ready audit pack | 审计导出是最接近真实付费意愿的方向之一，应从“工具导出”升级成“答辩 / 附录 / 复核可直接使用的证据包” | defense-ready summary、appendix-friendly narrative、dual-review resolution summary |
+| P2 | Chinese-source trust depth | 中文源兼容和清洗是最强护城河之一，应继续加深 fixture、清洗和 reliability story | 更强 fixture coverage、清洗启发式、reliability notes |
+| P3 | Repo and positioning cleanup | 当前差异化需要更容易被看懂；否则产品价值被低估，分发和协作也更难 | 当前版本入口清晰化、README / GitHub 叙事强化、历史版本整理方案 |
 
 推荐策略：以 China-first trust wedge 为主线推进 P0-P3，并并行做一条轻量的分发与定位清理线；暂缓进入 backend-heavy collaboration platform 叙事。
 

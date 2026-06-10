@@ -260,15 +260,17 @@ test('public docs mark V2.5 as current and history rollback as completed', async
   assert.match(readme, /Version-V2\.5%20Dual%20Review/);
   assert.match(readme, /Current%20demo-V2\.5/);
   assert.match(readme, /Audit%20trail-events%20%2B%20decision%20ledger/);
+  assert.match(readme, /## 当前公开版本线/);
   assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
-  assert.match(readme, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| 已完成/);
+  assert.match(readme, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| 当前 patch-line 能力/);
   assert.match(readme, /最近一次 V2\.6 foundation 回归结果：`151\/151` 通过/);
   assert.match(readmeEn, /# PRISMA Screening & Audit Workbench/);
   assert.match(readmeEn, /Version-V2\.5%20Dual%20Review/);
   assert.match(readmeEn, /Current%20demo-V2\.5/);
   assert.match(readmeEn, /Audit%20trail-events%20%2B%20decision%20ledger/);
+  assert.match(readmeEn, /## Current public release line/);
   assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
-  assert.match(readmeEn, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| Completed/);
+  assert.match(readmeEn, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| Current patch-line capability/);
   assert.match(readmeEn, /Latest V2\.6 foundation regression result: `151\/151` passed/);
   assert.match(roadmap, /V2\.5\.1 本地历史记录与回溯/);
   assert.match(roadmap, /project_snapshot_created/);
@@ -307,6 +309,57 @@ test('public docs describe reviewer bundles as file-based local-first collaborat
   assert.match(roadmap, /不是 backend sync、real-time sync 或账号协作平台/);
 });
 
+test('public docs separate release lines from completed capability slices', async () => {
+  const [readme, readmeEn, roadmap, positioning] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/PRODUCT_POSITIONING_2026.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /当前公开版本线/);
+  assert.match(readme, /已完成能力切片/);
+  assert.match(readme, /下一阶段切片/);
+  assert.match(readme, /Reviewer Bundle protocol/);
+  assert.match(readme, /V2\.6 Conservative AI foundation \| `literature-screening-v2\.2\/` \| 已完成 foundation slice/);
+  assert.match(readme, /V2\.7 Chinese-source reliability/);
+  assert.doesNotMatch(readme, /Reviewer Bundle protocol[\s\S]{0,120}当前公开版本线/);
+  assert.doesNotMatch(readme, /V2\.6[\s\S]{0,120}当前公开版本线/);
+  assert.doesNotMatch(readme, /## 下一阶段切片[\s\S]{0,300}V2\.1 stable/);
+  assert.doesNotMatch(readme, /## 下一阶段切片[\s\S]{0,300}v1\.7\.x/);
+  assert.doesNotMatch(readme, /\]\(\.\/docs\/plans\//);
+
+  assert.match(readmeEn, /Current public release line/);
+  assert.match(readmeEn, /Completed capability slices/);
+  assert.match(readmeEn, /Next slice/);
+  assert.match(readmeEn, /V2\.6 Conservative AI foundation \| `literature-screening-v2\.2\/` \| Completed foundation slice/);
+  assert.doesNotMatch(readmeEn, /Reviewer Bundle protocol[\s\S]{0,120}Current public release line/);
+  assert.doesNotMatch(readmeEn, /V2\.6[\s\S]{0,120}Current public release line/);
+  assert.doesNotMatch(readmeEn, /## Next slice[\s\S]{0,300}V2\.1 stable/);
+  assert.doesNotMatch(readmeEn, /## Next slice[\s\S]{0,300}v1\.7\.x/);
+  assert.doesNotMatch(readmeEn, /\]\(\.\/docs\/plans\//);
+
+  assert.match(roadmap, /Current public release line|当前公开版本线/);
+  assert.match(roadmap, /completed capability|已完成能力/);
+  assert.match(roadmap, /Next slice|下一阶段/);
+  assert.doesNotMatch(roadmap, /\| P1 \| Reviewer Bundle protocol \|/);
+  assert.match(positioning, /当前公开版本线|Current public line/);
+  assert.match(positioning, /已完成能力切片|completed capability/);
+});
+
+test('repo state policy explains release lines capability slices and planning drafts', async () => {
+  const policy = await fs.readFile(path.join(repoRoot, 'docs/REPO_STATE_POLICY.md'), 'utf8');
+
+  assert.match(policy, /release lines vs capability slices vs planning drafts/i);
+  assert.match(policy, /Reviewer Bundle protocol/);
+  assert.match(policy, /V2\.5 dual-review closeout/);
+  assert.match(policy, /V2\.5\.1 project history rollback/);
+  assert.match(policy, /V2\.6 Conservative AI foundation/);
+  assert.match(policy, /V2\.7 Chinese-source reliability/);
+  assert.match(policy, /docs\/plans/);
+  assert.match(policy, /docs\/strategy/);
+});
+
 test('full regression runner includes dual-review and reviewer-bundle protocol tests', async () => {
   const runner = await fs.readFile(path.join(repoRoot, 'tests/run-all-regressions.js'), 'utf8');
 
@@ -329,10 +382,14 @@ test('public positioning copy reflects completed V2.5 and V2.5.1 status', async 
   assert.doesNotMatch(roadmap, /Current status: planned/);
   assert.doesNotMatch(roadmap, /\| 计划 \|/);
 
-  assert.match(positioning, /\| V2\.4 quality appraisal \| 已完成稳定能力/);
+  assert.match(positioning, /### 7\.1 当前公开版本线/);
+  assert.match(positioning, /### 7\.2 已完成能力切片/);
+  assert.match(positioning, /### 7\.3 下一阶段切片/);
   assert.match(positioning, /\| V2\.5 dual-review closeout \| 当前公开版本线/);
-  assert.match(positioning, /\| V2\.5\.1 project history rollback \| 已完成 patch line/);
+  assert.match(positioning, /\| V2\.5\.1 project history rollback \| 当前 patch line/);
+  assert.match(positioning, /\| Reviewer Bundle protocol \| 已完成本地文件协作切片/);
   assert.match(positioning, /\| V2\.6 Conservative AI \| 已完成 foundation slice/);
+  assert.match(positioning, /\| V2\.4 quality appraisal \| 已完成稳定能力/);
   assert.match(positioning, /V2\.6 Conservative AI foundation 已完成/);
   assert.doesNotMatch(positioning, /V2\.4 计划/);
   assert.doesNotMatch(positioning, /V2\.5 计划/);
@@ -367,8 +424,8 @@ test('public docs describe V2.6 as a completed conservative AI foundation slice,
 
   assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
   assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
-  assert.match(readme, /V2\.6 \| `literature-screening-v2\.2\/` \| 已完成：本地保守 AI foundation slice/);
-  assert.match(readmeEn, /V2\.6 \| `literature-screening-v2\.2\/` \| Completed: local conservative AI foundation slice/);
+  assert.match(readme, /V2\.6 Conservative AI foundation \| `literature-screening-v2\.2\/` \| 已完成 foundation slice/);
+  assert.match(readmeEn, /V2\.6 Conservative AI foundation \| `literature-screening-v2\.2\/` \| Completed foundation slice/);
   assert.match(readme, /Step 3 advisory queue/);
   assert.match(readme, /queue summary/);
   assert.match(readme, /priority sorting/);
@@ -429,8 +486,8 @@ test('public docs position V2.7 as a conservative Chinese-source reliability sli
     fs.readFile(path.join(repoRoot, 'docs/design/CHINESE_SOURCE_COMPATIBILITY.md'), 'utf8'),
   ]);
 
-  assert.match(readme, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| 下一阶段：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强/);
-  assert.match(readmeEn, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| Next: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening/);
+  assert.match(readme, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| 下一阶段 reliability slice：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强/);
+  assert.match(readmeEn, /V2\.7 Chinese-source reliability \| `literature-screening-v2\.2\/` \| Next reliability slice: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening/);
   assert.match(readme, /abstract_truncation_suspected/);
   assert.match(readmeEn, /abstract_truncation_suspected/);
   assert.match(roadmap, /P5\.1：V2\.7 中文源可靠性/);

@@ -5,7 +5,7 @@ A local-first, research-grade workspace for systematic reviews, meta-analyses, a
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./literature-screening-v2.2/)
 [![Audit trail](https://img.shields.io/badge/Audit%20trail-events%20%2B%20decision%20ledger-0969da.svg)](./literature-screening-v2.2/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -69,22 +69,37 @@ flowchart LR
 | Quality assessment | Study-design suggestions, tool-family suggestions, item-level quality appraisal, evidence baselines |
 | Export | PRISMA SVG, result tables, screening report, audit package, quality appraisal, evidence table, GRADE summary, dual-review conflict evidence |
 
-## Current status
+## Current public release line
 
 | Line | Path | Status |
 |---|---|---|
 | V2.5 dual-review closeout | `literature-screening-v2.2/` | Current public release line. It formalizes dual full-text review and quality-appraisal disagreements with reviewer isolation, conflict queues, resolver workflow, agreement metrics, conflict evidence exports, and an unresolved-conflict gate; the page shell, project snapshot version, and manifest default version now align on V2.5. |
-| Reviewer Bundle protocol | `literature-screening-v2.2/` | Completed local handoff slice. A project owner can export a collaboration seed package, Reviewer A/B can each export a reviewer decision bundle, and the owner can use merge import to bring those decisions back into the existing project while refreshing conflicts, agreement metrics, and the export gate. Full-project save/load remains a separate backup path; this adds no backend, account, or payment layer. |
-| V2.5.1 project history rollback | `literature-screening-v2.2/` | Completed. Adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
-| V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
-| V2.6 | `literature-screening-v2.2/` | Completed: local conservative AI foundation slice. It covers local advisory suggestions, prioritisation, uncertainty flags, prompt-registry trace records, Step 3 advisory queue controls, queue summary, priority sorting, review-state filters, empty-state clarity, PRISMA-trAIce queue summary, and audit summary queue summary; real provider dispatch stays disabled by default and final decisions remain human-confirmed. |
-| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | Next: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening with `abstract_truncation_suspected`, `abstract_noise_detected`, and `source_mapping_incomplete` import warnings; no backend, real AI dispatch, or automatic final screening decisions. |
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
-| V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports |
-| V2.1 stable | `literature-screening-v2.0/` | Historical stable path with the six-step workflow and early quality setup |
-| v1.7.x | Root legacy entry | Historical maintenance line |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | Current patch-line capability. It adds local history snapshots, version restore, recoverable state after source-file changes, and restore points around import, screening rerun, full-text finalization, quality save, conflict resolution, and export. |
 
-V2.5 closeout turns dual review from a usable entry point into an auditable, risk-gated workflow. V2.5 is now the current public release line in the same `literature-screening-v2.2/` compatibility path, and real AI provider dispatch remains disabled by default. V2.5.1 adds local project history and rollback so users can recover after uploading the wrong files, changing source sets, or needing to inspect an earlier screening pass. Current key exports include:
+## Completed capability slices
+
+| Slice | Path | Status |
+|---|---|---|
+| Reviewer Bundle protocol | `literature-screening-v2.2/` | Completed local handoff slice. A project owner can export a collaboration seed package, Reviewer A/B can each export a reviewer decision bundle, and the owner can use merge import to bring those decisions back into the existing project while refreshing conflicts, agreement metrics, and the export gate. Full-project save/load remains a separate backup path; this adds no backend, account, or payment layer. |
+| V2.6 Conservative AI foundation | `literature-screening-v2.2/` | Completed foundation slice. It covers local advisory suggestions, prioritisation, uncertainty flags, prompt-registry trace records, Step 3 advisory queue controls, queue summary, priority sorting, review-state filters, empty-state clarity, PRISMA-trAIce queue summary, and audit summary queue summary; real provider dispatch stays disabled by default and final decisions remain human-confirmed. |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | Completed stable capability. Keeps V2.3 PRISMA-trAIce transparency and adds quality appraisal templates, reviewer-editable item-level forms, `quality_appraisal.csv`, `evidence_table.csv`, and `grade_summary.csv`. No real AI provider dispatch is enabled by default. The `v2.2` directory remains the compatibility release path. |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | Completed AI usage registry, provider boundary, AI suggestion log, human confirmation loop, and transparency report; no real AI provider dispatch is enabled by default. |
+| V2.2 audit-ready | `literature-screening-v2.2/` | Completed audit foundation with audit model, workflow events, and audit-package exports. |
+
+## Next slice
+
+| Slice | Path | Status |
+|---|---|---|
+| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | Next reliability slice: fixture-backed CNKI, Wanfang, VIP, and SinoMed reliability hardening with `abstract_truncation_suspected`, `abstract_noise_detected`, and `source_mapping_incomplete` import warnings; no backend, real AI dispatch, or automatic final screening decisions. |
+
+## Historical compatibility paths
+
+| Path | Status |
+|---|---|
+| V2.1 stable (`literature-screening-v2.0/`) | Historical stable path with the six-step workflow and early quality setup. |
+| v1.7.x (root legacy entry) | Historical maintenance line. |
+
+Public status should stay simple: users open the `V2.5` public release line today, `V2.5.1` is already included as a patch-line capability on the same compatibility path, `Reviewer Bundle protocol` and `V2.6 Conservative AI foundation` are completed capability slices rather than new release-line version numbers, and `V2.7 Chinese-source reliability` remains next. Current key exports include:
 
 | File | Purpose |
 |---|---|

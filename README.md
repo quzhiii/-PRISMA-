@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-V2.5%20Dual%20Review-brightgreen.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Current demo](https://img.shields.io/badge/Current%20demo-V2.5-orange.svg)](https://quzhiii.github.io/-PRISMA-/)
-[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./docs/plans/2026-06-03-v2-5-history-rollback.md)
+[![History rollback](https://img.shields.io/badge/History%20rollback-V2.5.1-blueviolet.svg)](./literature-screening-v2.2/)
 [![Audit trail](https://img.shields.io/badge/Audit%20trail-events%20%2B%20decision%20ledger-0969da.svg)](./literature-screening-v2.2/)
 [![Local first](https://img.shields.io/badge/Local%20first-browser--based-2ea44f.svg)](https://quzhiii.github.io/-PRISMA-/)
 [![Scale](https://img.shields.io/badge/Scale-30%2C000%2B-purple.svg)](https://quzhiii.github.io/-PRISMA-/)
@@ -69,22 +69,37 @@ flowchart LR
 | 质量评价 | 研究设计建议、工具族建议、条目级质量评价、证据等级基线 |
 | 导出 | PRISMA SVG、结果表、筛选报告、审计包、质量评价表、证据表、GRADE 摘要、双审冲突证据 |
 
-## 当前版本状态
+## 当前公开版本线
 
 | 版本线 | 路径 | 状态 |
 |---|---|---|
-| V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。把双人全文复核和质量评价分歧纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
-| Reviewer Bundle protocol | `literature-screening-v2.2/` | 已完成本地交接切片。项目 owner 可导出 collaboration seed package，Reviewer A/B 可各自导出 reviewer decision bundle，owner 可用 merge import 合并回现有项目并刷新冲突队列、一致性指标和 export gate。完整项目保存/加载仍是单独的备份路径；不新增后端、账号或付费层。 |
-| V2.5.1 project history rollback | `literature-screening-v2.2/` | 已完成。增加本地历史快照、版本恢复、来源文件增减后的可恢复状态，并在导入、筛选重跑、全文复核完成、质量保存、冲突解决和导出前生成恢复点。 |
-| V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
-| V2.6 | `literature-screening-v2.2/` | 已完成：本地保守 AI foundation slice。已覆盖 local advisory suggestions、prioritisation、uncertainty flags、prompt registry trace、Step 3 advisory queue controls、queue summary、priority sorting、review-state filters、empty-state clarity、PRISMA-trAIce queue summary 和 audit summary queue summary；真实 AI provider 仍默认关闭，最终决定仍由人工确认。 |
-| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | 下一阶段：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强，显示 `abstract_truncation_suspected`、`abstract_noise_detected` 和 `source_mapping_incomplete` 导入提示；不引入后端、真实 AI dispatch 或自动最终筛选决定。 |
-| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
-| V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出 |
-| V2.1 stable | `literature-screening-v2.0/` | 历史稳定路径，保留 6 步工作流和早期质量评价入口 |
-| v1.7.x | 根目录旧入口 | 历史维护版本，保留早期 PRISMA 工具能力 |
+| V2.5 dual-review closeout | `literature-screening-v2.2/` | 当前公开版本线。双人全文复核和质量评价分歧已纳入 reviewer isolation、conflict queue、resolver workflow、agreement metrics、冲突证据导出和 unresolved conflict gate；页面 shell、项目快照版本和 manifest 默认版本已统一到 V2.5。 |
+| V2.5.1 project history rollback | `literature-screening-v2.2/` | 当前 patch-line 能力。增加本地历史快照、版本恢复、来源文件增减后的可恢复状态，并在导入、筛选重跑、全文复核完成、质量保存、冲突解决和导出前生成恢复点。 |
 
-V2.5 closeout 的重点是让双人复核从“可用入口”变成可审计、可阻断风险的正式流程。V2.5 已作为当前公开版本线保留在同一个 `literature-screening-v2.2/` 兼容路径中，并保持真实 AI provider 默认禁用。V2.5.1 已补上本地历史记录和回溯，避免用户上传错文件、调整来源或想回看上一版筛选结果时只能重来。当前重点导出包括：
+## 已完成能力切片
+
+| 切片 | 路径 | 状态 |
+|---|---|---|
+| Reviewer Bundle protocol | `literature-screening-v2.2/` | 已完成本地文件协作切片。项目 owner 可导出 collaboration seed package，Reviewer A/B 可各自导出 reviewer decision bundle，owner 可用 merge import 合并回现有项目并刷新冲突队列、一致性指标和 export gate。完整项目保存/加载仍是单独的备份路径；不新增后端、账号或付费层。 |
+| V2.6 Conservative AI foundation | `literature-screening-v2.2/` | 已完成 foundation slice。已覆盖 local advisory suggestions、prioritisation、uncertainty flags、prompt registry trace、Step 3 advisory queue controls、queue summary、priority sorting、review-state filters、empty-state clarity、PRISMA-trAIce queue summary 和 audit summary queue summary；真实 AI provider 仍默认关闭，最终决定仍由人工确认。 |
+| V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
+| V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
+| V2.2 audit-ready | `literature-screening-v2.2/` | 已完成审计基础层，包括审计模型、工作流事件和审计包导出。 |
+
+## 下一阶段切片
+
+| 切片 | 路径 | 状态 |
+|---|---|---|
+| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | 下一阶段 reliability slice：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强，显示 `abstract_truncation_suspected`、`abstract_noise_detected` 和 `source_mapping_incomplete` 导入提示；不引入后端、真实 AI dispatch 或自动最终筛选决定。 |
+
+## 历史兼容路径
+
+| 路径 | 状态 |
+|---|---|
+| V2.1 stable (`literature-screening-v2.0/`) | 历史稳定路径，保留 6 步工作流和早期质量评价入口。 |
+| v1.7.x (根目录旧入口) | 历史维护版本，保留早期 PRISMA 工具能力。 |
+
+当前对外口径应保持一致：用户今天打开的是 `V2.5` 公开版本线，`V2.5.1` 已并入当前兼容路径作为 patch-line 能力；`Reviewer Bundle protocol` 和 `V2.6 Conservative AI foundation` 是已完成能力切片，不是新的公开版本号；`V2.7 Chinese-source reliability` 仍是下一阶段切片。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
