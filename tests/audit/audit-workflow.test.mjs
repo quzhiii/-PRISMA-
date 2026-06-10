@@ -360,6 +360,27 @@ test('repo state policy explains release lines capability slices and planning dr
   assert.match(policy, /docs\/strategy/);
 });
 
+test('repo archive note explains removal of redundant legacy release directories', async () => {
+  const archiveNote = await fs.readFile(path.join(repoRoot, 'docs/REPO_ARCHIVE_NOTES.md'), 'utf8');
+  const repoEntries = await fs.readdir(repoRoot, { withFileTypes: true });
+  const topLevelDirs = repoEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+
+  assert.match(archiveNote, /top-level legacy release directories removed/i);
+  assert.match(archiveNote, /literature-screening-v1\.3/);
+  assert.match(archiveNote, /literature-screening-v1\.4/);
+  assert.match(archiveNote, /literature-screening-v1\.5/);
+  assert.match(archiveNote, /literature-screening-v1\.6/);
+  assert.match(archiveNote, /literature-screening-v30/);
+  assert.match(archiveNote, /git history/i);
+  assert.ok(topLevelDirs.includes('literature-screening-v2.0'));
+  assert.ok(topLevelDirs.includes('literature-screening-v2.2'));
+  assert.ok(!topLevelDirs.includes('literature-screening-v1.3'));
+  assert.ok(!topLevelDirs.includes('literature-screening-v1.4'));
+  assert.ok(!topLevelDirs.includes('literature-screening-v1.5'));
+  assert.ok(!topLevelDirs.includes('literature-screening-v1.6'));
+  assert.ok(!topLevelDirs.includes('literature-screening-v30'));
+});
+
 test('full regression runner includes dual-review and reviewer-bundle protocol tests', async () => {
   const runner = await fs.readFile(path.join(repoRoot, 'tests/run-all-regressions.js'), 'utf8');
 
