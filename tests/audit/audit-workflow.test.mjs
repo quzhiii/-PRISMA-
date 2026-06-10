@@ -3,6 +3,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -362,8 +363,10 @@ test('repo state policy explains release lines capability slices and planning dr
 
 test('repo archive note explains removal of redundant legacy release directories', async () => {
   const archiveNote = await fs.readFile(path.join(repoRoot, 'docs/REPO_ARCHIVE_NOTES.md'), 'utf8');
-  const repoEntries = await fs.readdir(repoRoot, { withFileTypes: true });
-  const topLevelDirs = repoEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  const trackedPaths = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean);
+  const trackedTopLevelDirs = new Set(trackedPaths.map((entry) => entry.split('/')[0]));
 
   assert.match(archiveNote, /top-level legacy release directories removed/i);
   assert.match(archiveNote, /literature-screening-v1\.3/);
@@ -372,13 +375,13 @@ test('repo archive note explains removal of redundant legacy release directories
   assert.match(archiveNote, /literature-screening-v1\.6/);
   assert.match(archiveNote, /literature-screening-v30/);
   assert.match(archiveNote, /git history/i);
-  assert.ok(topLevelDirs.includes('literature-screening-v2.0'));
-  assert.ok(topLevelDirs.includes('literature-screening-v2.2'));
-  assert.ok(!topLevelDirs.includes('literature-screening-v1.3'));
-  assert.ok(!topLevelDirs.includes('literature-screening-v1.4'));
-  assert.ok(!topLevelDirs.includes('literature-screening-v1.5'));
-  assert.ok(!topLevelDirs.includes('literature-screening-v1.6'));
-  assert.ok(!topLevelDirs.includes('literature-screening-v30'));
+  assert.ok(trackedTopLevelDirs.has('literature-screening-v2.0'));
+  assert.ok(trackedTopLevelDirs.has('literature-screening-v2.2'));
+  assert.ok(!trackedTopLevelDirs.has('literature-screening-v1.3'));
+  assert.ok(!trackedTopLevelDirs.has('literature-screening-v1.4'));
+  assert.ok(!trackedTopLevelDirs.has('literature-screening-v1.5'));
+  assert.ok(!trackedTopLevelDirs.has('literature-screening-v1.6'));
+  assert.ok(!trackedTopLevelDirs.has('literature-screening-v30'));
 });
 
 test('full regression runner includes dual-review and reviewer-bundle protocol tests', async () => {
