@@ -153,6 +153,25 @@ test('public V2.5 release labels are synchronized across page shells', async () 
   assert.match(appSource, /version: APP_RELEASE_VERSION/);
 });
 
+test('workspace capability sections use capability labels instead of V2.4 or V2.6 version badges', async () => {
+  const [indexHtml, workspaceHtml, landingHtml] = await Promise.all([
+    readV22File('index.html'),
+    readV22File('workspace.html'),
+    readV22File('landing.html'),
+  ]);
+
+  assert.doesNotMatch(indexHtml, /V2\.4|V2\.6/);
+  assert.doesNotMatch(landingHtml, /V2\.4|V2\.6/);
+  assert.doesNotMatch(workspaceHtml, /V2\.4(?:-beta)?/);
+  assert.doesNotMatch(workspaceHtml, /V2\.6/);
+  assert.match(workspaceHtml, /Conservative AI Screening Queue/);
+  assert.match(workspaceHtml, /Conservative AI \/ PRISMA-trAIce/);
+  assert.match(workspaceHtml, /Generate Conservative AI Suggestions/);
+  assert.match(workspaceHtml, /quality appraisal export: template, tool family, domain judgement/i);
+  assert.match(workspaceHtml, /evidence table export: PICOS, effect measure, quality judgement/i);
+  assert.match(workspaceHtml, /GRADE summary scaffold: groups studies by outcome \/ PICOS/i);
+});
+
 test('workspace upload and sample data load stay usable from file URLs', async () => {
   const [source, workspaceHtml] = await Promise.all([
     readV22App(),
@@ -308,6 +327,26 @@ test('public docs describe reviewer bundles as file-based local-first collaborat
   assert.match(roadmap, /collaboration seed package、reviewer decision bundle、merge import、冲突重算/);
   assert.match(roadmap, /file-based local-first collaboration/);
   assert.match(roadmap, /不是 backend sync、real-time sync 或账号协作平台/);
+});
+
+test('public docs describe defense-ready audit pack as a local evidence export slice', async () => {
+  const [readme, readmeEn, roadmap] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /DEFENSE_AUDIT_PACK\.md/);
+  assert.match(readme, /答辩 \/ 附录审计包/);
+  assert.match(readme, /本地生成的答辩 \/ 附录证据包|本地 defense-ready 审计包/);
+  assert.match(readmeEn, /DEFENSE_AUDIT_PACK\.md/);
+  assert.match(readmeEn, /Defense-ready audit pack/);
+  assert.match(readmeEn, /local appendix-ready evidence export|local defense-ready audit pack/i);
+
+  assert.match(roadmap, /Current status: P1 now starts with a local defense-ready audit pack export slice/);
+  assert.match(roadmap, /DEFENSE_AUDIT_PACK\.md/);
+  assert.match(roadmap, /not a backend or commercial execution slice/i);
+  assert.doesNotMatch(roadmap, /P1[ -\u4e00-\u9fff]{0,200}(payment code|account system|billing|commercial validation execution)/i);
 });
 
 test('public docs separate release lines from completed capability slices', async () => {

@@ -641,25 +641,8 @@ function injectStep2PriorityToggle() {
 }
 
 // Hook into Step 2 transition
-// Override original functions
-window.performScreening = performScreeningV17;
-window.displayUploadInfo = displayUploadInfoV17;
+// v1.7 dedup details UI (do NOT override performScreening or displayUploadInfo -
+// app.js owns those with DedupEngine + Chinese source hardening)
 window.showDedupDetails = showDedupDetails;
-
-const originalGoToStep2 = window.goToStep2;
-window.goToStep2 = function(...args) {
-  if (typeof originalGoToStep2 === 'function') {
-    originalGoToStep2.apply(this, args);
-  } else if (typeof setStep === 'function') {
-    setStep(2);
-  } else {
-    document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById('step2')?.classList.remove('hidden');
-    if (typeof updateStepIndicator === 'function') {
-      updateStepIndicator(2);
-    }
-  }
-  injectStep2PriorityToggle();
-};
 
 console.log('✅ v1.7 Patch Loaded: 关键词优先级 + 去重增强UI 已就绪');

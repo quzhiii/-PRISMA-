@@ -109,6 +109,7 @@ flowchart LR
 | `exclusion_reasons.csv` | 排除理由 taxonomy 和计数 |
 | `prisma_counts.json` | 从决策和事件重算的 PRISMA 计数 |
 | `audit_summary.md` | 可读的审计摘要和注意事项 |
+| `DEFENSE_AUDIT_PACK.md` | 答辩 / 附录审计包：本地生成的答辩 / 附录证据包，整合 PRISMA 计数、双审冲突与一致性摘要、质量评价状态、中文源可靠性提示和 AI 边界说明 |
 | `ai_usage_registry.json` | AI 模式、provider 边界、允许阶段和用户确认记录 |
 | `ai_suggestions.jsonl` | AI 建议、hash、人工复核动作、关联 decision、review trace 字段和 PRISMA 计数边界 |
 | `PRISMA_TRAICE_REPORT.md` | No-AI 或 assistive-AI 透明报告，用于 PRISMA-trAIce readiness |

@@ -97,7 +97,7 @@ this.__exports = {
 test('Step 6 workspace exposes PRISMA-trAIce controls and the AI suggestion panel mount', async () => {
   const workspace = await readV22Workspace();
 
-  assert.match(workspace, /V2\.6 Conservative AI/);
+  assert.match(workspace, /Conservative AI \/ PRISMA-trAIce/);
   assert.match(workspace, /PRISMA-trAIce/);
   assert.match(workspace, /name="aiMode" value="off"/);
   assert.match(workspace, /name="aiMode" value="assistive"/);

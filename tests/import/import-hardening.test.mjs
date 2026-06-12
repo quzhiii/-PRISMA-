@@ -31,6 +31,7 @@ function loadV22ParserWorkerHarness() {
   vm.runInContext(source, context);
 
   return {
+    parseRIS: context.parseRIS,
     parseRDF: context.parseRDF,
     enrichImportedRecord: context.enrichImportedRecord,
   };
@@ -215,4 +216,70 @@ test('v2.7 Chinese-source fixtures normalize CNKI, Wanfang, VIP, and SinoMed sou
   assert.equal(sinomedRecords[0].sinomed_id, 'SINOMED2020001');
   assert.equal(sinomedRecords[0].mesh_terms, 'Acupuncture');
   assert.equal(sinomedRecords[0].source_mapping_incomplete, true);
+});
+
+test('v2.7 CNKI abstract narrative keeps legitimate fund wording without false metadata stripping', () => {
+  const { parseRDF, enrichImportedRecord } = loadV22ParserWorkerHarness();
+  const rdf = `<?xml version="1.0" encoding="UTF-8"?>
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      xmlns:bib="http://purl.org/net/biblio#"
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:dcterms="http://purl.org/dc/terms/">
+      <bib:Journal rdf:about="journal-cnki-guard-1">
+        <dc:title>中国全科医学</dc:title>
+      </bib:Journal>
+      <bib:Article rdf:about="https://doi.org/10.1234/cnki.2024.105">
+        <dc:title>基金支持视角下的社区针灸管理研究</dc:title>
+        <dc:creator>赵一</dc:creator>
+        <dcterms:issued>2024-04-01</dcterms:issued>
+        <dcterms:isPartOf rdf:resource="journal-cnki-guard-1" />
+        <dc:identifier><rdf:value>https://doi.org/10.1234/cnki.2024.105</rdf:value></dc:identifier>
+        <dcterms:abstract><![CDATA[摘要：基金：支持视角下的社区针灸服务整合研究显示依从性提高，结论提示基层随访流程仍需优化。]]></dcterms:abstract>
+      </bib:Article>
+    </rdf:RDF>`;
+
+  const records = parseRDF(rdf).map((record) => enrichImportedRecord(record, 'cnki-rdf-guard.xml'));
+  assert.equal(records.length, 1);
+
+  const record = records[0];
+  assert.match(record.abstract, /基金：支持视角下的社区针灸服务整合研究/);
+  assert.equal(Boolean(record.abstract_noise_detected), false);
+  assert.equal(Boolean(record.abstract_truncation_suspected), false);
+});
+
+test('v2.7 Chinese-source edge fixtures preserve fullwidth Wanfang volume issue VIP mixed headers and SinoMed partial mapping', () => {
+  const wanfangRecords = parseStreamingFixture('csv', fs.readFileSync(path.join(chineseSourceFixtureDir, 'wanfang-fullwidth-volume-issue.csv'), 'utf8'));
+  const vipRecords = parseStreamingFixture('csv', fs.readFileSync(path.join(chineseSourceFixtureDir, 'vip-mixed-headers.csv'), 'utf8'));
+  const sinomedRecords = parseStreamingFixture('nbib', fs.readFileSync(path.join(chineseSourceFixtureDir, 'sinomed-partial-source.nbib'), 'utf8'));
+
+  assert.equal(wanfangRecords.length, 1);
+  assert.equal(wanfangRecords[0].source_database, 'Wanfang');
+  assert.equal(wanfangRecords[0].year, '2022');
+  assert.equal(wanfangRecords[0].volume, '41');
+  assert.equal(wanfangRecords[0].issue, '5');
+
+  assert.equal(vipRecords.length, 1);
+  assert.equal(vipRecords[0].source_database, 'VIP');
+  assert.equal(vipRecords[0].authors, '陈一;王二');
+  assert.equal(vipRecords[0].journal, '中国康复理论与实践');
+
+  assert.equal(sinomedRecords.length, 1);
+  assert.equal(sinomedRecords[0].source_database, 'SinoMed');
+  assert.equal(sinomedRecords[0].journal, '中国循证医学杂志');
+  assert.equal(sinomedRecords[0].source_mapping_incomplete, true);
+});
+
+test('v2.7 whole-file RIS parsing strips trailing fullwidth source punctuation like the streaming path', () => {
+  const { parseRIS } = loadV22ParserWorkerHarness();
+  const records = parseRIS(`PMID - 99887766
+TI  - 中国循证医学方法学研究
+AB  - 这是一段用于 whole-file parser 的摘要。
+AU  - 张三
+SO  - 中国循证医学杂志， 2023，23(1): 1-5
+ER  -`);
+
+  assert.equal(records.length, 1);
+  assert.equal(records[0].journal, '中国循证医学杂志');
+  assert.equal(records[0].year, '2023');
+  assert.equal(records[0].source_raw, '中国循证医学杂志， 2023，23(1): 1-5');
 });

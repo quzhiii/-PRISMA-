@@ -341,7 +341,7 @@
 
     const journal = value
       .replace(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b[\s\S]*$/, '')
-      .replace(/[.;；。\s]+$/, '')
+      .replace(/[.;；。，\s]+$/, '')
       .trim();
     if (journal && !session.currentRecord.journal) {
       session.currentRecord.journal = journal;
@@ -669,7 +669,7 @@
       record.year = year;
     }
 
-    const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*\(([^)）]+)\)/);
+    const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*[（(]([^）)]+)[）)]/);
     if (volumeIssue) {
       if (!record.volume) record.volume = volumeIssue[1];
       if (!record.issue) record.issue = volumeIssue[2];
@@ -695,8 +695,8 @@
     const record = { ...input };
     assignIfPresent(record, 'title', ['title', 'Title', 'TITLE', '题名', '标题', '论文题名']);
     assignIfPresent(record, 'abstract', ['abstract', 'Abstract', 'ABSTRACT', '摘要']);
-    assignIfPresent(record, 'authors', ['authors', 'author', 'Author', '作者']);
-    assignIfPresent(record, 'journal', ['journal', 'Journal', '刊名', '期刊', '出处', '来源']);
+    assignIfPresent(record, 'authors', ['authors', 'Authors', 'author', 'Author', '作者']);
+    assignIfPresent(record, 'journal', ['journal', 'Journal', 'Source', 'SOURCE', '刊名', '期刊', '出处', '来源']);
     assignIfPresent(record, 'doi', ['doi', 'DOI']);
     assignIfPresent(record, 'wanfang_id', ['wanfang_id', '万方ID', '万方id', 'ArticleID', 'articleid']);
     assignIfPresent(record, 'vip_id', ['vip_id', '维普ID', '维普id']);
