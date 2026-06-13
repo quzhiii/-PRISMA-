@@ -24,6 +24,7 @@ Last updated: 2026-06-09
 | 切片 | 状态 | 关键路径 |
 |---|---|---|
 | Reviewer Bundle protocol | completed local-first handoff slice | `literature-screening-v2.2/` compatibility path |
+| V2.7 Chinese-source reliability | completed reliability slice | `literature-screening-v2.2/` compatibility path |
 | V2.6 Conservative AI foundation | completed foundation slice | `literature-screening-v2.2/` compatibility path |
 | V2.4 quality appraisal | completed stable capability | `literature-screening-v2.2/` compatibility path |
 | V2.3 PRISMA-trAIce readiness | completed | `literature-screening-v2.2/` compatibility path |
@@ -33,7 +34,7 @@ Last updated: 2026-06-09
 
 | 切片 | 状态 | 关键路径 |
 |---|---|---|
-| V2.7 Chinese-source reliability | next reliability slice | `literature-screening-v2.2/` compatibility path |
+| P6 Demo dataset | next onboarding slice | `literature-screening-v2.2/` compatibility path |
 
 V2.2 已完成的工程基础：
 
@@ -231,14 +232,24 @@ Completed queue state: Step 3 advisory queue controls are completed with queue l
 
 目标：在完成 V2.6 conservative AI foundation 后，先加强中文源导入可靠性和风险可见性，再进入 V3.0 发布包装。
 
-Current status: V2.7 Chinese-source reliability is the next slice after completed V2.6 on the `literature-screening-v2.2/` compatibility path. It is a fixture-backed CNKI / Wanfang / VIP / SinoMed hardening slice, not a backend, cloud sync, real AI dispatch, or automatic final-decision slice.
+Current status: V2.7 Chinese-source reliability is completed through the P1+P2 trust-wedge execution on the `literature-screening-v2.2/` compatibility path. All four tasks are implemented with fixture-backed parser tests covering CNKI, Wanfang, VIP, and SinoMed edge cases. The next slice is P6 Demo dataset.
+
+Current status: V2.7 Chinese-source reliability is completed through the P1+P2 trust-wedge execution. All four tasks are implemented with fixture-backed parser tests covering CNKI, Wanfang, VIP, and SinoMed edge cases.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
-| fixture-backed CNKI / Wanfang / VIP / SinoMed hardening | 用代表性样例冻结 CNKI RDF、万方、维普和 SinoMed 字段映射行为 | 下一阶段 |
-| Abstract reliability flags | 导入记录可携带 `abstract_truncation_suspected` 和 `abstract_noise_detected` | 下一阶段 |
-| Source mapping warning | 对可导入但关键字段缺失的记录标记 `source_mapping_incomplete`，不伪造缺失值 | 下一阶段 |
-| Import-facing warnings | 在导入摘要和审计事件中提示来源质量风险 | 下一阶段 |
+| fixture-backed CNKI / Wanfang / VIP / SinoMed hardening | 用代表性样例冻结 CNKI RDF、万方、维普和 SinoMed 字段映射行为 | 已完成（7 个 fixtures） |
+| Abstract reliability flags | 导入记录可携带 `abstract_truncation_suspected` 和 `abstract_noise_detected` | 已完成 |
+| Source mapping warning | 对可导入但关键字段缺失的记录标记 `source_mapping_incomplete`，不伪造缺失值 | 已完成 |
+| Import-facing warnings | 在导入摘要和审计事件中提示来源质量风险 | 已完成 |
+
+V2.7 验收标准：
+
+- 197/197 回归测试通过。
+- CNKI RDF 噪音摘要可被检测和截断，合法基金叙述不被误判。
+- Wanfang 全角卷期、VIP 中英混合表头、SinoMed 部分映射均有 fixture 覆盖。
+- 来源质量警告在 defense pack 中按来源数据库和警告类型双层汇总。
+- 警告不自动改变筛选决定。
 
 约束：
 

@@ -81,6 +81,7 @@ flowchart LR
 | 切片 | 路径 | 状态 |
 |---|---|---|
 | Reviewer Bundle protocol | `literature-screening-v2.2/` | 已完成本地文件协作切片。项目 owner 可导出 collaboration seed package，Reviewer A/B 可各自导出 reviewer decision bundle，owner 可用 merge import 合并回现有项目并刷新冲突队列、一致性指标和 export gate。完整项目保存/加载仍是单独的备份路径；不新增后端、账号或付费层。 |
+| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | 已完成 reliability slice。fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强，显示 `abstract_truncation_suspected`、`abstract_noise_detected` 和 `source_mapping_incomplete` 导入提示；defense pack 按来源数据库和警告类型双层汇总；不引入后端、真实 AI dispatch 或自动最终筛选决定。 |
 | V2.6 Conservative AI foundation | `literature-screening-v2.2/` | 已完成 foundation slice。已覆盖 local advisory suggestions、prioritisation、uncertainty flags、prompt registry trace、Step 3 advisory queue controls、queue summary、priority sorting、review-state filters、empty-state clarity、PRISMA-trAIce queue summary 和 audit summary queue summary；真实 AI provider 仍默认关闭，最终决定仍由人工确认。 |
 | V2.4 quality appraisal | `literature-screening-v2.2/` | 已完成稳定能力。保留 V2.3 的 PRISMA-trAIce 透明审计能力，并加入质量评价模板、条目级质量表单、`quality_appraisal.csv`、`evidence_table.csv` 和 `grade_summary.csv`。真实 AI provider 仍不默认接入，`v2.2` 目录继续作为兼容发布路径。 |
 | V2.3 PRISMA-trAIce readiness | `literature-screening-v2.2/` | 已完成 AI 使用登记、provider 边界、AI 建议日志、人工确认闭环和透明报告；不默认发送真实 AI 请求。 |
@@ -90,7 +91,7 @@ flowchart LR
 
 | 切片 | 路径 | 状态 |
 |---|---|---|
-| V2.7 Chinese-source reliability | `literature-screening-v2.2/` | 下一阶段 reliability slice：fixture-backed CNKI、万方、维普和 SinoMed 可靠性增强，显示 `abstract_truncation_suspected`、`abstract_noise_detected` 和 `source_mapping_incomplete` 导入提示；不引入后端、真实 AI dispatch 或自动最终筛选决定。 |
+| P6 Demo dataset | `literature-screening-v2.2/` | 下一 onboarding slice：公开演示数据包、导入说明和 workflow walkthrough。 |
 
 ## 历史兼容路径
 
@@ -99,7 +100,7 @@ flowchart LR
 | V2.1 stable (`literature-screening-v2.0/`) | 历史稳定路径，保留 6 步工作流和早期质量评价入口。 |
 | v1.7.x (根目录旧入口) | 历史维护版本，保留早期 PRISMA 工具能力。 |
 
-当前对外口径应保持一致：用户今天打开的是 `V2.5` 公开版本线，`V2.5.1` 已并入当前兼容路径作为 patch-line 能力；`Reviewer Bundle protocol` 和 `V2.6 Conservative AI foundation` 是已完成能力切片，不是新的公开版本号；`V2.7 Chinese-source reliability` 仍是下一阶段切片。当前重点导出包括：
+当前对外口径应保持一致：用户今天打开的是 `V2.5` 公开版本线，`V2.5.1` 已并入当前兼容路径作为 patch-line 能力；`Reviewer Bundle protocol`、`V2.7 Chinese-source reliability` 和 `V2.6 Conservative AI foundation` 是已完成能力切片，不是新的公开版本号；下一阶段切片是 P6 Demo dataset。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
