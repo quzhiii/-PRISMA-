@@ -981,6 +981,301 @@
     };
   }
 
+  function formatDefensePercent(value) {
+    const numeric = normalizeNumber(value, null);
+    if (numeric === null) {
+      return '0%';
+    }
+
+    const percent = numeric <= 1 ? numeric * 100 : numeric;
+    const rounded = Math.round(percent * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded}%`;
+  }
+
+  function summarizeDefenseSourceReliability(summaryInput, events) {
+    const summary = normalizeObject(summaryInput);
+    const normalizeCountMap = (input) => {
+      const map = normalizeObject(input);
+      return Object.keys(map).sort().reduce((acc, key) => {
+        acc[key] = normalizeNumber(map[key], 0);
+        return acc;
+      }, {});
+    };
+    const hasDirectSummary = [
+      'totalRecords',
+      'warningRecordCount',
+      'abstractTruncationCount',
+      'abstractNoiseCount',
+      'sourceMappingIncompleteCount',
+    ].some((key) => summary[key] !== undefined);
+
+    if (hasDirectSummary) {
+      return {
+        totalRecords: normalizeNumber(summary.totalRecords, 0),
+        warningRecordCount: normalizeNumber(summary.warningRecordCount, 0),
+        abstractTruncationCount: normalizeNumber(summary.abstractTruncationCount, 0),
+        abstractNoiseCount: normalizeNumber(summary.abstractNoiseCount, 0),
+        sourceMappingIncompleteCount: normalizeNumber(summary.sourceMappingIncompleteCount, 0),
+        bySourceDatabase: normalizeCountMap(summary.bySourceDatabase || summary.by_source_database),
+        byWarningType: normalizeCountMap(summary.byWarningType || summary.by_warning_type),
+      };
+    }
+
+    return (Array.isArray(events) ? events : []).reduce((acc, entry) => {
+      const event = createAuditEvent(entry);
+      if (event.eventType !== 'source_quality_warning') {
+        return acc;
+      }
+
+      const next = normalizeObject(event.after);
+      acc.warningRecordCount += normalizeNumber(next.warningRecordCount, 0);
+      acc.abstractTruncationCount += normalizeNumber(next.abstractTruncationCount, 0);
+      acc.abstractNoiseCount += normalizeNumber(next.abstractNoiseCount, 0);
+      acc.sourceMappingIncompleteCount += normalizeNumber(next.sourceMappingIncompleteCount, 0);
+      return acc;
+    }, {
+      totalRecords: 0,
+      warningRecordCount: 0,
+      abstractTruncationCount: 0,
+      abstractNoiseCount: 0,
+      sourceMappingIncompleteCount: 0,
+      bySourceDatabase: {},
+      byWarningType: {},
+    });
+  }
+
+  function summarizeDefenseDualReview(summaryInput) {
+    const summary = normalizeObject(summaryInput);
+    const agreementMetrics = normalizeObject(summary.agreementMetrics || summary.screeningAgreementMetrics);
+    const exportGate = normalizeObject(summary.exportGate);
+    const unresolvedConflictCount = normalizeNumber(exportGate.unresolvedConflictCount, 0);
+
+    return {
+      pairedDecisionCount: normalizeNumber(
+        agreementMetrics.pairedDecisionCount !== undefined ? agreementMetrics.pairedDecisionCount : agreementMetrics.pairCount,
+        0
+      ),
+      percentAgreement: formatDefensePercent(
+        agreementMetrics.percentAgreement !== undefined ? agreementMetrics.percentAgreement : agreementMetrics.observedAgreement
+      ),
+      cohensKappa: normalizeNumber(
+        agreementMetrics.cohensKappa !== undefined ? agreementMetrics.cohensKappa : agreementMetrics.kappa,
+        0
+      ),
+      unresolvedConflictCount,
+      unresolvedScreeningConflictCount: normalizeNumber(exportGate.unresolvedScreeningConflictCount, 0),
+      unresolvedQualityConflictCount: normalizeNumber(exportGate.unresolvedQualityConflictCount, 0),
+      hasUnresolvedConflicts: normalizeBoolean(exportGate.hasUnresolvedConflicts, unresolvedConflictCount > 0),
+      status: normalizeString(exportGate.status, unresolvedConflictCount > 0 ? 'warning' : 'clear'),
+    };
+  }
+
+  function summarizeDefenseQuality(summaryInput) {
+    const summary = normalizeObject(summaryInput);
+    const byStatus = normalizeObject(summary.byStatus);
+    return {
+      totalAssessments: normalizeNumber(summary.totalAssessments, 0),
+      completedAssessments: normalizeNumber(
+        summary.completedAssessments,
+        normalizeNumber(byStatus.completed, 0) + normalizeNumber(byStatus.complete, 0)
+      ),
+      inProgressAssessments: normalizeNumber(summary.inProgressAssessments, normalizeNumber(byStatus.in_progress, 0)),
+      missingAssessments: normalizeNumber(summary.missingAssessments, 0),
+      evidenceTableReadyCount: normalizeNumber(summary.evidenceTableReadyCount, 0),
+      gradeSummaryReadyCount: normalizeNumber(summary.gradeSummaryReadyCount, 0),
+    };
+  }
+
+  function buildDefenseReadyAuditPackMarkdown(manifestInput, events, decisions, options = {}) {
+    const manifest = createProjectManifest(manifestInput);
+    const eventSummary = summarizeAuditEvents(events);
+    const counts = calculatePrismaCountsFromDecisions(decisions, events);
+    const language = normalizeString(options.language || options.lang, 'en').toLowerCase() === 'zh' ? 'zh' : 'en';
+    const isZh = language === 'zh';
+    const dualReviewSummary = summarizeDefenseDualReview(options.dualReviewSummary || options.dual_review_summary);
+    const sourceReliabilitySummary = summarizeDefenseSourceReliability(
+      options.sourceReliabilitySummary || options.source_reliability_summary,
+      events
+    );
+    const qualitySummary = summarizeDefenseQuality(options.qualitySummary || options.quality_summary);
+    const suggestionSummary = summarizeAiSuggestions(options.aiSuggestionEvents || options.ai_suggestion_events || []);
+    const countLabelsZh = {
+      recordsImported: '导入记录数',
+      duplicatesRemoved: '去除重复数',
+      titleAbstractScreened: '标题/摘要筛选数',
+      titleAbstractIncluded: '标题/摘要纳入数',
+      titleAbstractExcluded: '标题/摘要排除数',
+      titleAbstractUncertain: '标题/摘要不确定数',
+      fullTextAssessed: '全文评估数',
+      fullTextIncluded: '全文纳入数',
+      fullTextExcluded: '全文排除数',
+      studiesIncluded: '最终纳入研究数',
+      pendingFullTextReview: '待全文复核数',
+    };
+    const warningTypeLabelsZh = {
+      abstract_truncation_suspected: '摘要疑似截断',
+      abstract_noise_detected: '摘要噪音提示',
+      source_mapping_incomplete: '来源映射不完整',
+    };
+    const countRows = Object.keys(counts)
+      .map((key) => `| ${isZh ? (countLabelsZh[key] || key) : key} | ${counts[key]} |`)
+      .join('\n');
+    const bySourceDatabaseLines = Object.keys(sourceReliabilitySummary.bySourceDatabase || {}).length > 0
+      ? Object.keys(sourceReliabilitySummary.bySourceDatabase)
+          .sort()
+          .map((key) => `${key}: ${sourceReliabilitySummary.bySourceDatabase[key]}`)
+      : [isZh ? '无: 0' : 'none: 0'];
+    const byWarningTypeLines = Object.keys(sourceReliabilitySummary.byWarningType || {}).length > 0
+      ? Object.keys(sourceReliabilitySummary.byWarningType)
+          .sort()
+          .map((key) => `${isZh ? (warningTypeLabelsZh[key] || key) : key}: ${sourceReliabilitySummary.byWarningType[key]}`)
+      : [isZh ? '无: 0' : 'none: 0'];
+
+    if (isZh) {
+      return [
+        '# 答辩审计包',
+        '',
+        '目标文件：`DEFENSE_AUDIT_PACK.md`',
+        '此本地优先证据导出将审计、双人复核、质量评价、来源可靠性与 AI 边界记录整理为可复用于审稿回复、论文答辩或方法学附录的材料。',
+        '',
+        '## 执行摘要',
+        '',
+        `项目：${manifest.projectName}`,
+        `项目 ID：${manifest.projectId}`,
+        `Schema 版本：${manifest.schemaVersion}`,
+        `PRISMA 版本：${manifest.prismaVersion}`,
+        `生成时间：${manifest.exportGeneratedAt}`,
+        `已记录审计事件：${eventSummary.totalEvents}`,
+        `已记录筛选决定：${Array.isArray(decisions) ? decisions.length : 0}`,
+        '',
+        '## PRISMA 计数',
+        '',
+        '| 指标 | 数值 |',
+        '|---|---:|',
+        countRows,
+        '',
+        '## 双人复核解决摘要',
+        '',
+        `已配对决定：${dualReviewSummary.pairedDecisionCount}`,
+        `一致率：${dualReviewSummary.percentAgreement}`,
+        `Cohen\'s kappa：${dualReviewSummary.cohensKappa}`,
+        `未解决冲突：${dualReviewSummary.unresolvedConflictCount}`,
+        `未解决筛选冲突：${dualReviewSummary.unresolvedScreeningConflictCount}`,
+        `未解决质量冲突：${dualReviewSummary.unresolvedQualityConflictCount}`,
+        dualReviewSummary.hasUnresolvedConflicts
+          ? '当前导出门禁状态：此证据包会保留未解决冲突的可见记录。'
+          : '当前导出门禁状态：当前没有未解决冲突。',
+        '',
+        '## 质量评价与证据导出',
+        '',
+        `质量评价总数：${qualitySummary.totalAssessments}`,
+        `已完成评价：${qualitySummary.completedAssessments}`,
+        `进行中评价：${qualitySummary.inProgressAssessments}`,
+        `缺失评价：${qualitySummary.missingAssessments}`,
+        `Evidence table 可导出行数：${qualitySummary.evidenceTableReadyCount}`,
+        `GRADE summary 可导出行数：${qualitySummary.gradeSummaryReadyCount}`,
+        '',
+        '## 中文源可靠性摘要',
+        '',
+        `带有来源质量提示的记录数：${sourceReliabilitySummary.warningRecordCount}`,
+        `摘要疑似截断：${sourceReliabilitySummary.abstractTruncationCount}`,
+        `摘要噪音提示：${sourceReliabilitySummary.abstractNoiseCount}`,
+        `来源映射不完整：${sourceReliabilitySummary.sourceMappingIncompleteCount}`,
+        '按来源数据库统计：',
+        ...bySourceDatabaseLines,
+        '按警告类型统计：',
+        ...byWarningTypeLines,
+        '这些提示不会自动改变筛选决定。',
+        '这些提示仍属于导入质量信号，不代表最终筛选结论。',
+        '',
+        '## AI 边界摘要',
+        '',
+        `AI 建议记录数：${suggestionSummary.totalSuggestions}`,
+        `已人工处理的 AI 建议：${suggestionSummary.reviewedSuggestions}`,
+        '人工复核者保留最终决定权。',
+        '只有在记录了人工 ScreeningDecision 后，AI 建议才会与最终决定建立可追溯关联。',
+        '',
+        '## 附录复用提示',
+        '',
+        '- 可将此审计包复用于审稿回复附录、论文答辩附录或方法学补充材料。',
+        '- PRISMA 计数始终可追溯到 ScreeningDecision 与 AuditEvent 记录。',
+        '- 来源质量提示用于暴露导入可靠性风险，但不会直接改变最终纳入或排除决定。',
+        '',
+      ].join('\n');
+    }
+
+    return [
+      '# Defense-ready Audit Pack',
+      '',
+      'File target: `DEFENSE_AUDIT_PACK.md`',
+      'This local-first evidence export packages audit, dual-review, quality, source-reliability, and AI-boundary records for reviewer response, thesis defense, or methods appendix reuse.',
+      '',
+      '## Executive Summary',
+      '',
+      `Project: ${manifest.projectName}`,
+      `Project ID: ${manifest.projectId}`,
+      `Schema version: ${manifest.schemaVersion}`,
+      `PRISMA version: ${manifest.prismaVersion}`,
+      `Generated at: ${manifest.exportGeneratedAt}`,
+      `Audit events logged: ${eventSummary.totalEvents}`,
+      `Screening decisions logged: ${Array.isArray(decisions) ? decisions.length : 0}`,
+      '',
+      '## PRISMA Counts',
+      '',
+      '| Count | Value |',
+      '|---|---:|',
+      countRows,
+      '',
+      '## Dual-review Resolution Summary',
+      '',
+      `Paired decisions: ${dualReviewSummary.pairedDecisionCount}`,
+      `Percent agreement: ${dualReviewSummary.percentAgreement}`,
+      `Cohen\'s kappa: ${dualReviewSummary.cohensKappa}`,
+      `Unresolved conflicts: ${dualReviewSummary.unresolvedConflictCount}`,
+      `Unresolved screening conflicts: ${dualReviewSummary.unresolvedScreeningConflictCount}`,
+      `Unresolved quality conflicts: ${dualReviewSummary.unresolvedQualityConflictCount}`,
+      dualReviewSummary.hasUnresolvedConflicts
+        ? 'Current export gate status: unresolved conflicts remain visible in this evidence pack.'
+        : 'Current export gate status: no unresolved conflicts remain.',
+      '',
+      '## Quality Appraisal And Evidence Exports',
+      '',
+      `Quality assessments: ${qualitySummary.totalAssessments}`,
+      `Completed assessments: ${qualitySummary.completedAssessments}`,
+      `In-progress assessments: ${qualitySummary.inProgressAssessments}`,
+      `Missing assessments: ${qualitySummary.missingAssessments}`,
+      `Evidence table ready rows: ${qualitySummary.evidenceTableReadyCount}`,
+      `GRADE summary ready rows: ${qualitySummary.gradeSummaryReadyCount}`,
+      '',
+      '## Chinese-source Reliability Summary',
+      '',
+      `${sourceReliabilitySummary.warningRecordCount} records carry source-quality warnings.`,
+      `Abstract truncation signals: ${sourceReliabilitySummary.abstractTruncationCount}`,
+      `Abstract noise signals: ${sourceReliabilitySummary.abstractNoiseCount}`,
+      `Incomplete source mappings: ${sourceReliabilitySummary.sourceMappingIncompleteCount}`,
+      'Warnings by source database:',
+      ...bySourceDatabaseLines,
+      'Warnings by warning type:',
+      ...byWarningTypeLines,
+      'These warnings do not automatically change screening decisions.',
+      'These warnings remain import-quality signals, not final screening decisions.',
+      '',
+      '## AI Boundary Summary',
+      '',
+      `AI suggestions logged: ${suggestionSummary.totalSuggestions}`,
+      `Reviewed AI suggestions: ${suggestionSummary.reviewedSuggestions}`,
+      'Human reviewers remain the final decision authority.',
+      'AI suggestions remain advisory unless a human ScreeningDecision is recorded.',
+      '',
+      '## Appendix-ready Notes',
+      '',
+      '- Reuse this pack as a reviewer response appendix, thesis defense appendix, or methods supplement.',
+      '- PRISMA counts remain traceable to ScreeningDecision and AuditEvent records.',
+      '- Source-quality warnings surface import reliability risk without changing final include/exclude decisions.',
+      '',
+    ].join('\n');
+  }
+
   function buildPrismaTraiceReportMarkdown(manifestInput, aiSuggestionEvents, options = {}) {
     const manifest = createProjectManifest(manifestInput);
     const suggestionSummary = summarizeAiSuggestions(aiSuggestionEvents);
@@ -1363,6 +1658,7 @@
     serializeAiSuggestionEventsJsonl,
     buildPrismaCountsJson,
     buildAuditSummaryMarkdown,
+    buildDefenseReadyAuditPackMarkdown,
     buildPrismaTraiceReportMarkdown,
   };
 });

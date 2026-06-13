@@ -79,7 +79,7 @@ function parseRIS(content) {
       if (year && !record.year) record.year = year;
       const journal = text
         .replace(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b[\s\S]*$/, '')
-        .replace(/[.;；。\s]+$/, '')
+        .replace(/[.;；。，\s]+$/, '')
         .trim();
       if (journal && !record.journal) record.journal = journal;
       record.source_raw = record.source_raw || text;
@@ -496,8 +496,7 @@ function stripInlineHtmlTags(text) {
 }
 
 function findChineseAbstractNoiseIndex(text) {
-  const markers = [
-    /基金[:：]/i,
+  const strongMarkers = [
     /下载频次[:：]/i,
     /被引频次[:：]/i,
     /分类号[:：]/i,
@@ -507,11 +506,22 @@ function findChineseAbstractNoiseIndex(text) {
     /CNKICite\s*:/i
   ];
   const source = String(text || '');
-  return markers.reduce((firstIndex, marker) => {
+  const strongIndex = strongMarkers.reduce((firstIndex, marker) => {
     const match = source.match(marker);
     if (!match || match.index === undefined) return firstIndex;
     return firstIndex === -1 ? match.index : Math.min(firstIndex, match.index);
   }, -1);
+
+  if (strongIndex === -1) {
+    return -1;
+  }
+
+  const fundingMatch = source.match(/基金[:：]/i);
+  if (fundingMatch && fundingMatch.index !== undefined && fundingMatch.index <= strongIndex && (strongIndex - fundingMatch.index) <= 80) {
+    return fundingMatch.index;
+  }
+
+  return strongIndex;
 }
 
 function hasAbstractTruncationSignal(text) {
@@ -591,7 +601,7 @@ function applyChineseSourceYearVolumeIssue(record, value) {
     record.year = year;
   }
 
-  const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*\(([^)）]+)\)/);
+  const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*[（(]([^）)]+)[）)]/);
   if (volumeIssue) {
     if (!record.volume) record.volume = volumeIssue[1];
     if (!record.issue) record.issue = volumeIssue[2];
@@ -614,8 +624,8 @@ function normalizeChineseSourceRecord(record) {
   const next = { ...record };
   assignChineseSourceField(next, 'title', ['title', 'Title', 'TITLE', '题名', '标题', '论文题名']);
   assignChineseSourceField(next, 'abstract', ['abstract', 'Abstract', 'ABSTRACT', '摘要']);
-  assignChineseSourceField(next, 'authors', ['authors', 'author', 'Author', '作者']);
-  assignChineseSourceField(next, 'journal', ['journal', 'Journal', '刊名', '期刊', '出处', '来源']);
+  assignChineseSourceField(next, 'authors', ['authors', 'Authors', 'author', 'Author', '作者']);
+  assignChineseSourceField(next, 'journal', ['journal', 'Journal', 'Source', 'SOURCE', '刊名', '期刊', '出处', '来源']);
   assignChineseSourceField(next, 'doi', ['doi', 'DOI']);
   assignChineseSourceField(next, 'wanfang_id', ['wanfang_id', '万方ID', '万方id', 'articleid', 'ArticleID']);
   assignChineseSourceField(next, 'vip_id', ['vip_id', '维普ID', '维普id']);

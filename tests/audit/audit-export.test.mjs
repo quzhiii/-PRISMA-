@@ -168,6 +168,193 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.match(zhReport, /AI 建议不会/);
 });
 
+test('builds defense-ready audit pack markdown with dual-review and source-reliability summary', () => {
+  const manifest = AuditEngine.createProjectManifest({
+    projectId: 'project-1',
+    projectName: 'Defense Ready Review',
+    aiMode: 'assistive',
+    appVersion: 'v2.5',
+  });
+  const events = [
+    AuditEngine.createAuditEvent({
+      eventType: 'record_imported',
+      recordId: 'record-1',
+      sourceFile: 'cnki.enw',
+      sourceDatabase: 'CNKI',
+    }),
+    AuditEngine.createAuditEvent({
+      eventType: 'source_quality_warning',
+      after: {
+        warningRecordCount: 3,
+        abstractTruncationCount: 1,
+        abstractNoiseCount: 1,
+        sourceMappingIncompleteCount: 1,
+      },
+    }),
+  ];
+  const decisions = [
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-1',
+      stage: 'title_abstract',
+      decision: 'include',
+      reviewerId: 'reviewer_A',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-1',
+      stage: 'full_text',
+      decision: 'include',
+      reviewerId: 'reviewer_A',
+      qualityAppraisalStatus: 'complete',
+      finalExportStatus: 'included',
+    }),
+    AuditEngine.createScreeningDecision({
+      recordId: 'record-2',
+      stage: 'full_text',
+      decision: 'exclude',
+      exclusionReason: 'wrong_population',
+      reviewerId: 'reviewer_B',
+      qualityAppraisalStatus: 'in_progress',
+      finalExportStatus: 'excluded',
+    }),
+  ];
+
+  assert.equal(typeof AuditEngine.buildDefenseReadyAuditPackMarkdown, 'function');
+
+  const pack = AuditEngine.buildDefenseReadyAuditPackMarkdown(
+    manifest,
+    events,
+    decisions,
+    {
+      dualReviewSummary: {
+        agreementMetrics: {
+          pairedDecisionCount: 4,
+          percentAgreement: 0.75,
+          cohensKappa: 0.5,
+        },
+        exportGate: {
+          hasUnresolvedConflicts: true,
+          unresolvedConflictCount: 1,
+          unresolvedScreeningConflictCount: 1,
+          unresolvedQualityConflictCount: 0,
+          status: 'blocked_pending_resolution',
+        },
+      },
+      sourceReliabilitySummary: {
+        totalRecords: 12,
+        warningRecordCount: 3,
+        abstractTruncationCount: 1,
+        abstractNoiseCount: 1,
+        sourceMappingIncompleteCount: 1,
+      },
+      qualitySummary: {
+        totalAssessments: 2,
+        completedAssessments: 1,
+        inProgressAssessments: 1,
+        evidenceTableReadyCount: 1,
+        gradeSummaryReadyCount: 1,
+      },
+      aiSuggestionEvents: [
+        AuditEngine.createAiSuggestionEvent({
+          projectId: 'project-1',
+          recordId: 'record-1',
+          stage: 'title_abstract',
+          mode: 'suggest_only',
+          suggestedDecision: 'include',
+          humanAction: 'accepted',
+          linkedDecisionId: 'decision-1',
+        }),
+      ],
+    }
+  );
+
+  assert.match(pack, /^# Defense-ready Audit Pack/m);
+  assert.match(pack, /local-first evidence export/i);
+  assert.match(pack, /reviewer response, thesis defense, or methods appendix/i);
+  assert.match(pack, /## PRISMA Counts/);
+  assert.match(pack, /## Dual-review Resolution Summary/);
+  assert.match(pack, /Unresolved conflicts: 1/);
+  assert.match(pack, /Percent agreement: 75%/);
+  assert.match(pack, /## Quality Appraisal And Evidence Exports/);
+  assert.match(pack, /Quality assessments: 2/);
+  assert.match(pack, /## Chinese-source Reliability Summary/);
+  assert.match(pack, /3 records carry source-quality warnings/);
+  assert.match(pack, /These warnings do not automatically change screening decisions/);
+  assert.match(pack, /## AI Boundary Summary/);
+  assert.match(pack, /Human reviewers remain the final decision authority/);
+  assert.match(pack, /## Appendix-ready Notes/);
+});
+
+test('defense-ready audit pack lists richer reliability summary by source database and warning type', () => {
+  const pack = AuditEngine.buildDefenseReadyAuditPackMarkdown(
+    AuditEngine.createProjectManifest({
+      projectId: 'project-cn-1',
+      projectName: 'Chinese Source Reliability Pack',
+      aiMode: 'off',
+      appVersion: 'v2.5',
+    }),
+    [
+      AuditEngine.createAuditEvent({ eventType: 'record_imported', sourceDatabase: 'CNKI' }),
+    ],
+    [],
+    {
+      sourceReliabilitySummary: {
+        totalRecords: 8,
+        warningRecordCount: 4,
+        abstractTruncationCount: 2,
+        abstractNoiseCount: 1,
+        sourceMappingIncompleteCount: 1,
+        bySourceDatabase: {
+          CNKI: 2,
+          Wanfang: 1,
+          VIP: 1,
+        },
+        byWarningType: {
+          abstract_truncation_suspected: 2,
+          abstract_noise_detected: 1,
+          source_mapping_incomplete: 1,
+        },
+      },
+    }
+  );
+
+  assert.match(pack, /Warnings by source database/i);
+  assert.match(pack, /CNKI: 2/);
+  assert.match(pack, /Wanfang: 1/);
+  assert.match(pack, /VIP: 1/);
+  assert.match(pack, /Warnings by warning type/i);
+  assert.match(pack, /abstract_truncation_suspected: 2/);
+  assert.match(pack, /abstract_noise_detected: 1/);
+  assert.match(pack, /source_mapping_incomplete: 1/);
+  assert.match(pack, /import-quality signals, not final screening decisions/i);
+});
+
+test('builds defense-ready audit pack markdown in zh when language is zh', () => {
+  const pack = AuditEngine.buildDefenseReadyAuditPackMarkdown(
+    AuditEngine.createProjectManifest({
+      projectId: 'project-zh-1',
+      projectName: '中文答辩包',
+      aiMode: 'off',
+      appVersion: 'v2.5',
+    }),
+    [],
+    [],
+    {
+      language: 'zh',
+      sourceReliabilitySummary: {
+        warningRecordCount: 1,
+        abstractTruncationCount: 1,
+        abstractNoiseCount: 0,
+        sourceMappingIncompleteCount: 0,
+      },
+    }
+  );
+
+  assert.match(pack, /^# 答辩审计包/m);
+  assert.match(pack, /## 中文源可靠性摘要/);
+  assert.match(pack, /这些提示不会自动改变筛选决定/);
+  assert.match(pack, /人工复核者保留最终决定权/);
+});
+
 test('serializes audit package artifacts with stable escaping', () => {
   const events = [
     AuditEngine.createAuditEvent({
@@ -292,6 +479,7 @@ test('v2.2 app exposes all audit export download types', async () => {
     'ai_usage_registry',
     'ai_suggestions',
     'prisma_traice_report',
+    'defense_audit_pack',
   ];
   const expectedFiles = [
     'project_manifest.json',
@@ -303,6 +491,7 @@ test('v2.2 app exposes all audit export download types', async () => {
     'ai_usage_registry.json',
     'ai_suggestions.jsonl',
     'PRISMA_TRAICE_REPORT.md',
+    'DEFENSE_AUDIT_PACK.md',
   ];
 
   expectedTypes.forEach((type) => assert.match(source, new RegExp(`'${type}'`)));
@@ -310,6 +499,29 @@ test('v2.2 app exposes all audit export download types', async () => {
   assert.match(source, /buildAuditExportContent/);
   assert.match(source, /buildPrismaCountsJson/);
   assert.match(source, /buildAuditSummaryMarkdown\(manifest, auditEvents, screeningDecisions, \{[\s\S]*aiSuggestionEvents,/);
+  assert.match(source, /case 'defense_audit_pack':/);
+  assert.match(source, /buildDefenseReadyAuditPackMarkdown\(/);
+});
+
+test('v2.2 app summarizes reliability warnings with source and warning-type rollups for defense pack', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+
+  assert.match(source, /bySourceDatabase/);
+  assert.match(source, /byWarningType/);
+  assert.match(source, /source_database|_source/);
+  assert.match(source, /abstract_truncation_suspected/);
+  assert.match(source, /abstract_noise_detected/);
+  assert.match(source, /source_mapping_incomplete/);
+});
+
+test('v2.2 app derives defense pack evidence and grade readiness from actual export builders', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
+
+  assert.match(source, /function countDelimitedDataRows\(content\)/);
+  assert.match(source, /evidenceTableReadyCount:\s*countDelimitedDataRows\(buildEvidenceTableExportContent\(\)\)/);
+  assert.match(source, /gradeSummaryReadyCount:\s*countDelimitedDataRows\(buildGradeSummaryExportContent\(\)\)/);
+  assert.doesNotMatch(source, /evidenceTableReadyCount: Number\(qualitySummaryBase\?\.completedAssessments \|\| 0\)/);
+  assert.doesNotMatch(source, /gradeSummaryReadyCount: Number\(qualitySummaryBase\?\.completedAssessments \|\| 0\)/);
 });
 
 test('v2.2 app exposes V2.4 quality deliverables outside the frozen V2.3 audit trio', async () => {
@@ -373,6 +585,7 @@ test('v2.5 conflict gate blocks final exports while keeping evidence exports ava
     'audit_events',
     'audit_screening_decisions',
     'audit_exclusion_reasons',
+    'defense_audit_pack',
     'dual_review_conflicts',
     'dual_review_agreement',
   ].forEach((type) => assert.match(evidenceGateBlock[1], new RegExp(`'${type}'`)));
@@ -398,9 +611,11 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('audit_exclusion_reasons'\)/);
   assert.match(workspaceHtml, /downloadFile\('audit_prisma_counts'\)/);
   assert.match(workspaceHtml, /downloadFile\('audit_summary'\)/);
+  assert.match(workspaceHtml, /downloadFile\('defense_audit_pack'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
+  assert.match(workspaceHtml, /Defense-ready Audit Pack/);
   assert.match(workspaceHtml, /downloadFile\('quality_appraisal'\)/);
   assert.match(workspaceHtml, /quality_appraisal\.csv/);
   assert.match(workspaceHtml, /downloadFile\('evidence_table'\)/);
@@ -415,11 +630,14 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /class="surface-panel workspace-side-panel secondary-info-zone export-files-panel"/);
   assert.match(workspaceHtml, /class="info-box ai-readiness-box ai-transparency-panel"/);
   assert.match(workspaceHtml, /class="button-group audit-package-downloads"/);
-  assert.match(workspaceHtml, /V2\.6 Conservative AI \/ PRISMA-trAIce/);
+  assert.doesNotMatch(workspaceHtml, /V2\.4(?:-beta)?/);
+  assert.doesNotMatch(workspaceHtml, /V2\.6/);
+  assert.match(workspaceHtml, /Conservative AI \/ PRISMA-trAIce/);
   assert.match(workspaceHtml, /reviewed_at/);
   assert.match(workspaceHtml, /human edit fields/);
   assert.match(workspaceHtml, /prisma_count_boundary/);
-  assert.match(workspaceHtml, /Generate Local Example AI Suggestions|Generate V2\.6 Conservative AI Suggestions/);
+  assert.match(workspaceHtml, /Generate Conservative AI Suggestions/);
+  assert.match(workspaceHtml, /Generate Local Example AI Suggestions/);
   assert.match(workspaceHtml, /configuration evidence, not a final decision ledger/);
   assert.match(workspaceHtml, /rejected suggestions do not enter PRISMA counts/);
   assert.match(workspaceHtml, /final counts come from human ScreeningDecision records/);

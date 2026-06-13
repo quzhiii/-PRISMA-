@@ -109,6 +109,7 @@ Public status should stay simple: users open the `V2.5` public release line toda
 | `exclusion_reasons.csv` | Exclusion taxonomy and reason counts |
 | `prisma_counts.json` | PRISMA counts recalculated from decisions and events |
 | `audit_summary.md` | Human-readable audit summary and notes |
+| `DEFENSE_AUDIT_PACK.md` | Defense-ready audit pack: a local appendix-ready evidence export that combines PRISMA counts, dual-review conflict and agreement summary, quality-appraisal state, Chinese-source reliability warnings, and AI boundary notes |
 | `ai_usage_registry.json` | AI mode, provider boundary, allowed stages, and acknowledgement evidence |
 | `ai_suggestions.jsonl` | AI suggestions, hashes, human review actions, linked decisions, review trace fields, and PRISMA count boundary |
 | `PRISMA_TRAICE_REPORT.md` | No-AI or assistive-AI transparency report for PRISMA-trAIce readiness |

@@ -29,6 +29,7 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_exclusion_reasons',
   'audit_prisma_counts',
   'audit_summary',
+  'defense_audit_pack',
   'ai_usage_registry',
   'ai_suggestions',
   'prisma_traice_report',
@@ -55,6 +56,7 @@ const V25_CONFLICT_EVIDENCE_EXPORT_TYPES = Object.freeze([
   'audit_events',
   'audit_screening_decisions',
   'audit_exclusion_reasons',
+  'defense_audit_pack',
   'ai_usage_registry',
   'ai_suggestions',
   'prisma_traice_report',
@@ -1631,17 +1633,40 @@ function summarizeImportReliabilityWarnings(records) {
     abstractTruncationCount: 0,
     abstractNoiseCount: 0,
     sourceMappingIncompleteCount: 0,
+    bySourceDatabase: {},
+    byWarningType: {
+      abstract_truncation_suspected: 0,
+      abstract_noise_detected: 0,
+      source_mapping_incomplete: 0,
+    },
   };
 
   list.forEach((record) => {
     const hasTruncation = Boolean(record?.abstract_truncation_suspected);
     const hasNoise = Boolean(record?.abstract_noise_detected);
     const hasMappingGap = Boolean(record?.source_mapping_incomplete);
+    const sourceDatabase = String(record?.source_database || record?._source || '').trim() || 'Unknown';
+    let warningCountForRecord = 0;
 
-    if (hasTruncation) summary.abstractTruncationCount += 1;
-    if (hasNoise) summary.abstractNoiseCount += 1;
-    if (hasMappingGap) summary.sourceMappingIncompleteCount += 1;
-    if (hasTruncation || hasNoise || hasMappingGap) summary.warningRecordCount += 1;
+    if (hasTruncation) {
+      summary.abstractTruncationCount += 1;
+      summary.byWarningType.abstract_truncation_suspected += 1;
+      warningCountForRecord += 1;
+    }
+    if (hasNoise) {
+      summary.abstractNoiseCount += 1;
+      summary.byWarningType.abstract_noise_detected += 1;
+      warningCountForRecord += 1;
+    }
+    if (hasMappingGap) {
+      summary.sourceMappingIncompleteCount += 1;
+      summary.byWarningType.source_mapping_incomplete += 1;
+      warningCountForRecord += 1;
+    }
+    if (warningCountForRecord > 0) {
+      summary.warningRecordCount += 1;
+      summary.bySourceDatabase[sourceDatabase] = (summary.bySourceDatabase[sourceDatabase] || 0) + 1;
+    }
   });
 
   return summary;
@@ -4090,8 +4115,7 @@ function stripInlineHtmlTags(text) {
 }
 
 function findChineseAbstractNoiseIndex(text) {
-  const markers = [
-    /基金[:：]/i,
+  const strongMarkers = [
     /下载频次[:：]/i,
     /被引频次[:：]/i,
     /分类号[:：]/i,
@@ -4101,11 +4125,22 @@ function findChineseAbstractNoiseIndex(text) {
     /CNKICite\s*:/i
   ];
   const source = String(text || '');
-  return markers.reduce((firstIndex, marker) => {
+  const strongIndex = strongMarkers.reduce((firstIndex, marker) => {
     const match = source.match(marker);
     if (!match || match.index === undefined) return firstIndex;
     return firstIndex === -1 ? match.index : Math.min(firstIndex, match.index);
   }, -1);
+
+  if (strongIndex === -1) {
+    return -1;
+  }
+
+  const fundingMatch = source.match(/基金[:：]/i);
+  if (fundingMatch && fundingMatch.index !== undefined && fundingMatch.index <= strongIndex && (strongIndex - fundingMatch.index) <= 80) {
+    return fundingMatch.index;
+  }
+
+  return strongIndex;
 }
 
 function hasAbstractTruncationSignal(text) {
@@ -4185,7 +4220,7 @@ function applyChineseSourceYearVolumeIssue(record, value) {
     record.year = yearMatch[1];
   }
 
-  const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*\(([^)）]+)\)/);
+  const volumeIssue = text.match(/(?:^|[,，\s])(\d+)\s*[（(]([^）)]+)[）)]/);
   if (volumeIssue) {
     if (!record.volume) record.volume = volumeIssue[1];
     if (!record.issue) record.issue = volumeIssue[2];
@@ -4203,7 +4238,7 @@ function applyChineseSourceLineValue(record, value) {
 
   const journal = text
     .replace(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b[\s\S]*$/, '')
-    .replace(/[.;；。\s]+$/, '')
+    .replace(/[.;；。，\s]+$/, '')
     .trim();
   if (journal && !record.journal) {
     record.journal = journal;
@@ -4228,8 +4263,8 @@ function normalizeChineseSourceRecord(record) {
   const next = { ...record };
   assignChineseSourceField(next, 'title', ['title', 'Title', 'TITLE', '题名', '标题', '论文题名']);
   assignChineseSourceField(next, 'abstract', ['abstract', 'Abstract', 'ABSTRACT', '摘要']);
-  assignChineseSourceField(next, 'authors', ['authors', 'author', 'Author', '作者']);
-  assignChineseSourceField(next, 'journal', ['journal', 'Journal', '刊名', '期刊', '出处', '来源']);
+  assignChineseSourceField(next, 'authors', ['authors', 'Authors', 'author', 'Author', '作者']);
+  assignChineseSourceField(next, 'journal', ['journal', 'Journal', 'Source', 'SOURCE', '刊名', '期刊', '出处', '来源']);
   assignChineseSourceField(next, 'doi', ['doi', 'DOI']);
   assignChineseSourceField(next, 'wanfang_id', ['wanfang_id', '万方ID', '万方id', 'ArticleID', 'articleid']);
   assignChineseSourceField(next, 'vip_id', ['vip_id', '维普ID', '维普id']);
@@ -7240,9 +7275,26 @@ function performScreening(data, rules) {
     }
   }
 
+  // v1.7: Mark records matching include keywords for priority protection
+  const validIncludeKW = (rules.include_any || []).filter(kw => kw && kw.trim());
+  if (validIncludeKW.length > 0) {
+    withLanguage.forEach(row => {
+      const text = (getValue(row, 'title') + ' ' + getValue(row, 'abstract') + ' ' + getValue(row, 'keywords')).toLowerCase();
+      row._matches_include = validIncludeKW.some(kw => text.includes(kw.toLowerCase()));
+    });
+  } else {
+    withLanguage.forEach(row => { row._matches_include = false; });
+  }
+
+  const priorityToggle = typeof document !== 'undefined' && document.getElementById
+    ? document.getElementById('includePriorityToggle')
+    : null;
+  const includePriority = priorityToggle ? priorityToggle.checked !== false : true;
+
   // Apply exclude keywords (title/abstract screening)
   const excluded_ta = [];
   const afterTA = [];
+  let protectedCount = 0;
 
   withLanguage.forEach(row => {
     const text = (getValue(row, 'title') + ' ' + getValue(row, 'abstract') + ' ' + getValue(row, 'keywords')).toLowerCase();
@@ -7257,7 +7309,12 @@ function performScreening(data, rules) {
       }
     }
 
-    if (excluded) {
+    if (excluded && row._matches_include && includePriority) {
+      row._include_protected = true;
+      row._would_exclude_reason = reason;
+      afterTA.push(row);
+      protectedCount++;
+    } else if (excluded) {
       excluded_ta.push({ ...row, _exclude_reason: reason, _exclude_stage: 'title/abstract' });
     } else {
       afterTA.push(row);
@@ -8235,6 +8292,91 @@ function buildGradeSummaryExportContent() {
   return QUALITY_ENGINE.serializeGradeSummaryCsv(includedRecords, qualityAssessments);
 }
 
+function countDelimitedDataRows(content) {
+  const text = String(content || '');
+  if (!text.trim()) {
+    return 0;
+  }
+
+  let rowCount = 0;
+  let currentRowHasContent = false;
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (char === '"') {
+      if (inQuotes && text[index + 1] === '"') {
+        currentRowHasContent = true;
+        index += 1;
+        continue;
+      }
+
+      inQuotes = !inQuotes;
+      currentRowHasContent = true;
+      continue;
+    }
+
+    if (!inQuotes && (char === '\n' || char === '\r')) {
+      if (currentRowHasContent) {
+        rowCount += 1;
+        currentRowHasContent = false;
+      }
+
+      if (char === '\r' && text[index + 1] === '\n') {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (char !== '\n' && char !== '\r') {
+      currentRowHasContent = true;
+    }
+  }
+
+  if (currentRowHasContent) {
+    rowCount += 1;
+  }
+
+  return Math.max(rowCount - 1, 0);
+}
+
+function buildDefenseReadyAuditPackExportContent() {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.buildDefenseReadyAuditPackMarkdown !== 'function') {
+    return '';
+  }
+
+  const manifest = ensureProjectManifest();
+  const dualReviewSummary = refreshDualReviewConflictState();
+  const includedRecords = Array.isArray(screeningResults?.included) ? screeningResults.included : [];
+  const reliabilitySummary = summarizeImportReliabilityWarnings(uploadedData);
+
+  qualityAssessments = normalizeQualityAssessmentsState(qualityAssessments);
+  const qualitySummaryBase = QUALITY_ENGINE && typeof QUALITY_ENGINE.summarizeQualityAssessments === 'function'
+    ? QUALITY_ENGINE.summarizeQualityAssessments(qualityAssessments, includedRecords)
+    : {
+      totalIncluded: includedRecords.length,
+      totalAssessments: qualityAssessments.length,
+      missingAssessments: Math.max(includedRecords.length - qualityAssessments.length, 0),
+      completedAssessments: 0,
+      byStatus: {},
+    };
+  const qualitySummary = {
+    ...qualitySummaryBase,
+    inProgressAssessments: Number(qualitySummaryBase?.byStatus?.in_progress || 0),
+    evidenceTableReadyCount: countDelimitedDataRows(buildEvidenceTableExportContent()),
+    gradeSummaryReadyCount: countDelimitedDataRows(buildGradeSummaryExportContent()),
+  };
+
+  return AUDIT_ENGINE.buildDefenseReadyAuditPackMarkdown(manifest, auditEvents, screeningDecisions, {
+    dualReviewSummary,
+    sourceReliabilitySummary: reliabilitySummary,
+    qualitySummary,
+    aiSuggestionEvents,
+    language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
+  });
+}
+
 function isAuditExportType(type) {
   return AUDIT_EXPORT_TYPES.includes(type);
 }
@@ -8297,6 +8439,8 @@ function buildAuditExportContent(type) {
         aiSuggestionEvents,
         language: typeof getAiSuggestionPanelLang === 'function' ? getAiSuggestionPanelLang() : 'en',
       });
+    case 'defense_audit_pack':
+      return buildDefenseReadyAuditPackExportContent();
     case 'ai_usage_registry':
       return JSON.stringify(AUDIT_ENGINE.buildAiUsageRegistryExport(manifest), null, 2);
     case 'ai_suggestions':
@@ -8442,6 +8586,10 @@ function downloadFile(type) {
       filename = 'audit_summary.md';
       mimeType = 'text/markdown;charset=utf-8';
       break;
+    case 'defense_audit_pack':
+      filename = 'DEFENSE_AUDIT_PACK.md';
+      mimeType = 'text/markdown;charset=utf-8';
+      break;
     case 'ai_usage_registry':
       filename = 'ai_usage_registry.json';
       mimeType = 'application/json;charset=utf-8';
@@ -8537,6 +8685,7 @@ function downloadAllFiles() {
     'audit_exclusion_reasons',
     'audit_prisma_counts',
     'audit_summary',
+    'defense_audit_pack',
     'audit_events',
     'ai_usage_registry',
     'ai_suggestions',

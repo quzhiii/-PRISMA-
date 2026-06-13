@@ -161,7 +161,7 @@
 
         <div id="importJobShellPanel" class="info-box workspace-info-panel" style="margin-top: var(--space-20); border-left-color: var(--color-info);">
           <h3><span class="zh">导入任务</span><span class="en">Import Jobs</span></h3>
-          <p><span class="zh">V2.3 保留后台导入任务状态，并为常用格式启用真正的增量解析；审计事件会记录导入、解析和后续导出节点。</span><span class="en">V2.3 keeps import-job state and real incremental parsing for common formats; audit events record import, parsing, and later export milestones.</span></p>
+          <p><span class="zh">当前工作台保留后台导入任务状态，并为常用格式启用真正的增量解析；审计事件会记录导入、解析和后续导出节点。</span><span class="en">The current workspace keeps import-job state and real incremental parsing for common formats; audit events record import, parsing, and later export milestones.</span></p>
           <div id="importJobSummary" class="muted-text"></div>
           <div id="importJobList" style="margin-top: 12px;"></div>
         </div>
@@ -439,10 +439,10 @@
         </div>
 
         <div class="info-box workspace-info-panel auxiliary-zone" style="margin-bottom: 20px;">
-          <h3><span class="zh">V2.6 保守 AI 初筛队列</span><span class="en">V2.6 Conservative AI Screening Queue</span></h3>
+          <h3><span class="zh">保守 AI 初筛队列</span><span class="en">Conservative AI Screening Queue</span></h3>
           <p><span class="zh">在进入全文复核前，用本地 advisory suggestions 把记录分成优先保留、需要人工关注和需要重点排除核查三类。</span><span class="en">Before full-text review, use local advisory suggestions to group records into likely relevant, needs-human-attention, and exclusion-check queues.</span></p>
           <div class="button-group" style="margin-top: 12px; margin-bottom: 12px;">
-            <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成 V2.6 保守 AI 队列</span><span class="en">Generate V2.6 Conservative AI Queue</span></button>
+            <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成保守 AI 建议</span><span class="en">Generate Conservative AI Suggestions</span></button>
           </div>
           <div id="conservativeAiQueuePanel"></div>
         </div>
@@ -661,7 +661,7 @@
 
         <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-info);">
           <h3><span class="zh">当前版本如何处理质量评价</span><span class="en">How this version handles quality assessment</span></h3>
-          <p><span class="zh">V2.4 会为最终纳入研究生成结构化质量评价记录、evidence_table.csv 和 GRADE summary 骨架，包含研究设计、正式模板、建议工具族、领域条目、PICOS、效应量和证据等级基线。研究者仍需人工核对和确认最终 GRADE；真实 AI provider 不会默认接入。</span><span class="en">V2.4 creates structured quality appraisal records, evidence_table.csv, and a GRADE summary scaffold for included studies, including study design, template, recommended tool family, domain items, PICOS, effect fields, and baseline evidence level. Reviewers still confirm final GRADE manually; no real AI provider is connected by default.</span></p>
+          <p><span class="zh">当前质量评价流程会为最终纳入研究生成结构化质量评价记录、evidence_table.csv 和 GRADE summary 骨架，包含研究设计、正式模板、建议工具族、领域条目、PICOS、效应量和证据等级基线。研究者仍需人工核对和确认最终 GRADE；真实 AI provider 不会默认接入。</span><span class="en">The current quality appraisal workflow creates structured quality appraisal records, evidence_table.csv, and a GRADE summary scaffold for included studies, including study design, template, recommended tool family, domain items, PICOS, effect fields, and baseline evidence level. Reviewers still confirm final GRADE manually; no real AI provider is connected by default.</span></p>
         </div>
 
         <div class="grid-4 workspace-stat-grid" style="margin-bottom: 16px;">
@@ -671,15 +671,13 @@
           <div class="stat-card"><div class="stat-label"><span class="zh">已完成</span><span class="en">Completed</span></div><div class="stat-value" id="quality-status-completed">0</div></div>
         </div>
 
-        <div class="two-column workspace-main-grid">
-          <div class="surface-panel workspace-side-panel secondary-info-zone">
-            <h3 style="margin-top: 0;"><span class="zh">研究队列</span><span class="en">Study queue</span></h3>
-            <div id="qualityAssessmentQueue" class="muted-text"></div>
-          </div>
-          <div class="surface-panel workspace-side-panel secondary-info-zone">
-            <h3 style="margin-top: 0;"><span class="zh">证据概览</span><span class="en">Evidence overview</span></h3>
-            <div id="qualityAssessmentSummary" class="muted-text"></div>
-          </div>
+        <div class="surface-panel workspace-side-panel secondary-info-zone" style="margin-bottom: 16px;">
+          <h3 style="margin-top: 0;"><span class="zh">研究队列</span><span class="en">Study queue</span></h3>
+          <div id="qualityAssessmentQueue" class="muted-text"></div>
+        </div>
+        <div class="surface-panel workspace-side-panel secondary-info-zone">
+          <h3 style="margin-top: 0;"><span class="zh">证据概览</span><span class="en">Evidence overview</span></h3>
+          <div id="qualityAssessmentSummary" class="muted-text"></div>
         </div>
 
         <div class="info-box workspace-info-panel secondary-info-zone" style="margin-top: 20px;">
@@ -788,6 +786,7 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_exclusion_reasons')"><span class="zh">排除理由 CSV</span><span class="en">Exclusion Reasons</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_prisma_counts')"><span class="zh">PRISMA 计数 JSON</span><span class="en">PRISMA Counts</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_summary')"><span class="zh">审计摘要 MD</span><span class="en">Audit Summary</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('defense_audit_pack')"><span class="zh">答辩 / 附录审计包</span><span class="en">Defense-ready Audit Pack</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_usage_registry')"><span class="zh">AI 使用登记 JSON</span><span class="en">AI Usage Registry</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_suggestions')"><span class="zh">AI 建议日志 JSONL</span><span class="en">AI Suggestion Log</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">PRISMA-trAIce MD</span><span class="en">PRISMA-trAIce MD</span></button>
@@ -824,19 +823,23 @@
                   </tr>
                   <tr style="border-bottom: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>quality_appraisal.csv</code></td>
-                    <td style="padding: 4px 8px;"><span class="zh">V2.4 质量评价导出：每条纳入研究的模板、工具族、领域判断、支持引文、审稿备注和状态</span><span class="en">V2.4 quality appraisal export: template, tool family, domain judgement, supporting quote, reviewer note, and status for included studies</span></td>
+                    <td style="padding: 4px 8px;"><span class="zh">质量评价导出：每条纳入研究的模板、工具族、领域判断、支持引文、审稿备注和状态</span><span class="en">Quality appraisal export: template, tool family, domain judgement, supporting quote, reviewer note, and status for included studies</span></td>
                   </tr>
                   <tr style="border-bottom: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>evidence_table.csv</code></td>
-                    <td style="padding: 4px 8px;"><span class="zh">V2.4-beta 证据表导出：每条纳入研究的 PICOS、效应量、质量判断、证据确定性和备注；GRADE 仍需人工确认</span><span class="en">V2.4-beta evidence table export: PICOS, effect measure, quality judgement, certainty of evidence, and notes for each included study; GRADE remains human-confirmed</span></td>
+                    <td style="padding: 4px 8px;"><span class="zh">证据表导出：每条纳入研究的 PICOS、效应量、质量判断、证据确定性和备注；GRADE 仍需人工确认</span><span class="en">Evidence table export: PICOS, effect measure, quality judgement, certainty of evidence, and notes for each included study; GRADE remains human-confirmed</span></td>
                   </tr>
                   <tr style="border-bottom: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>grade_summary.csv</code></td>
-                    <td style="padding: 4px 8px;"><span class="zh">V2.4 GRADE 摘要骨架：按 outcome / PICOS 聚合研究、效应摘要、质量判断摘要和基线确定性；最终 GRADE 和降级理由保留给人工确认</span><span class="en">V2.4 GRADE summary scaffold: groups studies by outcome / PICOS with effect summary, quality judgement summary, and baseline certainty; final GRADE and downgrade reasons stay human-confirmed</span></td>
+                    <td style="padding: 4px 8px;"><span class="zh">GRADE 摘要骨架：按 outcome / PICOS 聚合研究、效应摘要、质量判断摘要和基线确定性；最终 GRADE 和降级理由保留给人工确认</span><span class="en">GRADE summary scaffold: groups studies by outcome / PICOS with effect summary, quality judgement summary, and baseline certainty; final GRADE and downgrade reasons stay human-confirmed</span></td>
                   </tr>
                   <tr>
                     <td style="padding: 4px 8px;"><code>audit_summary.md</code></td>
                     <td style="padding: 4px 8px;"><span class="zh">可读的审计摘要：事件数量、决策数量、PRISMA 计数、AI 模式、数据边界和风险提示</span><span class="en">Human-readable audit summary: event counts, decision counts, PRISMA counts, AI mode, data boundary, and risk notes</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>DEFENSE_AUDIT_PACK.md</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">答辩 / 附录审计包：整合 PRISMA 计数、双审冲突、一致性指标、质量评价、中文源可靠性提醒和 AI 边界说明，适合方法学附录与审稿回复</span><span class="en">Defense-ready audit pack: combines PRISMA counts, dual-review conflict status, agreement metrics, quality appraisal, Chinese-source reliability warnings, and AI boundary notes for appendices or reviewer response.</span></td>
                   </tr>
                   <tr style="border-top: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>ai_usage_registry.json</code></td>
@@ -848,7 +851,7 @@
                   </tr>
                   <tr>
                     <td style="padding: 4px 8px;"><code>PRISMA_TRAICE_REPORT.md</code></td>
-                    <td style="padding: 4px 8px;"><span class="zh">V2.3 透明报告：说明是否使用 AI、如何使用、No-AI 状态，以及“最终计数来自人工 ScreeningDecision”的边界</span><span class="en">V2.3 transparency report covering AI usage, No-AI state, and the boundary that final counts come from human ScreeningDecision records</span></td>
+                    <td style="padding: 4px 8px;"><span class="zh">PRISMA-trAIce 透明报告：说明是否使用 AI、如何使用、No-AI 状态，以及“最终计数来自人工 ScreeningDecision”的边界</span><span class="en">PRISMA-trAIce transparency report covering AI usage, No-AI state, and the boundary that final counts come from human ScreeningDecision records</span></td>
                   </tr>
                   <tr style="border-top: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>dual_review_conflicts.csv</code></td>
@@ -865,7 +868,7 @@
           </div>
 
           <div class="info-box ai-readiness-box ai-transparency-panel">
-            <h4><span class="zh">V2.6 Conservative AI / PRISMA-trAIce</span><span class="en">V2.6 Conservative AI / PRISMA-trAIce</span></h4>
+            <h4><span class="zh">保守 AI / PRISMA-trAIce</span><span class="en">Conservative AI / PRISMA-trAIce</span></h4>
             <p class="ai-readiness-copy"><span class="zh">PRISMA-trAIce 是面向“系统综述中使用 AI”的透明报告要求：需要说明 AI 用在什么环节、是否影响筛选决定，以及人工如何复核。</span><span class="en">PRISMA-trAIce is a transparency checklist for AI use in systematic reviews: where AI is used, whether it affects screening decisions, and how humans review it.</span></p>
             <div class="ai-readiness-steps">
               <div><strong><span class="zh">为什么做</span><span class="en">Why</span></strong><span><span class="zh">让审稿人和团队看清 AI 只提供建议，不直接改变最终计数。</span><span class="en">Reviewers can see that AI only suggests and never changes final counts directly.</span></span></div>
@@ -877,7 +880,7 @@
               <label class="checkbox-label"><input type="radio" name="aiMode" value="experimental" onclick="setAiModeSafe('experimental')"><span><span class="zh">完整记录：额外保留模型和提示词追踪信息</span><span class="en">Trace mode: keep fuller model and prompt records</span></span></label>
             </div>
             <div class="button-group ai-transparency-actions">
-              <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成 V2.6 保守 AI 建议</span><span class="en">Generate V2.6 Conservative AI Suggestions</span></button>
+              <button type="button" class="btn btn-secondary" onclick="generateConservativeAiSuggestions()"><span class="zh">生成保守 AI 建议</span><span class="en">Generate Conservative AI Suggestions</span></button>
               <button type="button" class="btn btn-secondary" onclick="generateMockAiSuggestions()"><span class="zh">生成本地示例 AI 建议</span><span class="en">Generate Local Example AI Suggestions</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">下载 PRISMA-trAIce 报告</span><span class="en">Download PRISMA-trAIce Report</span></button>
             </div>

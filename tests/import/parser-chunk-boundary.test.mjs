@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,6 +11,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const requireFromRepo = createRequire(import.meta.url);
 const StreamingParser = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.0/streaming-parser.js'));
 const V22StreamingParser = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2/streaming-parser.js'));
+const chineseSourceFixtureDir = path.join(repoRoot, 'fixtures', 'chinese-source');
 
 function parseInChunks(format, chunks, parser = StreamingParser) {
   const session = parser.createStreamingSession({ format });
@@ -136,5 +138,50 @@ test('v2.7 streaming NBIB maps SinoMed identifiers and incomplete source warning
   assert.equal(records[0].sinomed_id, 'SINOMED2020001');
   assert.equal(records[0].mesh_terms, 'Acupuncture');
   assert.equal(records[0].abstract_truncation_suspected, true);
+  assert.equal(records[0].source_mapping_incomplete, true);
+});
+
+test('v2.7 streaming CSV parses Wanfang fullwidth volume issue notation across chunks', () => {
+  const content = fs.readFileSync(path.join(chineseSourceFixtureDir, 'wanfang-fullwidth-volume-issue.csv'), 'utf8');
+  const splitIndex = content.indexOf('41（5）') + 3;
+  const { records, parsedCount } = parseInChunks('csv', [
+    content.slice(0, splitIndex),
+    content.slice(splitIndex),
+  ], V22StreamingParser);
+
+  assert.equal(parsedCount, 1);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].source_database, 'Wanfang');
+  assert.equal(records[0].volume, '41');
+  assert.equal(records[0].issue, '5');
+});
+
+test('v2.7 streaming CSV maps VIP mixed Chinese and English headers across chunks', () => {
+  const content = fs.readFileSync(path.join(chineseSourceFixtureDir, 'vip-mixed-headers.csv'), 'utf8');
+  const splitIndex = content.indexOf('Source') + 3;
+  const { records, parsedCount } = parseInChunks('csv', [
+    content.slice(0, splitIndex),
+    content.slice(splitIndex),
+  ], V22StreamingParser);
+
+  assert.equal(parsedCount, 1);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].source_database, 'VIP');
+  assert.equal(records[0].authors, '陈一;王二');
+  assert.equal(records[0].journal, '中国康复理论与实践');
+});
+
+test('v2.7 streaming NBIB trims SinoMed source punctuation while flagging partial mapping', () => {
+  const content = fs.readFileSync(path.join(chineseSourceFixtureDir, 'sinomed-partial-source.nbib'), 'utf8');
+  const splitIndex = content.indexOf('中国循证医学杂志') + 8;
+  const { records, parsedCount } = parseInChunks('nbib', [
+    content.slice(0, splitIndex),
+    content.slice(splitIndex),
+  ], V22StreamingParser);
+
+  assert.equal(parsedCount, 1);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].source_database, 'SinoMed');
+  assert.equal(records[0].journal, '中国循证医学杂志');
   assert.equal(records[0].source_mapping_incomplete, true);
 });

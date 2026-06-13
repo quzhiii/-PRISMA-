@@ -73,6 +73,8 @@ V2.2 已完成的工程基础：
 
 目标：把审计能力从“已能导出”推进到“可解释、可测试、可复核”。
 
+Current status: P1 now starts with a local defense-ready audit pack export slice built on the `literature-screening-v2.2/` compatibility path. The first deliverable is `DEFENSE_AUDIT_PACK.md`, not a backend or commercial execution slice.
+
 | 任务 | 说明 |
 |---|---|
 | 审计事件类型稳定化 | 明确 import、dedup、screening、review、quality、export 的事件字段 |
@@ -270,6 +272,8 @@ Current status: the repo-local P6 packaging slices are now in place, and the loc
 | P1 | Defense-ready audit pack | 审计导出是最接近真实付费意愿的方向之一，应从“工具导出”升级成“答辩 / 附录 / 复核可直接使用的证据包” | defense-ready summary、appendix-friendly narrative、dual-review resolution summary |
 | P2 | Chinese-source trust depth | 中文源兼容和清洗是最强护城河之一，应继续加深 fixture、清洗和 reliability story | 更强 fixture coverage、清洗启发式、reliability notes |
 | P3 | Repo and positioning cleanup | 当前差异化需要更容易被看懂；否则产品价值被低估，分发和协作也更难 | 当前版本入口清晰化、README / GitHub 叙事强化、历史版本整理方案 |
+
+Current execution note: the trust-wedge track skips P0 commercial validation execution for now and starts from P1 `Defense-ready audit pack` plus P2 `Chinese-source trust depth`. `DEFENSE_AUDIT_PACK.md` is a local evidence export slice for appendix / defense / reviewer-response reuse and keeps infrastructure expansion out of scope.
 
 推荐策略：以 China-first trust wedge 为主线推进 P0-P3，并并行做一条轻量的分发与定位清理线；暂缓进入 backend-heavy collaboration platform 叙事。
 
