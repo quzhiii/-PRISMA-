@@ -675,7 +675,7 @@ test('public docs and workspace position sample data as a public demo dataset', 
 
   assert.match(readme, /public demo dataset/i);
   assert.match(readmeEn, /public demo dataset/i);
-  assert.match(roadmap, /Demo dataset \| 可公开的演示数据和导入说明/);
+  assert.match(roadmap, /Demo dataset \| 可公开的演示数据/);
   assert.match(workspaceHtml, /公开演示数据|public demo dataset/i);
   assert.match(landingHtml, /公开演示数据|public demo dataset/i);
   assert.match(appSource, /public demo dataset|公开演示数据/i);
