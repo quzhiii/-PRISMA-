@@ -263,13 +263,13 @@ V2.7 验收标准：
 
 | 任务 | 产物 |
 |---|---|
-| Demo dataset | 可公开的演示数据和导入说明；作为 V3.0 第一刀，优先服务 onboarding 和 workflow walkthrough |
+| Demo dataset | 可公开的演示数据包和导入说明；作为 V3.0 第一刀，优先服务 onboarding 和 workflow walkthrough |
 | Benchmark package | 导入、去重、筛选、审计 replay 的可复现测试 |
 | Paper skeleton | JOSS / JMIR AI / Systematic Reviews 候选材料 |
 | Release page | 面向科研用户的 landing page 和使用路径 |
 | Commercial validation | 访谈、试用、模板包、机构部署意向验证 |
 
-Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports. The next concrete slice is a paper skeleton: a repository-local manuscript structure and evidence map for JOSS / JMIR AI / Systematic Reviews preparation, not a submission-ready paper. The next concrete slice is a commercial validation contract: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
+Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset is now expanded to 22 records covering CNKI, Wanfang, VIP, SinoMed, and PubMed sources with representative Chinese-source reliability signals, dedup demonstration records, and a workflow walkthrough guide at `docs/demo/README.md`. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports. The next concrete slice is a paper skeleton: a repository-local manuscript structure and evidence map for JOSS / JMIR AI / Systematic Reviews preparation, not a submission-ready paper. The next concrete slice is a commercial validation contract: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
 
 ## Next 90 Days：Trust Wedge 1.0
 

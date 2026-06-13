@@ -1,5 +1,5 @@
 {
-  "description": "Public demo dataset for onboarding and workflow walkthrough",
+  "description": "Public demo dataset for onboarding and workflow walkthrough. Covers CNKI, Wanfang, VIP, SinoMed, and PubMed sources with representative Chinese-source reliability signals.",
   "format": "json",
   "data": [
     {
@@ -25,6 +25,115 @@
       "database": "CNKI"
     },
     {
+      "title": "CNKI带噪音摘要的高血压研究示例",
+      "authors": "周八",
+      "year": "2024",
+      "journal": "中国全科医学",
+      "abstract": "摘要：目的：观察中药降压效果。结果显示治疗组有效率优于对照组。基金：国家自然科学基金；下载频次：56；被引频次：3；分类号：R259；dbcode:CJFD；余略",
+      "keywords": "中药; 高血压; 临床研究",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "基金支持视角下的社区高血压管理研究",
+      "authors": "吴九",
+      "year": "2024",
+      "journal": "中国全科医学",
+      "abstract": "摘要：基金：支持视角下的社区高血压服务整合研究显示依从性提高，结论提示基层随访流程仍需优化。",
+      "keywords": "社区; 高血压; 基金",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "万方高血压队列研究示例",
+      "authors": "孙十; 周十一",
+      "year": "2021",
+      "journal": "中国卫生经济",
+      "abstract": "采用队列研究设计，观察中药干预对高血压患者长期预后的影响。纳入320例患者随访2年。",
+      "keywords": "高血压; 队列研究; 中药",
+      "doi": "10.3969/j.issn.1002-3127.2021.05.012",
+      "wanfang_id": "WF2021005",
+      "type": "JOUR",
+      "database": "Wanfang"
+    },
+    {
+      "title": "万方全角卷期格式的高血压研究",
+      "authors": "郑十二",
+      "year": "2022",
+      "journal": "中国公共卫生",
+      "abstract": "分析社区高血压管理模式的效果，比较家庭医生签约与非签约患者的血压控制率差异。",
+      "keywords": "高血压; 社区管理; 家庭医生",
+      "doi": "",
+      "wanfang_id": "WF2022008",
+      "年,卷(期)": "2022，41（5）",
+      "type": "JOUR",
+      "database": "Wanfang"
+    },
+    {
+      "title": "维普针灸高血压真实世界研究",
+      "authors": "黄十三; 林十四",
+      "year": "2021",
+      "journal": "中华中医药杂志",
+      "abstract": "基于真实世界数据评价针灸治疗高血压的效果。收集3家医院门诊数据，分析针灸联合中药的降压效果。",
+      "keywords": "针灸; 高血压; 真实世界研究",
+      "doi": "",
+      "vip_id": "VIP2021001",
+      "classification": "R259",
+      "type": "JOUR",
+      "database": "VIP"
+    },
+    {
+      "title": "VIP混合表头的高血压文献",
+      "authors": "陈十五; 王十六",
+      "year": "2023",
+      "journal": "中国康复理论与实践",
+      "abstract": "评价太极拳对老年高血压患者血压和生活质量的影响。采用随机对照设计，纳入80例患者。",
+      "keywords": "太极拳; 高血压; 生活质量",
+      "doi": "",
+      "vip_id": "VIP2023002",
+      "type": "JOUR",
+      "database": "VIP"
+    },
+    {
+      "title": "VIP缺少摘要的高血压文献",
+      "authors": "刘十七",
+      "year": "2020",
+      "journal": "中国中医急症",
+      "abstract": "",
+      "keywords": "高血压; 急症",
+      "doi": "",
+      "vip_id": "VIP2020003",
+      "type": "JOUR",
+      "database": "VIP"
+    },
+    {
+      "title": "SinoMed高血压PMID文献示例",
+      "authors": "Zhang W; Li M",
+      "year": "2022",
+      "journal": "中国循证医学杂志",
+      "abstract": "This study evaluates evidence-based approaches to hypertension management in Chinese medicine contexts.",
+      "keywords": "evidence-based medicine; hypertension; Chinese medicine",
+      "pmid": "99887766",
+      "sinomed_id": "SINOMED2020001",
+      "mesh_terms": "Hypertension; Medicine, Chinese Traditional",
+      "type": "JOUR",
+      "database": "SinoMed"
+    },
+    {
+      "title": "SinoMed部分映射的高血压文献",
+      "authors": "Zhao Y",
+      "year": "2023",
+      "journal": "",
+      "abstract": "Review of acupuncture point selection patterns for hypertension treatment in clinical trials.",
+      "keywords": "acupuncture; hypertension; point selection",
+      "pmid": "88776655",
+      "sinomed_id": "SINOMED2023002",
+      "type": "JOUR",
+      "database": "SinoMed"
+    },
+    {
       "title": "Traditional Chinese Medicine for Hypertension: A Systematic Review",
       "authors": "Smith, J; Johnson, A; Brown, K",
       "year": "2023",
@@ -32,6 +141,17 @@
       "abstract": "Background: Traditional Chinese Medicine (TCM) has been used for hypertension treatment. We systematically reviewed the efficacy and safety of TCM for hypertension. Methods: We searched PubMed, Cochrane Library, and Embase. Results: TCM showed promising effects in reducing blood pressure.",
       "keywords": "traditional Chinese medicine; hypertension; systematic review",
       "doi": "10.1097/HJH.2023.12345",
+      "type": "JOUR",
+      "database": "PubMed"
+    },
+    {
+      "title": "Acupuncture for Essential Hypertension: A Meta-analysis",
+      "authors": "Wang, L; Chen, M; Liu, Q",
+      "year": "2023",
+      "journal": "Complementary Therapies in Medicine",
+      "abstract": "Objective: To assess the effectiveness of acupuncture for essential hypertension. Methods: We performed a meta-analysis of randomized controlled trials. Results: Acupuncture significantly reduced both systolic and diastolic blood pressure.",
+      "keywords": "acupuncture; hypertension; meta-analysis",
+      "doi": "10.1016/j.ctim.2023.102890",
       "type": "JOUR",
       "database": "PubMed"
     },
@@ -45,17 +165,6 @@
       "doi": "",
       "type": "JOUR",
       "database": "CNKI"
-    },
-    {
-      "title": "Acupuncture for Essential Hypertension: A Meta-analysis",
-      "authors": "Wang, L; Chen, M; Liu, Q",
-      "year": "2023",
-      "journal": "Complementary Therapies in Medicine",
-      "abstract": "Objective: To assess the effectiveness of acupuncture for essential hypertension. Methods: We performed a meta-analysis of randomized controlled trials. Results: Acupuncture significantly reduced both systolic and diastolic blood pressure.",
-      "keywords": "acupuncture; hypertension; meta-analysis",
-      "doi": "10.1016/j.ctim.2023.102890",
-      "type": "JOUR",
-      "database": "PubMed"
     },
     {
       "title": "动物实验研究中医药对高血压大鼠的影响",
@@ -108,6 +217,28 @@
       "journal": "中医杂志",
       "abstract": "探讨中医体质辨识对高血压个体化治疗的指导意义。研究发现不同体质类型患者对中药的反应存在差异。",
       "keywords": "中医体质; 高血压; 个体化治疗",
+      "doi": "",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "中医药治疗原发性高血压的Meta分析",
+      "authors": "张三; 李四; 王五",
+      "year": "2023",
+      "journal": "中国中医药信息杂志",
+      "abstract": "目的：系统评价中医药治疗原发性高血压的临床疗效。方法：检索PubMed、CNKI等数据库，纳入随机对照试验。结果：中医药联合西药治疗高血压优于单纯西药治疗。",
+      "keywords": "中医; 高血压; Meta分析",
+      "doi": "10.1234/tcm.2023.001",
+      "type": "JOUR",
+      "database": "CNKI"
+    },
+    {
+      "title": "针刺降压的临床研究（重复标题示例）",
+      "authors": "赵六; 钱七; 孙八",
+      "year": "2022",
+      "journal": "针刺研究",
+      "abstract": "观察针刺降压的临床疗效和安全性。选取120例高血压患者随机分为针刺组和对照组。结果显示针刺组血压下降明显。本研究为多中心研究。",
+      "keywords": "针刺; 高血压; 随机对照试验; 多中心",
       "doi": "",
       "type": "JOUR",
       "database": "CNKI"
