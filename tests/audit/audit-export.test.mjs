@@ -659,9 +659,26 @@ test('v2.2 app exposes RIS export options for included and excluded records', as
   assert.match(source, /case 'excluded_ris':/);
   assert.match(source, /filename = 'excluded_studies\.ris'/);
   assert.match(source, /application\/x-research-info-systems/);
-  assert.match(workspaceHtml, /downloadFile\('included_ris'\)/);
-  assert.match(workspaceHtml, /downloadFile\('excluded_ris'\)/);
+  assert.match(source, /return normalizedFormat === 'ris' \? `\$\{normalizedKind\}_ris` : normalizedKind;/);
+  assert.match(workspaceHtml, /id="included-export-format"/);
+  assert.match(workspaceHtml, /id="excluded-export-format"/);
   assert.match(workspaceHtml, /RIS/);
+});
+
+test('v2.2 app exposes result-table export format selectors', async () => {
+  const [source, workspaceHtml] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8'),
+  ]);
+
+  assert.match(source, /function downloadResultTableExport\(kind\)/);
+  assert.match(source, /function getResultTableExportType\(kind, format\)/);
+  assert.match(workspaceHtml, /id="included-export-format"/);
+  assert.match(workspaceHtml, /id="excluded-export-format"/);
+  assert.match(workspaceHtml, /<option value="csv" selected>CSV<\/option>/);
+  assert.match(workspaceHtml, /<option value="ris">RIS<\/option>/);
+  assert.match(workspaceHtml, /onclick="downloadResultTableExport\('included'\)"/);
+  assert.match(workspaceHtml, /onclick="downloadResultTableExport\('excluded'\)"/);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

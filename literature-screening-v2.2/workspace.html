@@ -783,11 +783,25 @@
 
           <div class="surface-panel workspace-side-panel secondary-info-zone export-files-panel">
             <h3 style="margin-top: 0;"><span class="zh">导出文件</span><span class="en">Export Files</span></h3>
+            <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
+              <div class="surface-panel" style="padding: 12px;">
+                <label class="form-label" for="included-export-format"><span class="zh">纳入研究格式</span><span class="en">Included format</span></label>
+                <select id="included-export-format" class="form-input">
+                  <option value="csv" selected>CSV</option>
+                  <option value="ris">RIS</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="downloadResultTableExport('included')" style="margin-top: 10px;"><span class="zh">下载纳入研究</span><span class="en">Download Included</span></button>
+              </div>
+              <div class="surface-panel" style="padding: 12px;">
+                <label class="form-label" for="excluded-export-format"><span class="zh">排除研究格式</span><span class="en">Excluded format</span></label>
+                <select id="excluded-export-format" class="form-input">
+                  <option value="csv" selected>CSV</option>
+                  <option value="ris">RIS</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="downloadResultTableExport('excluded')" style="margin-top: 10px;"><span class="zh">下载排除研究</span><span class="en">Download Excluded</span></button>
+              </div>
+            </div>
             <div class="button-group">
-              <button type="button" class="btn btn-primary" onclick="downloadFile('included')"><span class="zh">下载纳入研究</span><span class="en">Download Included</span></button>
-              <button type="button" class="btn btn-primary" onclick="downloadFile('excluded')"><span class="zh">下载排除研究</span><span class="en">Download Excluded</span></button>
-              <button type="button" class="btn btn-secondary" onclick="downloadFile('included_ris')"><span class="zh">纳入研究 RIS</span><span class="en">Included RIS</span></button>
-              <button type="button" class="btn btn-secondary" onclick="downloadFile('excluded_ris')"><span class="zh">排除研究 RIS</span><span class="en">Excluded RIS</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-colorful')"><span class="zh">导出 SVG（彩色版）</span><span class="en">SVG Colorful</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-blackwhite')"><span class="zh">导出 SVG（黑白版）</span><span class="en">SVG B/W</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-subtle')"><span class="zh">导出 SVG（柔和版）</span><span class="en">SVG Subtle</span></button>

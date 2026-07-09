@@ -8456,6 +8456,19 @@ function buildAuditExportContent(type) {
   }
 }
 
+function getResultTableExportType(kind, format) {
+  const normalizedKind = kind === 'excluded' ? 'excluded' : 'included';
+  const normalizedFormat = format === 'ris' ? 'ris' : 'csv';
+  return normalizedFormat === 'ris' ? `${normalizedKind}_ris` : normalizedKind;
+}
+
+function downloadResultTableExport(kind) {
+  const normalizedKind = kind === 'excluded' ? 'excluded' : 'included';
+  const formatSelect = document.getElementById(`${normalizedKind}-export-format`);
+  const exportType = getResultTableExportType(normalizedKind, formatSelect ? formatSelect.value : 'csv');
+  downloadFile(exportType);
+}
+
 function downloadFile(type) {
   const isAuditExport = isAuditExportType(type);
   const isDualReviewExport = isDualReviewExportType(type);
