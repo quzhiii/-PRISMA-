@@ -490,8 +490,9 @@ test('public positioning copy reflects completed V2.5 and V2.5.1 status', async 
   assert.doesNotMatch(indexHtml, /双人复核和真实 AI 接入仍在后续路线中/);
 
   assert.match(landingHtml, /V2\.5 product overview/);
-  assert.match(landingHtml, /后续会强化冲突队列和 resolver workflow/);
-  assert.match(landingHtml, /Future work strengthens conflict queues and resolver workflows/);
+  assert.match(landingHtml, /冲突队列和 resolver workflow 已纳入当前 V2\.5 工作台/);
+  assert.match(landingHtml, /Conflict queues and resolver workflows are part of the current V2\.5 workspace/);
+  assert.doesNotMatch(landingHtml, /后续会强化冲突队列|Future work strengthens conflict queues/);
 });
 
 test('public docs describe V2.6 as a completed conservative AI foundation slice, not the current release', async () => {
@@ -789,6 +790,23 @@ test('release-facing pages surface current workspace entry and V3 preparation as
   assert.match(landingHtml, /paper skeleton/i);
   assert.match(indexHtml, /Open Workspace/);
   assert.match(landingHtml, /Open Workspace/);
+});
+
+test('release-facing pages expose dual-review entry and current V2.5 wording', async () => {
+  const [indexHtml, landingHtml, loginHtml] = await Promise.all([
+    readV22File('index.html'),
+    readV22File('landing.html'),
+    readV22File('login.html'),
+  ]);
+
+  assert.match(indexHtml, /href="login\.html"/);
+  assert.match(indexHtml, /进入双人复核|Open Dual Review/);
+  assert.match(indexHtml, /双人复核、冲突队列和 resolver workflow 已纳入当前 V2\.5 工作台/);
+  assert.match(landingHtml, /href="login\.html"/);
+  assert.match(landingHtml, /进入双人复核|Open Dual Review/);
+  assert.match(landingHtml, /冲突队列和 resolver workflow 已纳入当前 V2\.5 工作台/);
+  assert.doesNotMatch(landingHtml, /后续会强化冲突队列|Future work strengthens conflict queues/);
+  assert.match(loginHtml, /进入双人复核|Access Dual Review/);
 });
 
 test('README workflow sections use ASCII flow blocks instead of Mermaid', async () => {

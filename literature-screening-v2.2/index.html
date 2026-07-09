@@ -48,6 +48,7 @@
             </p>
             <div class="hero-actions">
               <a class="cta-link primary" href="workspace.html" data-lang-link="workspace.html"><span class="zh">打开 V2.5 工作台</span><span class="en">Open V2.5 workspace</span></a>
+              <a class="cta-link secondary" href="login.html" data-lang-link="login.html"><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></a>
             </div>
             <div class="hero-actions" style="margin-top: 12px; gap: 10px; flex-wrap: wrap;">
               <a class="cta-link secondary" href="sample-data.json"><span class="zh">public demo dataset</span><span class="en">public demo dataset</span></a>
@@ -170,6 +171,19 @@
                 <li><span class="zh">导出 PRISMA 图、结果表、报告和审计包</span><span class="en">Export PRISMA diagrams, result tables, reports, and audit packages</span></li>
               </ul>
               <div class="route-actions"><span class="route-arrow" aria-hidden="true">-></span><a class="cta-link secondary" href="workspace.html" data-lang-link="workspace.html"><span class="zh">进入工作台</span><span class="en">Open Workspace</span></a></div>
+            </article>
+            <article class="route-card interactive-route-card" role="link" tabindex="0" onclick="window.location.href=this.dataset.href" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href=this.dataset.href;}" data-route-base="login.html">
+              <div>
+                <div class="route-top"><span class="route-badge"><span class="zh">双审</span><span class="en">Dual review</span></span><span class="pill"><span class="zh">V2.5</span><span class="en">V2.5</span></span></div>
+                <h3><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></h3>
+                <p class="route-meta"><span class="zh">适合主审和副审分工处理全文复核，并保留冲突队列、一致性指标和 resolver 最终决定。</span><span class="en">For primary and secondary reviewers who need separate full-text decisions, conflict queues, agreement metrics, and resolver final decisions.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><span class="zh">Reviewer A / B 独立记录全文复核决定</span><span class="en">Reviewer A / B keep independent full-text decisions</span></li>
+                <li><span class="zh">冲突队列和 resolver workflow 已纳入当前 V2.5 工作台</span><span class="en">Conflict queues and resolver workflow are part of the current V2.5 workspace</span></li>
+                <li><span class="zh">导出 dual_review_conflicts.csv 和 agreement metrics</span><span class="en">Export dual_review_conflicts.csv and agreement metrics</span></li>
+              </ul>
+              <div class="route-actions"><span class="route-arrow" aria-hidden="true">-></span><a class="cta-link secondary" href="login.html" data-lang-link="login.html"><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></a></div>
             </article>
           </div>
         </section>
