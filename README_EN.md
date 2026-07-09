@@ -50,14 +50,8 @@ The hard part of a systematic review is rarely the final diagram. The hard part 
 
 ## Workflow at a glance
 
-```mermaid
-flowchart LR
-  A["Import records"] --> B["Conservative deduplication"]
-  B --> C["Screening rules"]
-  C --> D["Title/abstract screening"]
-  D --> E["Full-text review"]
-  E --> F["Quality assessment"]
-  F --> G["PRISMA and audit exports"]
+```text
+Import records -> Conservative deduplication -> Screening rules -> Title/abstract screening -> Full-text review -> Quality assessment -> PRISMA and audit exports
 ```
 
 | Stage | Main output |
@@ -91,7 +85,7 @@ flowchart LR
 
 | Slice | Path | Status |
 |---|---|---|
-| P6 Demo dataset | `literature-screening-v2.2/` | Next onboarding slice: public demo dataset, import guide, and workflow walkthrough. |
+| P6 Commercial validation | `docs/commercial/VALIDATION.md` | Next remaining slice: use the existing contract to validate open-core / free-vs-paid boundaries, interview / trial evidence records, and validation execution without payment code, accounts, or product locks. |
 
 ## Historical compatibility paths
 
@@ -100,7 +94,7 @@ flowchart LR
 | V2.1 stable (`literature-screening-v2.0/`) | Historical stable path with the six-step workflow and early quality setup. |
 | v1.7.x (root legacy entry) | Historical maintenance line. |
 
-Public status should stay simple: users open the `V2.5` public release line today, `V2.5.1` is already included as a patch-line capability on the same compatibility path, `Reviewer Bundle protocol`, `V2.7 Chinese-source reliability`, and `V2.6 Conservative AI foundation` are completed capability slices rather than new release-line version numbers, and the next slice is P6 Demo dataset. Current key exports include:
+Public status should stay simple: users open the `V2.5` public release line today, `V2.5.1` is already included as a patch-line capability on the same compatibility path, `Reviewer Bundle protocol`, `V2.7 Chinese-source reliability`, and `V2.6 Conservative AI foundation` are completed capability slices rather than new release-line version numbers, the repo-local P6 packaging slices now include the public demo dataset, benchmark package, and paper skeleton, and the next remaining slice is commercial validation. Current key exports include:
 
 | File | Purpose |
 |---|---|
@@ -187,7 +181,7 @@ Current coverage includes:
 - import job state, parser chunk boundaries, import hardening
 - quality engine, study-design classifier, quality appraisal CSV, evidence table, and GRADE summary
 
-Latest V2.6 foundation regression result: `151/151` passed.
+Current full regression entry: `node tests\run-all-regressions.js`.
 
 ## Roadmap
 
@@ -200,10 +194,10 @@ Latest V2.6 foundation regression result: `151/151` passed.
 | Reviewer Bundle protocol | Completed: offline cross-machine handoff through a collaboration seed package, reviewer decision bundle, and merge import; this is file-based local-first collaboration and does not replace full-project backups |
 | V2.5.1 | Completed: local history records, project snapshots, source-file add/remove rollback, key workflow restore points |
 | V2.6 | Completed: local conservative AI foundation slice for advisory suggestions, ranking, prompt registry, provider abstraction boundaries, Step 3 advisory queue controls, PRISMA-trAIce queue summary, and audit summary queue summary |
-| V2.7 | Next: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and unchanged final-decision semantics |
-| V3.0 | Starts with a public demo dataset, then expands into benchmark, paper skeleton, release page refresh, and commercial validation |
+| V2.7 | Completed: Chinese-source reliability with fixture-backed CNKI / Wanfang / VIP / SinoMed hardening, abstract truncation / noise / incomplete-mapping import warnings, and defense-pack dual summaries without changing final-decision semantics |
+| V3.0 | Public demo dataset, benchmark package, and paper skeleton are now in place; the next remaining slice is commercial validation |
 
-The first P6 / V3.0 slice is a `public demo dataset`: a small, public, local-first dataset for onboarding, workflow walkthrough, and field-mapping checks, not a benchmark package or a production dataset. The next slice is a `benchmark package`: a reproducible repo-local benchmark entry that starts from the current dedup runner, manifest, and reports. The next slice is a `paper skeleton`: a repository-local paper skeleton with a statement of need, evidence-source map, and conservative venue exploration for JOSS / JMIR AI / Systematic Reviews, not a full submission-ready manuscript. The next slice is a `commercial validation`: a commercial validation contract with open-core / free-vs-paid boundary checks, interview and trial evidence record structure, and validation before monetization implementation, with no payment code, account system, or product lock rollout.
+P6 / V3.0 now includes three repo-local packaging assets: a `public demo dataset`, a `benchmark package`, and a `paper skeleton`. They cover onboarding walkthrough, reproducible testing, and conservative manuscript preparation for JOSS / JMIR AI / Systematic Reviews. The next remaining slice is `commercial validation`: continue using the existing contract to validate open-core / free-vs-paid boundaries, interview / trial evidence records, and paid-layer hypotheses without adding payment code, accounts, or product locks.
 
 ## Version history
 

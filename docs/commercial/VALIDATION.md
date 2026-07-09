@@ -97,7 +97,7 @@ This slice does not do the following:
 
 This commercial validation contract is considered satisfied for the current release-preparation line when:
 
-1. Public docs clearly say commercial validation is the next P6 slice.
+1. Public docs clearly say commercial validation is the next remaining P6 slice.
 2. The open-core boundary is explicit and conservative.
 3. The repo includes a stable evidence record structure.
 4. The codebase still contains no payment, account, or monetization enforcement implementation.

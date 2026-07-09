@@ -50,14 +50,8 @@
 
 ## 一眼看懂工作流
 
-```mermaid
-flowchart LR
-  A["导入文献"] --> B["保守去重"]
-  B --> C["配置筛选规则"]
-  C --> D["标题/摘要筛选"]
-  D --> E["全文复核"]
-  E --> F["质量评价"]
-  F --> G["PRISMA 与审计包导出"]
+```text
+导入文献 -> 保守去重 -> 配置筛选规则 -> 标题/摘要筛选 -> 全文复核 -> 质量评价 -> PRISMA 与审计包导出
 ```
 
 | 阶段 | 关键产物 |
@@ -91,7 +85,7 @@ flowchart LR
 
 | 切片 | 路径 | 状态 |
 |---|---|---|
-| P6 Demo dataset | `literature-screening-v2.2/` | 下一 onboarding slice：公开演示数据包、导入说明和 workflow walkthrough。 |
+| P6 Commercial validation | `docs/commercial/VALIDATION.md` | 下一阶段剩余切片：沿用现有 contract，验证 open-core / free-vs-paid 边界、访谈 / 试用 evidence record 和 validation execution；不写支付代码、账号系统或产品锁。 |
 
 ## 历史兼容路径
 
@@ -100,7 +94,7 @@ flowchart LR
 | V2.1 stable (`literature-screening-v2.0/`) | 历史稳定路径，保留 6 步工作流和早期质量评价入口。 |
 | v1.7.x (根目录旧入口) | 历史维护版本，保留早期 PRISMA 工具能力。 |
 
-当前对外口径应保持一致：用户今天打开的是 `V2.5` 公开版本线，`V2.5.1` 已并入当前兼容路径作为 patch-line 能力；`Reviewer Bundle protocol`、`V2.7 Chinese-source reliability` 和 `V2.6 Conservative AI foundation` 是已完成能力切片，不是新的公开版本号；下一阶段切片是 P6 Demo dataset。当前重点导出包括：
+当前对外口径应保持一致：用户今天打开的是 `V2.5` 公开版本线，`V2.5.1` 已并入当前兼容路径作为 patch-line 能力；`Reviewer Bundle protocol`、`V2.7 Chinese-source reliability` 和 `V2.6 Conservative AI foundation` 是已完成能力切片，不是新的公开版本号；P6 的 repo-local packaging slices 已包括 `public demo dataset`、`benchmark package` 和 `paper skeleton`，下一阶段剩余切片是 `commercial validation`。当前重点导出包括：
 
 | 文件 | 用途 |
 |---|---|
@@ -187,7 +181,7 @@ node tests\run-all-regressions.js
 - import job state、parser chunk boundaries、import hardening
 - quality engine、study-design classifier、quality appraisal CSV、evidence table、GRADE summary
 
-最近一次 V2.6 foundation 回归结果：`151/151` 通过。
+当前完整回归入口：`node tests\run-all-regressions.js`。
 
 ## 路线图
 
@@ -200,10 +194,10 @@ node tests\run-all-regressions.js
 | Reviewer Bundle protocol | 已完成：通过 collaboration seed package、reviewer decision bundle 和 merge import 支持 offline cross-machine handoff；这是 file-based local-first collaboration，不替代完整项目备份 |
 | V2.5.1 | 已完成：本地历史记录、项目快照、来源文件增减回溯、关键流程恢复点 |
 | V2.6 | 已完成：本地保守 AI foundation slice，覆盖 advisory suggestions、ranking、prompt registry、provider abstraction 边界、Step 3 advisory queue controls、PRISMA-trAIce queue summary 和 audit summary queue summary |
-| V2.7 | 下一阶段：Chinese-source reliability，fixture-backed CNKI / Wanfang / VIP / SinoMed hardening、摘要截断 / 噪音 / 映射不完整导入提示，不改变最终决定语义 |
-| V3.0 | 先从 public demo dataset 开始，再推进 benchmark、paper skeleton、release page refresh 和 commercial validation |
+| V2.7 | 已完成：Chinese-source reliability，fixture-backed CNKI / Wanfang / VIP / SinoMed hardening、摘要截断 / 噪音 / 映射不完整导入提示，以及 defense pack 双层汇总；不改变最终决定语义 |
+| V3.0 | 已完成 public demo dataset、benchmark package 和 paper skeleton；下一阶段剩余切片是 commercial validation |
 
-当前 P6 / V3.0 的第一刀是 `public demo dataset`：用一个小型、可公开、可本地加载的演示数据集帮助新用户完成 onboarding、流程 walkthrough 和字段映射检查，而不是把它当成 benchmark 包或生产数据集。下一刀是 `benchmark package`：从现有 dedup runner、manifest 和报告开始，整理 repo 内可复现的 import / dedup / audit replay 基准入口。再下一刀是 `paper skeleton`：先建立 repository-local paper skeleton、statement of need、evidence source map 和 JOSS / JMIR AI / Systematic Reviews 的保守投稿方向，而不是直接声称已有完整投稿稿件。再下一刀是 `commercial validation`：先冻结 commercial validation contract、open-core / free-vs-paid 边界、interview / trial evidence record 结构，并坚持 validation before monetization implementation，不写支付代码、账号系统或产品锁。
+当前 P6 / V3.0 已完成三类 repo-local packaging assets：`public demo dataset`、`benchmark package` 和 `paper skeleton`。它们分别服务于 onboarding walkthrough、可复现测试，以及 JOSS / JMIR AI / Systematic Reviews 的保守写稿准备。下一阶段剩余切片是 `commercial validation`：沿用现有 contract，继续验证 open-core / free-vs-paid 边界、访谈 / trial evidence record 和 paid-layer hypotheses；不写支付代码、账号系统或产品锁。
 
 ## 版本历史
 

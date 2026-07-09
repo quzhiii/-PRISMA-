@@ -108,7 +108,7 @@ Last updated: 2026-04-28
 4. 不写支付代码，只用访谈和手工交付验证需求。
 5. 在 V2.3/V2.4 后再决定是否建立 Pro/Team 产品层。
 
-当前 P6 的执行方式是先交付一个 commercial validation contract，再决定后续 monetization implementation。也就是说，这一阶段只冻结 open-core 边界、访谈/试用 evidence record 结构和验证假设，不上线支付代码、账号系统或功能锁。
+当前 P6 的商业化准备已经先交付 commercial validation contract；在 public demo dataset、benchmark package 和 paper skeleton 就位后，下一阶段剩余工作是按这个 contract 执行访谈 / 试用验证，而不是上线支付代码、账号系统或功能锁。
 
 ## 10. 当前版本禁区
 

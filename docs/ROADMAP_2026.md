@@ -1,6 +1,6 @@
 # PRISMA Workbench 2026 Roadmap
 
-Last updated: 2026-06-09
+Last updated: 2026-06-16
 
 ## Roadmap 原则
 
@@ -34,7 +34,7 @@ Last updated: 2026-06-09
 
 | 切片 | 状态 | 关键路径 |
 |---|---|---|
-| P6 Demo dataset | next onboarding slice | `literature-screening-v2.2/` compatibility path |
+| P6 Commercial validation | next remaining slice | `docs/commercial/VALIDATION.md` |
 
 V2.2 已完成的工程基础：
 
@@ -232,9 +232,7 @@ Completed queue state: Step 3 advisory queue controls are completed with queue l
 
 目标：在完成 V2.6 conservative AI foundation 后，先加强中文源导入可靠性和风险可见性，再进入 V3.0 发布包装。
 
-Current status: V2.7 Chinese-source reliability is completed through the P1+P2 trust-wedge execution on the `literature-screening-v2.2/` compatibility path. All four tasks are implemented with fixture-backed parser tests covering CNKI, Wanfang, VIP, and SinoMed edge cases. The next slice is P6 Demo dataset.
-
-Current status: V2.7 Chinese-source reliability is completed through the P1+P2 trust-wedge execution. All four tasks are implemented with fixture-backed parser tests covering CNKI, Wanfang, VIP, and SinoMed edge cases.
+Current status: V2.7 Chinese-source reliability is completed through the P1+P2 trust-wedge execution on the `literature-screening-v2.2/` compatibility path. All four tasks are implemented with fixture-backed parser tests covering CNKI, Wanfang, VIP, and SinoMed edge cases. The P6 packaging slices that followed it now include the demo dataset, benchmark package, and paper skeleton. The next remaining slice is commercial validation.
 
 | 任务 | 说明 | 状态 |
 |---|---|---|
@@ -269,7 +267,7 @@ V2.7 验收标准：
 | Release page | 面向科研用户的 landing page 和使用路径 |
 | Commercial validation | 访谈、试用、模板包、机构部署意向验证 |
 
-Current status: P6 starts with a public demo dataset slice before benchmark, paper, or release-packaging work. The demo dataset is now expanded to 22 records covering CNKI, Wanfang, VIP, SinoMed, and PubMed sources with representative Chinese-source reliability signals, dedup demonstration records, and a workflow walkthrough guide at `docs/demo/README.md`. The demo dataset remains local-first, loadable through the existing sample-data path, and scoped to onboarding / walkthrough rather than benchmark certification. The next concrete slice is a benchmark package: a current reproducible benchmark package entry built from the existing dedup runner, manifest, and reports. The next concrete slice is a paper skeleton: a repository-local manuscript structure and evidence map for JOSS / JMIR AI / Systematic Reviews preparation, not a submission-ready paper. The next concrete slice is a commercial validation contract: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
+Current status: the repo-local P6 packaging slices are now in place. The public demo dataset is expanded to 22 records covering CNKI, Wanfang, VIP, SinoMed, and PubMed sources with representative Chinese-source reliability signals, dedup demonstration records, and a workflow walkthrough guide at `docs/demo/README.md`. The benchmark package now has a reproducible package entry spanning dedup assets plus package-coverage tests for import, screening, and audit replay at `docs/benchmarks/README.md` and `tests/benchmarks/package-coverage.test.mjs`. The paper skeleton is now established as a repository-local manuscript structure, evidence map, and venue note set under `docs/papers/`. The next concrete remaining slice is commercial validation: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
 
 ## Next 90 Days：Trust Wedge 1.0
 

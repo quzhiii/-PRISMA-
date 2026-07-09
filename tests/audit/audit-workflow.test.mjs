@@ -283,7 +283,7 @@ test('public docs mark V2.5 as current and history rollback as completed', async
   assert.match(readme, /## 当前公开版本线/);
   assert.match(readme, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| 当前公开版本线/);
   assert.match(readme, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| 当前 patch-line 能力/);
-  assert.match(readme, /最近一次 V2\.6 foundation 回归结果：`151\/151` 通过/);
+  assert.match(readme, /当前完整回归入口：`node tests\\run-all-regressions\.js`。/);
   assert.match(readmeEn, /# PRISMA Screening & Audit Workbench/);
   assert.match(readmeEn, /Version-V2\.5%20Dual%20Review/);
   assert.match(readmeEn, /Current%20demo-V2\.5/);
@@ -291,7 +291,7 @@ test('public docs mark V2.5 as current and history rollback as completed', async
   assert.match(readmeEn, /## Current public release line/);
   assert.match(readmeEn, /V2\.5 dual-review closeout \| `literature-screening-v2\.2\/` \| Current public release line/);
   assert.match(readmeEn, /V2\.5\.1 project history rollback \| `literature-screening-v2\.2\/` \| Current patch-line capability/);
-  assert.match(readmeEn, /Latest V2\.6 foundation regression result: `151\/151` passed/);
+  assert.match(readmeEn, /Current full regression entry: `node tests\\run-all-regressions\.js`\./);
   assert.match(roadmap, /V2\.5\.1 本地历史记录与回溯/);
   assert.match(roadmap, /project_snapshot_created/);
   assert.match(roadmap, /source_file_removed/);
@@ -496,14 +496,14 @@ test('public docs describe V2.6 as a completed conservative AI foundation slice,
   assert.match(readme, /review-state filters/);
   assert.match(readme, /empty-state clarity/);
   assert.match(readme, /audit summary queue summary/);
-  assert.match(readme, /最近一次 V2\.6 foundation 回归结果：`151\/151` 通过/);
+  assert.match(readme, /当前完整回归入口：`node tests\\run-all-regressions\.js`。/);
   assert.match(readmeEn, /Step 3 advisory queue/);
   assert.match(readmeEn, /queue summary/);
   assert.match(readmeEn, /priority sorting/);
   assert.match(readmeEn, /review-state filters/);
   assert.match(readmeEn, /empty-state clarity/);
   assert.match(readmeEn, /audit summary queue summary/);
-  assert.match(readmeEn, /Latest V2\.6 foundation regression result: `151\/151` passed/);
+  assert.match(readmeEn, /Current full regression entry: `node tests\\run-all-regressions\.js`\./);
   assert.doesNotMatch(readme, /V2\.6.*当前公开版本线/);
   assert.doesNotMatch(readmeEn, /V2\.6.*Current public release line/);
   assert.doesNotMatch(readme, /自动 AI screening/);
@@ -700,7 +700,7 @@ test('public docs position benchmark package as the next concrete P6 slice', asy
   assert.match(benchmarkPackageDoc, /tests\/fixtures\/dedup\/benchmark-manifest\.csv/);
 });
 
-test('public docs position paper skeleton as the next concrete P6 slice', async () => {
+test('public docs and repo assets keep paper skeleton visible inside P6 packaging', async () => {
   const [readme, readmeEn, roadmap] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
@@ -715,16 +715,16 @@ test('public docs position paper skeleton as the next concrete P6 slice', async 
   assert.match(readme, /paper skeleton/i);
   assert.match(readmeEn, /paper skeleton/i);
   assert.match(roadmap, /Paper skeleton \| JOSS \/ JMIR AI \/ Systematic Reviews 候选材料/);
-  assert.match(readme, /下一刀.*paper skeleton|下一阶段.*paper skeleton/i);
-  assert.match(readmeEn, /next slice is a `paper skeleton`|next slice is paper skeleton/i);
-  assert.match(roadmap, /next concrete slice is a paper skeleton|下一阶段.*paper skeleton/i);
+  assert.match(readme, /public demo dataset`、`benchmark package` 和 `paper skeleton`|repo-local packaging assets/i);
+  assert.match(readmeEn, /public demo dataset`, a `benchmark package`, and a `paper skeleton`|repo-local packaging assets/i);
+  assert.match(roadmap, /paper skeleton is now established|paper skeleton.*docs\/papers\//i);
   assert.match(skeletonDoc, /Recommended starting venue/i);
   assert.match(skeletonDoc, /JOSS|JMIR AI|Systematic Reviews/);
   assert.match(skeletonDoc, /docs\/benchmarks\/README\.md/);
   assert.match(skeletonDoc, /literature-screening-v2\.2\/sample-data\.json/);
 });
 
-test('public docs position commercial validation as the next concrete P6 slice', async () => {
+test('public docs position commercial validation as the next remaining P6 slice', async () => {
   const [readme, readmeEn, roadmap, commercializationNotes] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
@@ -745,8 +745,8 @@ test('public docs position commercial validation as the next concrete P6 slice',
   assert.match(readme, /commercial validation/i);
   assert.match(readmeEn, /commercial validation/i);
   assert.match(roadmap, /Commercial validation \| 访谈、试用、模板包、机构部署意向验证/);
-  assert.match(readme, /下一刀.*commercial validation|下一阶段.*commercial validation/i);
-  assert.match(readmeEn, /next slice is a `commercial validation`|next slice is commercial validation/i);
+  assert.match(readme, /下一阶段剩余切片.*commercial validation|下一阶段剩余切片是 `commercial validation`/i);
+  assert.match(readmeEn, /next remaining slice is commercial validation|next remaining slice is `commercial validation`/i);
   assert.match(validationDoc, /open-core/i);
   assert.match(validationDoc, /individual|team|institution/i);
   assert.match(validationDoc, /evidence record|interview record|trial record/i);
@@ -772,4 +772,16 @@ test('release-facing pages surface current workspace entry and V3 preparation as
   assert.match(landingHtml, /paper skeleton/i);
   assert.match(indexHtml, /Open Workspace/);
   assert.match(landingHtml, /Open Workspace/);
+});
+
+test('README workflow sections use ASCII flow blocks instead of Mermaid', async () => {
+  const [readme, readmeEn] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
+  ]);
+
+  assert.match(readme, /导入文献 -> 保守去重 -> 配置筛选规则 -> 标题\/摘要筛选 -> 全文复核 -> 质量评价 -> PRISMA 与审计包导出/);
+  assert.match(readmeEn, /Import records -> Conservative deduplication -> Screening rules -> Title\/abstract screening -> Full-text review -> Quality assessment -> PRISMA and audit exports/);
+  assert.doesNotMatch(readme, /```mermaid|flowchart LR/);
+  assert.doesNotMatch(readmeEn, /```mermaid|flowchart LR/);
 });

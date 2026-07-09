@@ -98,7 +98,9 @@ AI 默认关闭。V2.6 foundation 完成后，AI 仍只作为建议层、排序�
 
 | 切片 | 当前边界 |
 |---|---|
-| P6 Demo dataset | 下一 onboarding slice：公开演示数据包、导入说明和 workflow walkthrough |
+| P6 Commercial validation | 下一阶段剩余切片：沿用现有 contract，验证 open-core / free-vs-paid 边界、访谈 / 试用 evidence record 和付费假设；不写支付代码、账号系统或产品锁 |
+
+P6 的 public packaging slices 已包括 demo dataset、benchmark package 和 paper skeleton。
 
 当前版本不包含真实 AI API、云端账号、支付系统、机构权限和默认上传。
 
