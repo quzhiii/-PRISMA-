@@ -41,6 +41,8 @@ const DUAL_REVIEW_EXPORT_TYPES = Object.freeze([
 const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object.freeze([
   'included',
   'excluded',
+  'included_ris',
+  'excluded_ris',
   'svg-colorful',
   'svg-blackwhite',
   'svg-subtle',
@@ -8509,6 +8511,21 @@ function downloadFile(type) {
       filename = 'excluded_studies.csv';
       mimeType = 'text/csv;charset=utf-8';
       break;
+    case 'included_ris':
+      content = serializeRecordsToRis(screeningResults.included);
+      filename = 'included_studies.ris';
+      mimeType = 'application/x-research-info-systems;charset=utf-8';
+      break;
+    case 'excluded_ris':
+      const excludedRisData = screeningResults.excluded;
+      if (excludedRisData.length === 0) {
+        showToast('💡 当前没有被排除的文献。可在"第2步-配置筛选规则"中添加排除关键词，或在"第4步-人工审查"中手动排除文献。', 'info');
+        return;
+      }
+      content = serializeRecordsToRis(excludedRisData, { includeExclusionNotes: true });
+      filename = 'excluded_studies.ris';
+      mimeType = 'application/x-research-info-systems;charset=utf-8';
+      break;
     case 'candidate-duplicates':
       const candidateData = getCandidateDuplicateExportData();
       if (candidateData.length === 0) {
@@ -8671,6 +8688,8 @@ function downloadAllFiles() {
   const files = [
     'included',
     'excluded',
+    'included_ris',
+    'excluded_ris',
     'svg-colorful',
     'svg-blackwhite',
     'svg-subtle',
@@ -8807,6 +8826,61 @@ function generateExcelUTF8BOM(data, type) {
   
   // Add UTF-8 BOM at the beginning
   return '\uFEFF' + [header, ...rows].join('\n');
+}
+
+function serializeRisValue(value) {
+  return String(value || '').replace(/\r?\n+/g, ' ').trim();
+}
+
+function splitRisAuthors(value) {
+  if (Array.isArray(value)) return value.map(serializeRisValue).filter(Boolean);
+  return String(value || '')
+    .split(/;|；/)
+    .map(serializeRisValue)
+    .filter(Boolean);
+}
+
+function getRisRecordType(record) {
+  const rawType = String(getValue(record, 'type') || record.studyDesign || '').toLowerCase();
+  if (/review|systematic|meta|综述|meta分析/.test(rawType)) return 'REV';
+  if (/conference|会议/.test(rawType)) return 'CONF';
+  if (/book|专著/.test(rawType)) return 'BOOK';
+  return 'JOUR';
+}
+
+function appendRisLine(lines, tag, value) {
+  const normalized = serializeRisValue(value);
+  if (normalized) lines.push(`${tag}  - ${normalized}`);
+}
+
+function serializeRecordToRis(record, options = {}) {
+  const lines = [`TY  - ${getRisRecordType(record)}`];
+  appendRisLine(lines, 'TI', getValue(record, 'title'));
+  splitRisAuthors(getValue(record, 'authors')).forEach((author) => appendRisLine(lines, 'AU', author));
+  appendRisLine(lines, 'PY', getValue(record, 'year'));
+  appendRisLine(lines, 'T2', getValue(record, 'journal'));
+  appendRisLine(lines, 'JO', getValue(record, 'journal'));
+  appendRisLine(lines, 'VL', record.volume || record.Volume || record['卷']);
+  appendRisLine(lines, 'IS', record.issue || record.Issue || record['期']);
+  appendRisLine(lines, 'SP', record.pages || record.page_start || record.start_page || record['起始页']);
+  appendRisLine(lines, 'DO', normalizeDoi(getValue(record, 'doi') || record.doi));
+  appendRisLine(lines, 'UR', record.url || record.link || record.fulltextUrl || record.fulltext_url || record.sourceUrl || record.source_url);
+  appendRisLine(lines, 'AB', getValue(record, 'abstract'));
+  splitRisAuthors(getValue(record, 'keywords')).forEach((keyword) => appendRisLine(lines, 'KW', keyword));
+
+  if (options.includeExclusionNotes) {
+    appendRisLine(lines, 'N1', record._exclude_reason ? `Exclusion reason: ${record._exclude_reason}` : 'Excluded during screening');
+    appendRisLine(lines, 'N1', record._exclude_stage ? `Exclusion stage: ${record._exclude_stage}` : '');
+  }
+
+  lines.push('ER  -');
+  return lines.join('\n');
+}
+
+function serializeRecordsToRis(records, options = {}) {
+  const list = Array.isArray(records) ? records : [];
+  if (list.length === 0) return '';
+  return `${list.map((record) => serializeRecordToRis(record, options)).join('\n\n')}\n`;
 }
 
 function generateReport(results) {

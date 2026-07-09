@@ -251,6 +251,23 @@ test('workspace exposes local-first reviewer bundle workflow entry points', asyn
   assert.doesNotMatch(source, /billing|payment|account/i);
 });
 
+test('workspace exposes dual-review mode controls required by app.js', async () => {
+  const [source, workspaceHtml] = await Promise.all([
+    readV22App(),
+    readV22File('workspace.html'),
+  ]);
+
+  ['single-mode-btn', 'dual-mode-btn', 'dual-review-setup', 'reviewer-a-btn', 'reviewer-b-btn'].forEach((id) => {
+    assert.match(source, new RegExp(`getElementById\\('${id}'\\)`), `app.js expects #${id}`);
+    assert.match(workspaceHtml, new RegExp(`id="${id}"`), `workspace.html should provide #${id}`);
+  });
+
+  assert.match(workspaceHtml, /onclick="setReviewMode\('single'\)"/);
+  assert.match(workspaceHtml, /onclick="setReviewMode\('dual'\)"/);
+  assert.match(workspaceHtml, /onclick="switchReviewer\('A'\)"/);
+  assert.match(workspaceHtml, /onclick="switchReviewer\('B'\)"/);
+});
+
 test('v2.5 readiness docs describe final export blocking and browser smoke gate', async () => {
   const checklist = await fs.readFile(
     path.join(repoRoot, 'docs/checklists/V2.5_DUAL_REVIEW_READINESS_CHECKLIST.md'),

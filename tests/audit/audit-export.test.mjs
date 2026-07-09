@@ -647,6 +647,23 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /final GRADE and downgrade reasons stay human-confirmed/i);
 });
 
+test('v2.2 app exposes RIS export options for included and excluded records', async () => {
+  const [source, workspaceHtml] = await Promise.all([
+    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8'),
+  ]);
+
+  assert.match(source, /function serializeRecordsToRis\(records, options = \{\}\)/);
+  assert.match(source, /case 'included_ris':/);
+  assert.match(source, /filename = 'included_studies\.ris'/);
+  assert.match(source, /case 'excluded_ris':/);
+  assert.match(source, /filename = 'excluded_studies\.ris'/);
+  assert.match(source, /application\/x-research-info-systems/);
+  assert.match(workspaceHtml, /downloadFile\('included_ris'\)/);
+  assert.match(workspaceHtml, /downloadFile\('excluded_ris'\)/);
+  assert.match(workspaceHtml, /RIS/);
+});
+
 test('audit package exports use the stable snake_case ledger schema', () => {
   const manifest = AuditEngine.buildProjectManifestExport({
     projectId: 'project-1',

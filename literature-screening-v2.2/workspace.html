@@ -550,6 +550,26 @@
         <div id="conservativeAiStep4ContextBanner"></div>
 
         <div class="info-box workspace-info-panel" style="margin-bottom: 20px;">
+          <h3><span class="zh">审核模式</span><span class="en">Review Mode</span></h3>
+          <p class="muted-text"><span class="zh">单人模式用于一个审稿人完成全文复核；双人模式允许 Reviewer A / Reviewer B 分别记录决定，并生成一致性与分歧证据。</span><span class="en">Single mode is for one reviewer. Dual mode lets Reviewer A and Reviewer B record separate decisions and produce agreement / conflict evidence.</span></p>
+          <div class="button-group" style="margin-top: 12px;">
+            <button type="button" id="single-mode-btn" class="btn btn-primary" onclick="setReviewMode('single')"><span class="zh">单人审核</span><span class="en">Single Review</span></button>
+            <button type="button" id="dual-mode-btn" class="btn btn-secondary" onclick="setReviewMode('dual')"><span class="zh">双人审核</span><span class="en">Dual Review</span></button>
+          </div>
+          <div id="dual-review-setup" class="hidden surface-panel" style="margin-top: 12px;">
+            <div class="grid-2">
+              <label class="form-label"><span class="zh">Reviewer A 名称</span><span class="en">Reviewer A name</span><input id="reviewer-a-name" class="form-input" value="审查员A"></label>
+              <label class="form-label"><span class="zh">Reviewer B 名称</span><span class="en">Reviewer B name</span><input id="reviewer-b-name" class="form-input" value="审查员B"></label>
+            </div>
+            <div class="button-group" style="margin-top: 12px;">
+              <button type="button" id="reviewer-a-btn" class="btn btn-primary" onclick="switchReviewer('A')">🔵 <span class="zh">审查员A</span><span class="en">Reviewer A</span></button>
+              <button type="button" id="reviewer-b-btn" class="btn btn-secondary" onclick="switchReviewer('B')">⚪ <span class="zh">审查员B</span><span class="en">Reviewer B</span></button>
+            </div>
+            <p class="muted-text" style="margin-top: 10px;"><span class="zh">切换审稿人后，下面的全文复核表会恢复该审稿人的独立决定。</span><span class="en">Switching reviewers restores that reviewer's independent decisions in the full-text table below.</span></p>
+          </div>
+        </div>
+
+        <div class="info-box workspace-info-panel" style="margin-bottom: 20px;">
           <h3><span class="zh">协作状态</span><span class="en">Collaboration Status</span></h3>
           <div id="collaboration-status" class="grid-2">
             <div class="surface-panel"><strong><span class="zh">主审查员</span><span class="en">Primary Reviewer</span></strong><div id="reviewer-a-status">加载中...</div></div>
@@ -766,6 +786,8 @@
             <div class="button-group">
               <button type="button" class="btn btn-primary" onclick="downloadFile('included')"><span class="zh">下载纳入研究</span><span class="en">Download Included</span></button>
               <button type="button" class="btn btn-primary" onclick="downloadFile('excluded')"><span class="zh">下载排除研究</span><span class="en">Download Excluded</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('included_ris')"><span class="zh">纳入研究 RIS</span><span class="en">Included RIS</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('excluded_ris')"><span class="zh">排除研究 RIS</span><span class="en">Excluded RIS</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-colorful')"><span class="zh">导出 SVG（彩色版）</span><span class="en">SVG Colorful</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-blackwhite')"><span class="zh">导出 SVG（黑白版）</span><span class="en">SVG B/W</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('svg-subtle')"><span class="zh">导出 SVG（柔和版）</span><span class="en">SVG Subtle</span></button>
