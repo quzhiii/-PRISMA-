@@ -772,7 +772,7 @@ test('public docs position commercial validation as the next remaining P6 slice'
   assert.match(commercializationNotes, /validation before monetization implementation|commercial validation contract/i);
 });
 
-test('release-facing pages surface current workspace entry and V3 preparation assets', async () => {
+test('release-facing pages keep primary entry clean while docs surface V3 preparation assets', async () => {
   const [rootIndexHtml, indexHtml, landingHtml] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
     readV22File('index.html'),
@@ -782,9 +782,10 @@ test('release-facing pages surface current workspace entry and V3 preparation as
   assert.match(rootIndexHtml, /public demo dataset/i);
   assert.match(rootIndexHtml, /benchmark package/i);
   assert.match(rootIndexHtml, /paper skeleton/i);
-  assert.match(indexHtml, /public demo dataset/i);
-  assert.match(indexHtml, /benchmark package/i);
-  assert.match(indexHtml, /paper skeleton/i);
+  assert.doesNotMatch(indexHtml, /href="sample-data\.json"/);
+  assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/benchmarks\/README\.md"/);
+  assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/papers\/README\.md"/);
+  assert.match(indexHtml, /避免误点打开原始 JSON \/ Markdown 文件/);
   assert.match(landingHtml, /public demo dataset/i);
   assert.match(landingHtml, /benchmark package/i);
   assert.match(landingHtml, /paper skeleton/i);
