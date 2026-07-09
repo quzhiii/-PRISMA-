@@ -659,7 +659,8 @@ test('v2.2 app exposes RIS export options for included and excluded records', as
   assert.match(source, /case 'excluded_ris':/);
   assert.match(source, /filename = 'excluded_studies\.ris'/);
   assert.match(source, /application\/x-research-info-systems/);
-  assert.match(source, /return normalizedFormat === 'ris' \? `\$\{normalizedKind\}_ris` : normalizedKind;/);
+  assert.match(source, /if \(normalizedFormat === 'ris'\) return `\$\{normalizedKind\}_ris`;/);
+  assert.match(source, /if \(normalizedFormat === 'bibtex'\) return `\$\{normalizedKind\}_bibtex`;/);
   assert.match(workspaceHtml, /id="included-export-format"/);
   assert.match(workspaceHtml, /id="excluded-export-format"/);
   assert.match(workspaceHtml, /RIS/);
@@ -673,12 +674,46 @@ test('v2.2 app exposes result-table export format selectors', async () => {
 
   assert.match(source, /function downloadResultTableExport\(kind\)/);
   assert.match(source, /function getResultTableExportType\(kind, format\)/);
+  assert.match(source, /function serializeRecordsToBibtex\(records, options = \{\}\)/);
+  assert.match(source, /case 'included_bibtex':/);
+  assert.match(source, /filename = 'included_studies\.bib'/);
+  assert.match(source, /case 'excluded_bibtex':/);
+  assert.match(source, /filename = 'excluded_studies\.bib'/);
   assert.match(workspaceHtml, /id="included-export-format"/);
   assert.match(workspaceHtml, /id="excluded-export-format"/);
   assert.match(workspaceHtml, /<option value="csv" selected>CSV<\/option>/);
   assert.match(workspaceHtml, /<option value="ris">RIS<\/option>/);
+  assert.match(workspaceHtml, /<option value="bibtex">BibTeX<\/option>/);
   assert.match(workspaceHtml, /onclick="downloadResultTableExport\('included'\)"/);
   assert.match(workspaceHtml, /onclick="downloadResultTableExport\('excluded'\)"/);
+});
+
+test('v2.2 release hardening smoke keeps dual-review and export-format paths visible', async () => {
+  const workspaceHtml = await fs.readFile(
+    path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
+    'utf8'
+  );
+
+  [
+    'single-mode-btn',
+    'dual-mode-btn',
+    'dual-review-setup',
+    'reviewer-a-btn',
+    'reviewer-b-btn',
+    'included-export-format',
+    'excluded-export-format',
+  ].forEach((id) => {
+    assert.match(workspaceHtml, new RegExp(`id="${id}"`));
+  });
+
+  assert.match(workspaceHtml, /setReviewMode\('dual'\)/);
+  assert.match(workspaceHtml, /switchReviewer\('A'\)/);
+  assert.match(workspaceHtml, /switchReviewer\('B'\)/);
+  assert.match(workspaceHtml, /downloadResultTableExport\('included'\)/);
+  assert.match(workspaceHtml, /downloadResultTableExport\('excluded'\)/);
+  assert.match(workspaceHtml, /CSV/);
+  assert.match(workspaceHtml, /RIS/);
+  assert.match(workspaceHtml, /BibTeX/);
 });
 
 test('audit package exports use the stable snake_case ledger schema', () => {

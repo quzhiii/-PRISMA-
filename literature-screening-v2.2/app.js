@@ -43,6 +43,8 @@ const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object.freeze([
   'excluded',
   'included_ris',
   'excluded_ris',
+  'included_bibtex',
+  'excluded_bibtex',
   'svg-colorful',
   'svg-blackwhite',
   'svg-subtle',
@@ -8458,8 +8460,10 @@ function buildAuditExportContent(type) {
 
 function getResultTableExportType(kind, format) {
   const normalizedKind = kind === 'excluded' ? 'excluded' : 'included';
-  const normalizedFormat = format === 'ris' ? 'ris' : 'csv';
-  return normalizedFormat === 'ris' ? `${normalizedKind}_ris` : normalizedKind;
+  const normalizedFormat = ['ris', 'bibtex'].includes(format) ? format : 'csv';
+  if (normalizedFormat === 'ris') return `${normalizedKind}_ris`;
+  if (normalizedFormat === 'bibtex') return `${normalizedKind}_bibtex`;
+  return normalizedKind;
 }
 
 function downloadResultTableExport(kind) {
@@ -8538,6 +8542,21 @@ function downloadFile(type) {
       content = serializeRecordsToRis(excludedRisData, { includeExclusionNotes: true });
       filename = 'excluded_studies.ris';
       mimeType = 'application/x-research-info-systems;charset=utf-8';
+      break;
+    case 'included_bibtex':
+      content = serializeRecordsToBibtex(screeningResults.included);
+      filename = 'included_studies.bib';
+      mimeType = 'application/x-bibtex;charset=utf-8';
+      break;
+    case 'excluded_bibtex':
+      const excludedBibtexData = screeningResults.excluded;
+      if (excludedBibtexData.length === 0) {
+        showToast('💡 当前没有被排除的文献。可在"第2步-配置筛选规则"中添加排除关键词，或在"第4步-人工审查"中手动排除文献。', 'info');
+        return;
+      }
+      content = serializeRecordsToBibtex(excludedBibtexData, { includeExclusionNotes: true });
+      filename = 'excluded_studies.bib';
+      mimeType = 'application/x-bibtex;charset=utf-8';
       break;
     case 'candidate-duplicates':
       const candidateData = getCandidateDuplicateExportData();
@@ -8703,6 +8722,8 @@ function downloadAllFiles() {
     'excluded',
     'included_ris',
     'excluded_ris',
+    'included_bibtex',
+    'excluded_bibtex',
     'svg-colorful',
     'svg-blackwhite',
     'svg-subtle',
@@ -8894,6 +8915,59 @@ function serializeRecordsToRis(records, options = {}) {
   const list = Array.isArray(records) ? records : [];
   if (list.length === 0) return '';
   return `${list.map((record) => serializeRecordToRis(record, options)).join('\n\n')}\n`;
+}
+
+function serializeBibtexValue(value) {
+  return String(value || '').replace(/[{}]/g, '').replace(/\r?\n+/g, ' ').trim();
+}
+
+function makeBibtexKey(record, index) {
+  const firstAuthor = splitRisAuthors(getValue(record, 'authors'))[0] || 'record';
+  const authorKey = firstAuthor.split(/[\s,]+/).filter(Boolean).pop() || 'record';
+  const yearKey = serializeBibtexValue(getValue(record, 'year')) || 'nd';
+  const titleKey = serializeBibtexValue(getValue(record, 'title')).split(/\s+/).filter(Boolean)[0] || 'study';
+  return `${authorKey}${yearKey}${titleKey}${index + 1}`.replace(/[^a-z0-9:_-]/gi, '');
+}
+
+function appendBibtexField(lines, field, value) {
+  const normalized = serializeBibtexValue(value);
+  if (normalized) lines.push(`  ${field} = {${normalized}},`);
+}
+
+function serializeRecordToBibtex(record, index, options = {}) {
+  const rawType = String(getValue(record, 'type') || record.studyDesign || '').toLowerCase();
+  const entryType = /book|专著/.test(rawType) ? 'book' : /conference|会议/.test(rawType) ? 'inproceedings' : 'article';
+  const lines = [`@${entryType}{${makeBibtexKey(record, index)},`];
+  appendBibtexField(lines, 'title', getValue(record, 'title'));
+  appendBibtexField(lines, 'author', splitRisAuthors(getValue(record, 'authors')).join(' and '));
+  appendBibtexField(lines, 'year', getValue(record, 'year'));
+  appendBibtexField(lines, 'journal', getValue(record, 'journal'));
+  appendBibtexField(lines, 'volume', record.volume || record.Volume || record['卷']);
+  appendBibtexField(lines, 'number', record.issue || record.Issue || record['期']);
+  appendBibtexField(lines, 'pages', record.pages || record.page_start || record.start_page || record['起始页']);
+  appendBibtexField(lines, 'doi', normalizeDoi(getValue(record, 'doi') || record.doi));
+  appendBibtexField(lines, 'url', record.url || record.link || record.fulltextUrl || record.fulltext_url || record.sourceUrl || record.source_url);
+  appendBibtexField(lines, 'abstract', getValue(record, 'abstract'));
+  appendBibtexField(lines, 'keywords', splitRisAuthors(getValue(record, 'keywords')).join('; '));
+
+  if (options.includeExclusionNotes) {
+    appendBibtexField(lines, 'note', [
+      record._exclude_reason ? `Exclusion reason: ${record._exclude_reason}` : 'Excluded during screening',
+      record._exclude_stage ? `Exclusion stage: ${record._exclude_stage}` : '',
+    ].filter(Boolean).join('; '));
+  }
+
+  if (lines.length > 1) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/,$/, '');
+  }
+  lines.push('}');
+  return lines.join('\n');
+}
+
+function serializeRecordsToBibtex(records, options = {}) {
+  const list = Array.isArray(records) ? records : [];
+  if (list.length === 0) return '';
+  return `${list.map((record, index) => serializeRecordToBibtex(record, index, options)).join('\n\n')}\n`;
 }
 
 function generateReport(results) {
