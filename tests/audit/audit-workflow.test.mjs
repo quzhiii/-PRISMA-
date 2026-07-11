@@ -772,6 +772,17 @@ test('public docs position commercial validation as the next remaining P6 slice'
   assert.match(commercializationNotes, /validation before monetization implementation|commercial validation contract/i);
 });
 
+test('roadmap captures release hardening and formal website direction before validation', async () => {
+  const roadmap = await fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8');
+
+  assert.match(roadmap, /Release hardening/i);
+  assert.match(roadmap, /首页主入口清理|homepage entry cleanup/i);
+  assert.match(roadmap, /CSV\s*\/\s*RIS\s*\/\s*BibTeX/);
+  assert.match(roadmap, /217\/217/);
+  assert.match(roadmap, /正式网站|formal website|official website/i);
+  assert.match(roadmap, /Commercial validation remains|commercial validation 仍然|商业验证仍然/i);
+});
+
 test('release-facing pages keep primary entry clean while docs surface V3 preparation assets', async () => {
   const [rootIndexHtml, indexHtml, landingHtml] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
@@ -791,6 +802,27 @@ test('release-facing pages keep primary entry clean while docs surface V3 prepar
   assert.match(landingHtml, /paper skeleton/i);
   assert.match(indexHtml, /Open Workspace/);
   assert.match(landingHtml, /Open Workspace/);
+});
+
+test('release-facing pages route V3 assets through a curated resources hub', async () => {
+  const [indexHtml, landingHtml, resourcesHtml] = await Promise.all([
+    readV22File('index.html'),
+    readV22File('landing.html'),
+    readV22File('resources.html'),
+  ]);
+
+  assert.match(indexHtml, /href="resources\.html"/);
+  assert.match(indexHtml, /V3 资源中心|V3 Resources/);
+  assert.match(landingHtml, /href="resources\.html"/);
+  assert.match(landingHtml, /V3 资源中心|V3 Resources/);
+  assert.match(resourcesHtml, /PRISMA Workbench V3 Resources/);
+  assert.match(resourcesHtml, /public demo dataset/i);
+  assert.match(resourcesHtml, /benchmark package/i);
+  assert.match(resourcesHtml, /paper skeleton/i);
+  assert.match(resourcesHtml, /sample-data\.json/);
+  assert.match(resourcesHtml, /docs\/demo\/README\.md/);
+  assert.match(resourcesHtml, /docs\/benchmarks\/README\.md/);
+  assert.match(resourcesHtml, /docs\/papers\/README\.md/);
 });
 
 test('release-facing pages expose dual-review entry and current V2.5 wording', async () => {

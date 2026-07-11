@@ -269,6 +269,23 @@ V2.7 验收标准：
 
 Current status: the repo-local P6 packaging slices are now in place. The public demo dataset is expanded to 22 records covering CNKI, Wanfang, VIP, SinoMed, and PubMed sources with representative Chinese-source reliability signals, dedup demonstration records, and a workflow walkthrough guide at `docs/demo/README.md`. The benchmark package now has a reproducible package entry spanning dedup assets plus package-coverage tests for import, screening, and audit replay at `docs/benchmarks/README.md` and `tests/benchmarks/package-coverage.test.mjs`. The paper skeleton is now established as a repository-local manuscript structure, evidence map, and venue note set under `docs/papers/`. The next concrete remaining slice is commercial validation: validate open-core boundaries, interview / trial evidence structure, and paid-layer hypotheses before monetization implementation, without adding payment code or account rollout.
 
+Release hardening status: the V2.5 public line now has homepage entry cleanup, visible dual-review access on release-facing pages, Step 6 result-table export format selection for `CSV / RIS / BibTeX`, and a full regression gate at `217/217`. This remains a V2.5 hardening slice, not a new public version number.
+
+Formal website direction: before commercial validation execution, split the release-facing experience into an official website layer and an app workspace layer. The official website should explain positioning, use cases, demo assets, benchmark package, paper skeleton, docs, and validation boundaries; the workbench should stay focused on local-first review execution. Commercial validation remains the next remaining P6 slice, but it should run from the cleaner official website / resources structure rather than a single overloaded workspace landing page.
+
+| Release hardening item | Current status |
+|---|---|
+| 首页主入口清理 / homepage entry cleanup | completed: home keeps product entry points separate from raw JSON / Markdown assets |
+| Dual-review entry visibility | completed: home and overview pages expose `login.html` / dual-review access |
+| Result-table export formats | completed: Step 6 supports `CSV / RIS / BibTeX` for included and excluded result tables |
+| Regression gate | completed: `node tests/run-all-regressions.js` passes `217/217` |
+
+| Formal website slice | Scope |
+|---|---|
+| Official website IA | Split product website, app workspace, dual-review entry, demo/resources hub, benchmarks, papers, and docs |
+| Static-first implementation | Keep GitHub Pages / static hosting first; do not add backend sync, login accounts, payment, or license gates |
+| Commercial validation handoff | Use the formal website to present interview/trial evidence capture and open-core boundaries before monetization implementation |
+
 ## Next 90 Days：Trust Wedge 1.0
 
 目标：把 research、代码现状和商业化验证收敛成一个更窄但更强的产品楔子，在不引入后端和付费基础设施的前提下，优先强化本地可信工作流。

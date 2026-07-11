@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" id="metaDescription" content="PRISMA Workbench V3 Resources: curated demo dataset, benchmark package, and paper skeleton assets for release preparation.">
+  <title>PRISMA Workbench V3 Resources</title>
+  <link rel="stylesheet" href="style.css?v=20260428-v22-ui-fix">
+</head>
+<body>
+  <div class="site-shell">
+    <div class="page-frame">
+      <header class="site-nav">
+        <a class="brand" href="index.html">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PRISMA logo">
+              <title>PRISMA logo</title>
+              <path d="M4 16.5L12 4l8 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 16.5h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="12" cy="16.5" r="2.3" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-title"><span class="zh">PRISMA Workbench</span><span class="en">PRISMA Workbench</span></span>
+            <span class="brand-subtitle"><span class="zh">V3 资源中心</span><span class="en">V3 Resources</span></span>
+          </span>
+        </a>
+        <div class="nav-actions">
+          <a class="ghost-link" href="index.html" data-lang-link="index.html"><span class="zh">首页</span><span class="en">Home</span></a>
+          <a class="ghost-link" href="workspace.html" data-lang-link="workspace.html"><span class="zh">工作台</span><span class="en">Workspace</span></a>
+          <a class="ghost-link" href="login.html" data-lang-link="login.html"><span class="zh">双人复核</span><span class="en">Dual Review</span></a>
+          <button type="button" class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="landing-hero">
+          <div>
+            <div class="eyebrow"><span class="zh">V3 发布准备资产</span><span class="en">V3 release-preparation assets</span></div>
+            <h1 class="hero-title">
+              <span class="zh">PRISMA Workbench V3 Resources</span>
+              <span class="en">PRISMA Workbench V3 Resources</span>
+            </h1>
+            <p class="hero-description">
+              <span class="zh">这里集中放置公开演示数据、可复现 benchmark 和论文准备材料。资源中心负责解释用途；原始 JSON / Markdown 文件只作为明确的下载或查看入口。</span>
+              <span class="en">This page collects the public demo dataset, reproducible benchmark package, and paper-preparation assets. The hub explains each resource before linking to raw JSON or Markdown files.</span>
+            </p>
+            <div class="hero-actions">
+              <a class="cta-link primary" href="workspace.html" data-lang-link="workspace.html"><span class="zh">进入工作台</span><span class="en">Open Workspace</span></a>
+              <a class="cta-link secondary" href="login.html" data-lang-link="login.html"><span class="zh">进入双人复核</span><span class="en">Open Dual Review</span></a>
+            </div>
+          </div>
+          <div class="hero-metrics">
+            <div class="hero-metric"><strong>Demo</strong><span><span class="zh">公开演示数据</span><span class="en">Public demo dataset</span></span></div>
+            <div class="hero-metric"><strong>Bench</strong><span><span class="zh">可复现测试</span><span class="en">Reproducible tests</span></span></div>
+            <div class="hero-metric"><strong>Paper</strong><span><span class="zh">论文准备</span><span class="en">Paper prep</span></span></div>
+            <div class="hero-metric"><strong>Local</strong><span><span class="zh">本地优先</span><span class="en">Local-first</span></span></div>
+          </div>
+        </section>
+
+        <section style="margin-top: var(--space-32);">
+          <div class="section-heading">
+            <div>
+              <h2><span class="zh">资源入口</span><span class="en">Resource entries</span></h2>
+              <p><span class="zh">先看说明，再决定是否打开原始文件。</span><span class="en">Read the explanation first, then open the raw files only when needed.</span></p>
+            </div>
+          </div>
+          <div class="route-grid">
+            <article class="route-card priority">
+              <div>
+                <div class="route-top"><span class="route-badge">Demo</span><span class="pill">JSON</span></div>
+                <h3><span class="zh">public demo dataset</span><span class="en">public demo dataset</span></h3>
+                <p class="route-meta"><span class="zh">22 条可公开演示记录，用于 onboarding、workflow walkthrough、中文源可靠性提示和去重演示。原始数据文件为 <code>sample-data.json</code>。</span><span class="en">22 public demo records for onboarding, workflow walkthrough, Chinese-source reliability warnings, and dedup demonstration. Raw file: <code>sample-data.json</code>.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><span class="zh">先读 demo guide，了解推荐筛选规则和演示路径</span><span class="en">Read the demo guide first for recommended rules and walkthrough steps</span></li>
+                <li><span class="zh">需要原始数据时再打开 JSON</span><span class="en">Open the JSON only when raw data is needed</span></li>
+              </ul>
+              <div class="route-actions">
+                <a class="cta-link secondary" href="../docs/demo/README.md"><span class="zh">查看 demo guide</span><span class="en">Open demo guide</span></a>
+                <a class="cta-link secondary" href="sample-data.json"><span class="zh">打开 sample-data.json</span><span class="en">Open sample-data.json</span></a>
+              </div>
+            </article>
+
+            <article class="route-card">
+              <div>
+                <div class="route-top"><span class="route-badge">Benchmark</span><span class="pill">Tests</span></div>
+                <h3><span class="zh">benchmark package</span><span class="en">benchmark package</span></h3>
+                <p class="route-meta"><span class="zh">当前 benchmark package 覆盖 dedup assets，加上 import、screening 和 audit replay package-coverage tests。</span><span class="en">The current benchmark package covers dedup assets plus import, screening, and audit replay package-coverage tests.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><code>docs/benchmarks/README.md</code></li>
+                <li><code>tests/benchmarks/package-coverage.test.mjs</code></li>
+              </ul>
+              <div class="route-actions">
+                <a class="cta-link secondary" href="../docs/benchmarks/README.md"><span class="zh">查看 benchmark package</span><span class="en">Open benchmark package</span></a>
+              </div>
+            </article>
+
+            <article class="route-card">
+              <div>
+                <div class="route-top"><span class="route-badge">Paper</span><span class="pill">Skeleton</span></div>
+                <h3><span class="zh">paper skeleton</span><span class="en">paper skeleton</span></h3>
+                <p class="route-meta"><span class="zh">用于 JOSS / JMIR AI / Systematic Reviews 准备的 repository-local manuscript outline、evidence map 和 venue notes。</span><span class="en">Repository-local manuscript outline, evidence map, and venue notes for future JOSS / JMIR AI / Systematic Reviews preparation.</span></p>
+              </div>
+              <ul class="route-list">
+                <li><code>docs/papers/README.md</code></li>
+                <li><code>docs/papers/EVIDENCE_MAP.md</code></li>
+                <li><code>docs/papers/VENUE_NOTES.md</code></li>
+              </ul>
+              <div class="route-actions">
+                <a class="cta-link secondary" href="../docs/papers/README.md"><span class="zh">查看 paper skeleton</span><span class="en">Open paper skeleton</span></a>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer-row">
+        <span><span class="zh">PRISMA Workbench V3 资源中心</span><span class="en">PRISMA Workbench V3 Resources</span></span>
+        <a class="mini-link" href="https://github.com/quzhiii/-PRISMA-" target="_blank" rel="noreferrer">GitHub</a>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    function getCurrentLang() {
+      const params = new URLSearchParams(window.location.search);
+      const paramLang = params.get('lang');
+      if (paramLang === 'zh' || paramLang === 'en') {
+        try { localStorage.setItem('prisma_lang', paramLang); } catch (_) {}
+        return paramLang;
+      }
+      let storedLang = null;
+      try { storedLang = localStorage.getItem('prisma_lang'); } catch (_) {}
+      if (storedLang === 'zh' || storedLang === 'en') return storedLang;
+      return 'zh';
+    }
+
+    function syncLangLinks(lang) {
+      document.querySelectorAll('[data-lang-link]').forEach((link) => {
+        const base = link.getAttribute('data-lang-link');
+        link.href = `${base}?lang=${lang}`;
+      });
+    }
+
+    function applyLangVisibility() {
+      const lang = document.documentElement.lang;
+      const isZh = lang === 'zh';
+      document.documentElement.dataset.lang = lang;
+      document.querySelectorAll('.zh').forEach((el) => {
+        el.hidden = !isZh;
+        el.style.display = isZh ? '' : 'none';
+      });
+      document.querySelectorAll('.en').forEach((el) => {
+        el.hidden = isZh;
+        el.style.display = isZh ? 'none' : '';
+      });
+      document.title = isZh ? 'PRISMA Workbench V3 资源中心' : 'PRISMA Workbench V3 Resources';
+      document.getElementById('langToggle').textContent = isZh ? 'EN' : '中';
+      syncLangLinks(lang);
+    }
+
+    window.toggleLang = function toggleLang() {
+      const nextLang = document.documentElement.lang === 'zh' ? 'en' : 'zh';
+      document.documentElement.lang = nextLang;
+      document.documentElement.dataset.lang = nextLang;
+      try { localStorage.setItem('prisma_lang', nextLang); } catch (_) {}
+      applyLangVisibility();
+    };
+
+    document.documentElement.lang = getCurrentLang();
+    document.documentElement.dataset.lang = document.documentElement.lang;
+    applyLangVisibility();
+  </script>
+</body>
+</html>
