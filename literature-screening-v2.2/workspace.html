@@ -67,6 +67,48 @@
         </div>
       </div>
 
+      <section id="workspace-onboarding" class="card workspace-step-card onboarding-wizard">
+        <div class="card-header">
+          <div>
+            <div class="card-kicker step-badge"><span class="zh">新手引导</span><span class="en">Onboarding</span></div>
+            <h2 class="card-title"><span class="zh">选择你的使用路径</span><span class="en">Choose your workspace path</span></h2>
+            <p class="section-subtitle"><span class="zh">不隐藏 Step 1 导入控件；这里只帮你快速决定从 demo、真实数据库导出、双人复核、审计包还是质量评价开始。</span><span class="en">Step 1 import controls stay visible. This panel helps you start from demo data, real database exports, dual review, audit exports, or quality appraisal.</span></p>
+          </div>
+        </div>
+        <div class="route-grid">
+          <article class="route-card priority">
+            <div class="route-top"><span class="route-badge"><span class="zh">我是新手</span><span class="en">New user</span></span><span class="pill">Demo</span></div>
+            <h3><span class="zh">我是新手，想试 demo</span><span class="en">Try demo data first</span></h3>
+            <p class="route-meta"><span class="zh">加载 public demo dataset，快速走通字段映射、去重、筛选和导出。</span><span class="en">Load the public demo dataset to walk through mapping, deduplication, screening, and exports.</span></p>
+            <button type="button" class="btn btn-primary" onclick="selectOnboardingPath('demo')"><span class="zh">加载公开演示数据</span><span class="en">Load public demo dataset</span></button>
+          </article>
+          <article class="route-card">
+            <div class="route-top"><span class="route-badge"><span class="zh">真实项目</span><span class="en">Real project</span></span><span class="pill">Local</span></div>
+            <h3><span class="zh">我有真实数据库导出文件</span><span class="en">I have database export files</span></h3>
+            <p class="route-meta"><span class="zh">上传 PubMed NBIB、CNKI ENW/RIS、万方 / 维普 CSV 或 Zotero 导出文件。</span><span class="en">Upload PubMed NBIB, CNKI ENW/RIS, Wanfang/VIP CSV, or Zotero exports.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('upload')"><span class="zh">上传数据库导出</span><span class="en">Upload database export</span></button>
+          </article>
+          <article class="route-card">
+            <div class="route-top"><span class="route-badge"><span class="zh">双人复核</span><span class="en">Dual review</span></span><span class="pill">V2.5</span></div>
+            <h3><span class="zh">我要双人复核</span><span class="en">Start dual review</span></h3>
+            <p class="route-meta"><span class="zh">进入 Reviewer A / B 本地文件协作入口，保留冲突队列和 resolver 证据。</span><span class="en">Open the Reviewer A / B local file-based workflow with conflict queues and resolver evidence.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('dual-review')"><span class="zh">进入双人复核</span><span class="en">Open dual review</span></button>
+          </article>
+          <article class="route-card">
+            <div class="route-top"><span class="route-badge"><span class="zh">审计包</span><span class="en">Audit package</span></span><span class="pill">Step 6</span></div>
+            <h3><span class="zh">我要导出审计包 / 附录材料</span><span class="en">Export audit package / appendix materials</span></h3>
+            <p class="route-meta"><span class="zh">完成筛选和质量评价后，在 Step 6 导出 PRISMA、事件、决策、冲突和 DEFENSE_AUDIT_PACK。</span><span class="en">After screening and quality appraisal, Step 6 exports PRISMA, events, decisions, conflicts, and DEFENSE_AUDIT_PACK.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('audit')"><span class="zh">查看审计导出提示</span><span class="en">Show audit export guidance</span></button>
+          </article>
+          <article class="route-card">
+            <div class="route-top"><span class="route-badge"><span class="zh">质量评价</span><span class="en">Quality appraisal</span></span><span class="pill">Step 5</span></div>
+            <h3><span class="zh">我要做质量评价</span><span class="en">Prepare quality appraisal</span></h3>
+            <p class="route-meta"><span class="zh">质量评价队列会在全文复核后出现，用于记录工具族、领域判断、引用证据和审稿备注。</span><span class="en">The quality queue appears after full-text review and records tool family, domain judgement, supporting quotes, and reviewer notes.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('quality')"><span class="zh">查看质量评价提示</span><span class="en">Show quality guidance</span></button>
+          </article>
+        </div>
+      </section>
+
         <div id="step1" class="card workspace-step-card">
           <div class="card-header">
             <div>

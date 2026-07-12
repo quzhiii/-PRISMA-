@@ -2147,6 +2147,32 @@ if (typeof window !== 'undefined') {
   window.openFilePicker = openFilePicker;
 }
 
+function withCurrentLangParam(targetPath) {
+  const lang = document.documentElement?.lang === 'en' ? 'en' : 'zh';
+  return `${targetPath}?lang=${lang}`;
+}
+
+function selectOnboardingPath(path) {
+  const normalized = String(path || '').trim();
+  if (normalized === 'demo') return loadSampleData();
+  if (normalized === 'upload') return openFilePicker();
+  if (normalized === 'dual-review') {
+    window.location.href = withCurrentLangParam('login.html');
+    return;
+  }
+  if (normalized === 'audit') {
+    showToast('完成筛选和质量评价后，可在 Step 6 导出审计包。', 'info');
+    return;
+  }
+  if (normalized === 'quality') {
+    showToast('质量评价会在全文复核后进入 Step 5。', 'info');
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.selectOnboardingPath = selectOnboardingPath;
+}
+
 // Initialize
 function init() {
   runtimeMode = detectRuntimeMode();
