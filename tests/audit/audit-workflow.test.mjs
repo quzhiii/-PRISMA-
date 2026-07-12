@@ -153,6 +153,56 @@ test('public V2.5 release labels are synchronized across page shells', async () 
   assert.match(appSource, /version: APP_RELEASE_VERSION/);
 });
 
+test('official homepage explains product paths without workspace overload', async () => {
+  const indexHtml = await readV22File('index.html');
+
+  assert.match(indexHtml, /Who it is for|适合谁|使用场景/i);
+  assert.match(indexHtml, /Why.*PRISMA|为什么选择|different from.*diagram/i);
+  assert.match(indexHtml, /Local-first|本地优先/i);
+  assert.match(indexHtml, /Audit-ready|可审计/i);
+  assert.match(indexHtml, /Open Workspace|打开 V2\.5 工作台/);
+  assert.match(indexHtml, /Open Dual Review|进入双人复核/);
+  assert.match(indexHtml, /V3 Resources|V3 资源中心/);
+  assert.doesNotMatch(indexHtml, /href="sample-data\.json"/);
+  assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/benchmarks\/README\.md"/);
+  assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/papers\/README\.md"/);
+});
+
+test('workspace offers onboarding paths for new users', async () => {
+  const workspaceHtml = await readV22File('workspace.html');
+  const source = await readV22App();
+
+  assert.match(workspaceHtml, /onboarding-wizard|workspace-onboarding|选择你的使用路径/);
+  assert.match(workspaceHtml, /我是新手|try demo data|public demo dataset/i);
+  assert.match(workspaceHtml, /真实数据库导出|database export/i);
+  assert.match(workspaceHtml, /双人复核|dual review/i);
+  assert.match(workspaceHtml, /审计包|audit package/i);
+  assert.match(workspaceHtml, /质量评价|quality appraisal/i);
+  assert.match(source, /function selectOnboardingPath\(/);
+});
+
+test('resources hub exposes review starter kits', async () => {
+  const resourcesHtml = await readV22File('resources.html');
+  const templatesReadme = await fs.readFile(path.join(repoRoot, 'docs/templates/README.md'), 'utf8');
+
+  assert.match(resourcesHtml, /Review Starter Kits|模板包|Workflow Kits/);
+  assert.match(resourcesHtml, /docs\/templates\/README\.md/);
+  assert.match(templatesReadme, /screening criteria/i);
+  assert.match(templatesReadme, /database export/i);
+  assert.match(templatesReadme, /dual-review SOP/i);
+  assert.match(templatesReadme, /audit appendix/i);
+});
+
+test('search strategy assistant is documented as strategy generation not database crawling', async () => {
+  const design = await fs.readFile(path.join(repoRoot, 'docs/design/SEARCH_STRATEGY_ASSISTANT.md'), 'utf8');
+
+  assert.match(design, /search strategy/i);
+  assert.match(design, /PubMed/);
+  assert.match(design, /CNKI|Wanfang|VIP|SinoMed/);
+  assert.match(design, /does not fetch|不抓取|不自动检索/i);
+  assert.match(design, /audit|可审计/i);
+});
+
 test('workspace capability sections use capability labels instead of V2.4 or V2.6 version badges', async () => {
   const [indexHtml, workspaceHtml, landingHtml] = await Promise.all([
     readV22File('index.html'),
