@@ -31,7 +31,8 @@ const testFiles = [
   'tests/dedup/legacy-paths.test.mjs',
   'tests/dedup/candidate-output.test.mjs',
   'tests/benchmarks/package-coverage.test.mjs',
-  'tests/public/public-site-alignment.test.mjs'
+  'tests/public/public-site-alignment.test.mjs',
+  'tests/public/naming-test-kit.test.mjs'
 ];
 
 const child = spawn(

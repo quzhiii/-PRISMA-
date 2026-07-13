@@ -11,12 +11,15 @@ These decisions must be resolved before the corresponding release-train work pro
 | Public product name | Keep PRISMA Workbench as the current display name during M0-M2; legacy-alias status remains undecided | formal rename or domain change |
 | Current public version | V2.5 dual-review closeout | any V3.0 release claim |
 | Next functional release version | Undecided; completed V2.6/V2.7 capability-slice labels do not settle the next public release number | any post-V2.5 public release claim |
-| Candidate future name | Test EvidenceDock, SiftTrail, and ReviewTrail | repository/domain/schema producer rename |
+| Candidate future name | Test EvidenceDock, SiftTrail, and ReviewTrail; no candidate has been selected | repository/domain/schema producer rename |
+| M2 naming research | The test kit and blank scorecard are prepared at `docs/naming/2026-07-name-test-kit.md` and `docs/naming/2026-07-name-test-scorecard.csv`; 5-8 real user sessions have not yet run | naming recommendation |
+| Rename approval gate | Require completed 5-8 user sessions, name-risk checks, migration review, and explicit maintainer approval | any formal rename |
 | PRISMA independence statement | Add a clear independent-project disclaimer | public alignment closeout |
 | Rename scope | Do not change repository, domain, schema producer, bundle producer, or internal IDs during M2 naming tests | any approved display-name migration |
 | Repository name | Keep the current repository name until naming tests and inbound-link migration are approved | repository rename |
 | Public domain and canonical origin | Keep the current host unchanged; do not declare a new canonical origin until hosting and redirects are reproducible | canonical metadata or domain migration |
 | Legacy product alias | Undecided; retaining PRISMA Workbench as a legacy alias is a recommendation only and has not been approved | formal brand migration |
+| Migration impact state | Repository and inbound links, domain, canonical metadata, package/app identity, schema producer, bundle producer, export manifest, CLI, storage keys, download names, and legacy alias are documented but not approved/executed | formal brand migration |
 
 ## Routes and compatibility
 
