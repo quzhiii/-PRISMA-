@@ -203,6 +203,16 @@ test('search strategy assistant is documented as strategy generation not databas
   assert.match(design, /audit|可审计/i);
 });
 
+test('official website iteration brief captures current state and next design direction', async () => {
+  const brief = await fs.readFile(path.join(repoRoot, 'docs/design/OFFICIAL_WEBSITE_UI_ITERATION_BRIEF.md'), 'utf8');
+
+  assert.match(brief, /V2\.5 dual-review closeout/);
+  assert.match(brief, /static-first|local-first/i);
+  assert.match(brief, /资源中心|Resources hub/);
+  assert.match(brief, /AI 时代|AI-era/i);
+  assert.match(brief, /不要新增后端同步|no backend sync/i);
+});
+
 test('workspace capability sections use capability labels instead of V2.4 or V2.6 version badges', async () => {
   const [indexHtml, workspaceHtml, landingHtml] = await Promise.all([
     readV22File('index.html'),
@@ -846,7 +856,8 @@ test('release-facing pages keep primary entry clean while docs surface V3 prepar
   assert.doesNotMatch(indexHtml, /href="sample-data\.json"/);
   assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/benchmarks\/README\.md"/);
   assert.doesNotMatch(indexHtml, /href="\.\.\/docs\/papers\/README\.md"/);
-  assert.match(indexHtml, /避免误点打开原始 JSON \/ Markdown 文件/);
+  assert.match(indexHtml, /演示数据、复现基准、论文材料和模板包/);
+  assert.doesNotMatch(indexHtml, /避免误点|原始 JSON \/ Markdown|raw JSON|raw Markdown|benchmark 和论文材料集中/i);
   assert.match(landingHtml, /public demo dataset/i);
   assert.match(landingHtml, /benchmark package/i);
   assert.match(landingHtml, /paper skeleton/i);
@@ -865,10 +876,13 @@ test('release-facing pages route V3 assets through a curated resources hub', asy
   assert.match(indexHtml, /V3 资源中心|V3 Resources/);
   assert.match(landingHtml, /href="resources\.html"/);
   assert.match(landingHtml, /V3 资源中心|V3 Resources/);
-  assert.match(resourcesHtml, /PRISMA Workbench V3 Resources/);
-  assert.match(resourcesHtml, /public demo dataset/i);
-  assert.match(resourcesHtml, /benchmark package/i);
-  assert.match(resourcesHtml, /paper skeleton/i);
+  assert.match(resourcesHtml, /PRISMA Workbench V3 资源中心/);
+  assert.match(resourcesHtml, /公开演示数据/);
+  assert.match(resourcesHtml, /可复现基准/);
+  assert.match(resourcesHtml, /论文准备材料/);
+  assert.match(resourcesHtml, /模板包/);
+  assert.match(resourcesHtml, /检索策略助手设计/);
+  assert.doesNotMatch(resourcesHtml, /<span class="zh">[^<]*(public demo dataset|benchmark package|paper skeleton|Workflow Kits|Review Starter Kits|Search Strategy Assistant|Demo|Benchmark|Paper|Design|Boundary|Skeleton|Tests)[^<]*<\/span>/i);
   assert.match(resourcesHtml, /sample-data\.json/);
   assert.match(resourcesHtml, /docs\/demo\/README\.md/);
   assert.match(resourcesHtml, /docs\/benchmarks\/README\.md/);
