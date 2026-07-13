@@ -1,6 +1,6 @@
 # Audit Appendix Template
 
-Use this skeleton when preparing a methods appendix, reviewer response, or defense-ready evidence packet from PRISMA Workbench exports.
+Use this skeleton when preparing a methods appendix, reviewer response, or review evidence packet from PRISMA Workbench exports. Verify every value against the project records before use.
 
 ## Screening workflow narrative
 

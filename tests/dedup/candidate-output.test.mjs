@@ -169,7 +169,7 @@ test('v2 keeps not-duplicate review labels without auto-removing records', async
 });
 
 test('root candidate summary renders export controls into the results UI', async () => {
-  await assertCandidateSummaryUI('app.js', 'index.html');
+  await assertCandidateSummaryUI('app.js', 'app/index.html');
 });
 
 test('v2 candidate summary renders export controls into the results UI', async () => {

@@ -13,7 +13,7 @@ async function readV22App() {
 }
 
 async function readV22Workspace() {
-  return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8');
+  return fs.readFile(path.join(repoRoot, 'app/index.html'), 'utf8');
 }
 
 function extractFunctionBlock(source, functionName) {
@@ -114,17 +114,18 @@ function extractFunctionBlock(source, functionName) {
   return source.slice(start, index);
 }
 
-test('workspace loads V2.6 conservative AI before app and exposes advisory action', async () => {
+test('workspace loads conservative AI before app and exposes advisory action', async () => {
   const workspace = await readV22Workspace();
-  const conservativeScript = '<script src="conservative-ai-engine.js?v=20260604-v26-foundation"></script>';
-  const appScript = '<script src="app.js?v=20260512-v25-dual-review-exports"></script>';
+  const conservativeScript = '<script src="../literature-screening-v2.2/conservative-ai-engine.js?v=20260604-v26-foundation"></script>';
+  const appScript = '<script src="../literature-screening-v2.2/app.js?v=20260512-v25-dual-review-exports"></script>';
 
   assert.match(workspace, /conservative-ai-engine\.js/);
   assert.ok(
     workspace.indexOf(conservativeScript) < workspace.indexOf(appScript),
     'conservative AI engine must load before app.js'
   );
-  assert.match(workspace, /V2\.6 Conservative AI/);
+  assert.match(workspace, /Conservative AI Screening Queue/);
+  assert.doesNotMatch(workspace, />[^<]*V2\.6[^<]*</);
   assert.match(workspace, /generateConservativeAiSuggestions\(\)/);
   assert.match(workspace, /id="conservativeAiQueuePanel"/);
   assert.match(workspace, /id="conservativeAiStep4ContextBanner"/);

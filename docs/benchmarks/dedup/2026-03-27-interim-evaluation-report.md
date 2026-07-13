@@ -82,7 +82,7 @@ The more important product signal was:
 - hard duplicate recall was around `0.70` in the combined provisional set
 - duplicate-like recall was around `0.58`
 
-That was far below the benchmark planning threshold for research-grade workflows.
+That was far below the benchmark planning threshold for high-recall workflows.
 
 ### 4.2 The current engine was over-dependent on raw identifier equality
 

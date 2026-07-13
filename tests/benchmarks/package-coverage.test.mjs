@@ -242,7 +242,7 @@ test('benchmark: audit replay - defense pack markdown generation is stable', () 
 
   assert.equal(pack1, pack2, 'defense pack should be deterministic');
 
-  assert.match(pack1, /Defense-ready Audit Pack/);
+  assert.match(pack1, /Methods Appendix \/ Review Evidence Package/);
   assert.match(pack1, /Project: Benchmark Audit Replay/);
   assert.match(pack1, /PRISMA Counts/);
   assert.match(pack1, /Dual-review Resolution Summary/);

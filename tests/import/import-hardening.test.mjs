@@ -14,7 +14,7 @@ const ImportJobRuntime = requireFromRepo(path.join(repoRoot, 'literature-screeni
 const V22StreamingParser = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2/streaming-parser.js'));
 const appSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.0/app.js'), 'utf8');
 const v22AppSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8');
-const v22WorkspaceSource = fs.readFileSync(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8');
+const v22WorkspaceSource = fs.readFileSync(path.join(repoRoot, 'app/index.html'), 'utf8');
 const chineseSourceFixtureDir = path.join(repoRoot, 'fixtures', 'chinese-source');
 
 function loadV22ParserWorkerHarness() {
@@ -86,8 +86,8 @@ test('v2.2 local file mode has a bounded parser fallback when workers are blocke
     /catch \(workerError\) \{\s*if \(shouldAllowLocalFileWorkerFallback\(file, ext\)\) \{[\s\S]*?return parseFileWithLocalFileFallback\(file, ext, onProgress\);[\s\S]*?\}\s*throw createIncrementalWorkerFailureError\(file, ext, workerError\);/m
   );
   assert.match(v22WorkspaceSource, /const isLocalFileMode = window\.location\.protocol === 'file:';/);
-  assert.match(v22WorkspaceSource, /const dbWorker = isLocalFileMode \? null : new Worker\('db-worker\.js\?v=20260427-v22-audit'\);/);
-  assert.match(v22WorkspaceSource, /const parserWorker = isLocalFileMode \? null : new Worker\('parser-worker\.js\?v=20260422-streaming-v2'\);/);
+  assert.match(v22WorkspaceSource, /const dbWorker = isLocalFileMode \? null : new Worker\('\.\.\/literature-screening-v2\.2\/db-worker\.js\?v=20260427-v22-audit'\);/);
+  assert.match(v22WorkspaceSource, /const parserWorker = isLocalFileMode \? null : new Worker\('\.\.\/literature-screening-v2\.2\/parser-worker\.js\?v=20260422-streaming-v2'\);/);
 });
 
 test('finalize import lifecycle cleans loading and progress when success UI finalization throws', async () => {

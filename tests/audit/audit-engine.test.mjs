@@ -183,7 +183,7 @@ test('summarizes V2.6 advisory queue metadata without control-click usage claims
   assert.equal(summary.byRecommendedQueue.needs_human_exclusion_check, 1);
 });
 
-test('PRISMA-trAIce and audit summaries describe V2.6 queue controls conservatively', () => {
+test('PRISMA-trAIce and audit summaries describe advisory queue controls conservatively', () => {
   const manifest = AuditEngine.createProjectManifest({
     projectId: 'project-queue-summary',
     projectName: 'Queue summary review',
@@ -227,7 +227,8 @@ test('PRISMA-trAIce and audit summaries describe V2.6 queue controls conservativ
   const auditSummary = AuditEngine.buildAuditSummaryMarkdown(manifest, [], [], { aiSuggestionEvents: suggestions });
 
   [report, auditSummary].forEach((markdown) => {
-    assert.match(markdown, /V2\.6 Advisory Queue Controls Summary/);
+    assert.match(markdown, /Advisory Queue Controls Summary/);
+    assert.doesNotMatch(markdown, /V2\.6 Advisory Queue Controls Summary/);
     assert.match(markdown, /Total advisory queue suggestions: 3/);
     assert.match(markdown, /Pending advisory queue suggestions: 1/);
     assert.match(markdown, /Reviewed advisory queue suggestions: 2/);
@@ -483,7 +484,7 @@ test('builds a PRISMA-trAIce report with a No-AI statement by default', () => {
 
 test('v2.5 workspace loads audit engine before app.js', async () => {
   const workspaceHtml = await fs.readFile(
-    path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
+    path.join(repoRoot, 'app/index.html'),
     'utf8'
   );
   const auditIndex = workspaceHtml.indexOf('audit-engine.js?v=20260427-v22-audit');

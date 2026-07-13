@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PRISMA Workbench v2.5 双人复核设置和本地文件交接说明。">
+  <title>PRISMA Workbench v2.5 - Dual-review setup</title>
+  <link rel="stylesheet" href="../literature-screening-v2.2/style.css?v=20260713-public-alignment">
+</head>
+<body>
+  <div class="site-shell">
+    <div class="page-frame">
+      <header class="site-nav">
+        <a class="brand" href="../"><span class="brand-copy"><span class="brand-title">PRISMA Workbench</span><span class="brand-subtitle"><span class="zh">双人复核设置</span><span class="en">Dual-review setup</span></span></span></a>
+        <div class="nav-actions"><a class="ghost-link" href="../"><span class="zh">首页</span><span class="en">Home</span></a><a class="ghost-link" href="../app/"><span class="zh">工作台</span><span class="en">Workspace</span></a><button type="button" class="lang-toggle" id="langToggle">EN</button></div>
+      </header>
+      <main class="section-stack">
+        <section class="landing-hero">
+          <div>
+            <div class="eyebrow">V2.5 file-based collaboration</div>
+            <h1 class="hero-title"><span class="zh">双人复核设置，不提供在线身份服务。</span><span class="en">Dual-review setup without an online identity service.</span></h1>
+            <p class="hero-description"><span class="zh">无需账号。不提供在线项目查询，也不提供实时同步。工作台使用浏览器本地状态；跨设备协作通过文件交接完成。</span><span class="en">No account is required. No online project lookup and no real-time sync are provided. The workspace uses browser-local state; cross-device collaboration happens through file handoff.</span></p>
+            <div class="hero-actions"><a class="cta-link primary" href="../app/?mode=dual"><span class="zh">打开工作台并设置 Reviewer A / B</span><span class="en">Open workspace and set Reviewer A / B</span></a></div>
+          </div>
+          <div class="hero-metrics">
+            <div class="hero-metric"><strong><span class="zh">无账号</span><span class="en">No account</span></strong><span><span class="zh">浏览器本地运行</span><span class="en">Browser-local workflow</span></span></div>
+            <div class="hero-metric"><strong><span class="zh">文件交接</span><span class="en">File handoff</span></strong><span>Seed + Bundle</span></div>
+            <div class="hero-metric"><strong><span class="zh">人工合并</span><span class="en">Human merge</span></strong><span><span class="zh">冲突重算</span><span class="en">Conflict refresh</span></span></div>
+          </div>
+        </section>
+        <section>
+          <div class="section-heading"><div><h2><span class="zh">当前可用的协作流程</span><span class="en">Current collaboration flow</span></h2><p><span class="zh">完整项目保存/加载仍是单独的备份路径；下面的 Reviewer Bundle 只处理复核交接。</span><span class="en">Full-project save/load remains a separate backup path. Reviewer Bundle files handle review handoff only.</span></p></div></div>
+          <div class="workflow-grid">
+            <article class="workflow-step"><div class="workflow-index">STEP 01</div><h3>Collaboration Seed</h3><p><span class="zh">项目 owner 在已有本地项目中导出 Collaboration Seed，交给复核者。当前版本没有单独的 Seed 导入向导，接收方需通过完整项目备份建立相同项目上下文。</span><span class="en">The project owner exports a Collaboration Seed from an existing local project. This version has no dedicated Seed import wizard; the recipient needs the same project context through the separate full-project backup path.</span></p></article>
+            <article class="workflow-step"><div class="workflow-index">STEP 02</div><h3>Reviewer Decision Bundle</h3><p><span class="zh">Reviewer A 或 B 在自己的项目上下文中记录决定，并导出只包含其复核值的 Reviewer Decision Bundle。</span><span class="en">Reviewer A or B records decisions in their project context and exports a Reviewer Decision Bundle scoped to that reviewer's values.</span></p></article>
+            <article class="workflow-step"><div class="workflow-index">STEP 03</div><h3><span class="zh">Merge import</span><span class="en">Merge import</span></h3><p><span class="zh">owner 将 Bundle 导入现有项目，随后刷新冲突队列、一致性指标和最终导出门禁。</span><span class="en">The owner imports the Bundle into the existing project, then refreshes conflicts, agreement metrics, and the final-export gate.</span></p></article>
+          </div>
+        </section>
+        <section>
+          <div class="info-box"><strong><span class="zh">边界说明</span><span class="en">Boundary</span></strong><p><span class="zh">项目 ID 只是本地项目标识，不是网络地址。应用不会在服务器上查找该 ID，也不会自动等待另一位复核者的数据。</span><span class="en">A project ID is a local identifier, not a network address. The application does not look it up on a server or automatically wait for another reviewer's data.</span></p></div>
+        </section>
+      </main>
+      <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="../resources/"><span class="zh">资源中心</span><span class="en">Resources</span></a></footer>
+    </div>
+  </div>
+  <script>
+    function applyLanguage(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dataset.lang = lang;
+      document.querySelectorAll('.zh').forEach((el) => { el.hidden = lang !== 'zh'; });
+      document.querySelectorAll('.en').forEach((el) => { el.hidden = lang === 'zh'; });
+      document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中';
+      try { localStorage.setItem('prisma_lang', lang); } catch (_) {}
+    }
+    let lang = new URLSearchParams(location.search).get('lang');
+    if (lang !== 'zh' && lang !== 'en') { try { lang = localStorage.getItem('prisma_lang'); } catch (_) {} }
+    if (lang !== 'zh' && lang !== 'en') lang = 'zh';
+    document.getElementById('langToggle').addEventListener('click', () => applyLanguage(document.documentElement.lang === 'zh' ? 'en' : 'zh'));
+    applyLanguage(lang);
+  </script>
+</body>
+</html>

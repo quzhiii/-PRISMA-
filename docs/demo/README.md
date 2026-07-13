@@ -4,7 +4,7 @@ This guide walks you through the PRISMA Workbench workflow using the public demo
 
 ## Quick Start
 
-1. Open `workspace.html` in your browser
+1. Serve the public build over static HTTP and open `/app/`
 2. Click **「加载公开演示数据」** (Load Public Demo Dataset)
 3. Follow the 6-step workflow below
 
@@ -103,7 +103,7 @@ Export deliverables include:
 - Quality appraisal CSV
 - Evidence table CSV
 - GRADE summary CSV
-- **Defense-ready Audit Pack** (`DEFENSE_AUDIT_PACK.md`) - combines PRISMA counts, dual-review resolution, quality appraisal, source-reliability warnings, and AI boundary summary
+- **Methods Appendix / Review Evidence Package** (`DEFENSE_AUDIT_PACK.md`) - combines PRISMA counts, dual-review resolution, quality appraisal, source-reliability warnings, and AI boundary summary for researcher verification
 - Dual-review conflict and agreement exports
 - Full audit package (manifest, events, decisions, exclusion reasons, counts, summary)
 
@@ -114,7 +114,7 @@ To see the reliability warnings in action:
 1. Load the demo data
 2. Go to Step 1 and check the import summary
 3. Records with `abstract_noise_detected` or `abstract_truncation_suspected` will show warnings
-4. Export the Defense-ready Audit Pack to see the "Chinese-source Reliability Summary" section
+4. Export the Methods Appendix / Review Evidence Package to see the "Chinese-source Reliability Summary" section
 5. The summary shows warnings by source database and by warning type
 
 ## Notes

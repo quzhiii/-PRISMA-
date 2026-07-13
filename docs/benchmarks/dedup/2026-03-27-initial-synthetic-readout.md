@@ -116,7 +116,7 @@ The current logic performs well when the same study appears without DOI but with
 This synthetic readout suggests:
 
 - the current logic is reasonably safe for auto-removing exact and near-exact duplicates
-- recall is too low for a research-grade dedup workflow
+- recall is too low for a high-recall dedup workflow
 - the most immediate weaknesses are normalization and mixed-metadata handling, not explainability
 
 ## Provisional State

@@ -14,7 +14,7 @@ async function readV22App() {
 }
 
 async function readV22Workspace() {
-  return fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8');
+  return fs.readFile(path.join(repoRoot, 'app/index.html'), 'utf8');
 }
 
 function extractSimpleFunctionBlock(source, functionName) {

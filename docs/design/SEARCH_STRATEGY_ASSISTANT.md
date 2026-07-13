@@ -19,7 +19,7 @@ This is a design document only. It does not implement database connections.
 - Search strategy drafts for selected database families.
 - Term table with concept group, synonym, source, and reviewer note.
 - Database-specific syntax notes.
-- Audit-ready changelog of edits and reviewer confirmations.
+- Traceable changelog of edits and reviewer confirmations.
 - Exportable Markdown appendix text.
 
 ## Supported strategy families

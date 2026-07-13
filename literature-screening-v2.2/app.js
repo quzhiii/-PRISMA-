@@ -174,7 +174,10 @@ const SMART_IMPORT_CONFIG = {
   PARSE_CHUNK_SIZE: 50000,     // 流式解析块大小(bytes)
   MAX_RETRY: 3                 // 最大重试次数
 };
-const PARSER_WORKER_URL = 'parser-worker.js?v=20260422-streaming-v2';
+const APP_ASSET_BASE = typeof window !== 'undefined' && typeof window.PRISMA_ASSET_BASE === 'string'
+  ? window.PRISMA_ASSET_BASE
+  : '';
+const PARSER_WORKER_URL = `${APP_ASSET_BASE}parser-worker.js?v=20260422-streaming-v2`;
 const LOCAL_FILE_WORKER_FALLBACK_MAX_BYTES = 20 * 1024 * 1024;
 
 let importQueue = {
@@ -5358,7 +5361,7 @@ function generateMockAiSuggestions(limit = 3) {
 
 function generateConservativeAiSuggestions(limit = 5) {
   if (!uploadedData || uploadedData.length === 0) {
-    showToast('请先上传或加载示例数据，再生成 V2.6 保守 AI 建议', 'warning');
+    showToast('请先上传或加载示例数据，再生成保守 AI 建议', 'warning');
     return [];
   }
 
@@ -5395,7 +5398,7 @@ function generateConservativeAiSuggestions(limit = 5) {
   renderAiSuggestionPanel();
   const skippedMessage = skippedCount > 0 ? `，跳过 ${skippedCount} 条已有建议` : '';
   const toastType = suggestions.length > 0 ? 'success' : 'info';
-  showToast(`已生成 ${suggestions.length} 条 V2.6 保守 AI 建议${skippedMessage}，仍需人工确认`, toastType);
+  showToast(`已生成 ${suggestions.length} 条保守 AI 建议${skippedMessage}，仍需人工确认`, toastType);
   return suggestions;
 }
 
@@ -5494,7 +5497,7 @@ function renderConservativeAiStep4ContextBanner() {
 
   container.innerHTML = `
     <div class="info-box workspace-info-panel" style="margin-bottom: 20px; border-left-color: var(--color-warning);">
-      <h3><span class="zh">V2.6 保守 AI 承接上下文</span><span class="en">V2.6 Conservative AI Handoff</span></h3>
+      <h3><span class="zh">保守 AI 承接上下文</span><span class="en">Conservative AI Handoff</span></h3>
       <p>
         <span class="zh">当前聚焦记录来自 Step 3 advisory queue，仅作为人工全文复核的上下文提示，不会自动改写最终决定。</span>
         <span class="en">The current record came from the Step 3 advisory queue. This banner is context only and does not automatically rewrite the final decision.</span>
@@ -7771,8 +7774,8 @@ function renderConservativeAiQueuePanel() {
   if (entries.length === 0) {
     container.innerHTML = `
       <div class="muted-text">
-        <span class="zh">当前还没有 V2.6 conservative AI 队列。可在这里生成本地 advisory suggestions，再决定是否进入全文复核。</span>
-        <span class="en">There is no V2.6 conservative AI queue yet. Generate local advisory suggestions here before moving to full-text review.</span>
+        <span class="zh">当前还没有 conservative AI 队列。可在这里生成本地 advisory suggestions，再决定是否进入全文复核。</span>
+        <span class="en">There is no conservative AI queue yet. Generate local advisory suggestions here before moving to full-text review.</span>
       </div>
     `;
     return;
@@ -9072,7 +9075,7 @@ ${results.rules.required_one_of.map(f => `- ${f}`).join('\n')}
 | 全文排除 | ${results.counts.excluded_ft} |
 | **最终纳入** | **${results.counts.included}** |
 
-## 6. v3.0 人工审核详情
+## 6. 人工审核详情
 
 ### 排除原因统计
 
@@ -9090,7 +9093,7 @@ ${exclusionDetails || '- 未排除任何文献'}
 ### 去重方法
 - 优先按 DOI 去重
 - 其次按标题规范化（转小写、去标点、合并空格）去重
-- v3.0 新增：跨源智能去重（同一文献若出现在多个数据库中，仅保留一条）
+- 跨源智能去重（同一文献若出现在多个数据库中，仅保留一条）
 
 ### 筛选流程
 1. 时间窗口过滤
@@ -9098,7 +9101,7 @@ ${exclusionDetails || '- 未排除任何文献'}
 3. 必填字段检查
 4. 语言过滤
 5. 排除关键词匹配（标题/摘要阶段）
-6. v3.0 新增：全文人工审核阶段（记录详细排除原因）
+6. 全文人工审核阶段（记录详细排除原因）
 
 ### 注意事项
 - 数据库来源比例基于上传文件来源实际计算
@@ -9303,7 +9306,7 @@ async function fetchSampleDataPayload() {
     return getBuiltInSampleDataPayload();
   }
 
-  const response = await fetch('sample-data.json');
+  const response = await fetch(`${APP_ASSET_BASE}sample-data.json`);
   if (!response.ok) throw new Error('无法加载示例数据');
   const payload = await response.json();
   return {

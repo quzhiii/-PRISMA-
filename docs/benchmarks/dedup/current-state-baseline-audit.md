@@ -130,7 +130,7 @@ The current state is best described as:
 - conservative for exact duplicates
 - underpowered for near-duplicate discovery
 - internally inconsistent across code paths
-- easy to explain, but not yet research-grade as a full dedup workflow
+- easy to explain, but not yet validated as a full dedup workflow
 
 ## Pre-Benchmark Recommendation
 

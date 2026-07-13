@@ -30,7 +30,8 @@ const testFiles = [
   'tests/dedup/app-integration.test.mjs',
   'tests/dedup/legacy-paths.test.mjs',
   'tests/dedup/candidate-output.test.mjs',
-  'tests/benchmarks/package-coverage.test.mjs'
+  'tests/benchmarks/package-coverage.test.mjs',
+  'tests/public/public-site-alignment.test.mjs'
 ];
 
 const child = spawn(

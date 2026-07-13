@@ -168,7 +168,7 @@ test('builds AI usage registry and PRISMA-trAIce report exports', () => {
   assert.match(zhReport, /AI 建议不会/);
 });
 
-test('builds defense-ready audit pack markdown with dual-review and source-reliability summary', () => {
+test('builds methods appendix review evidence markdown with dual-review and source-reliability summary', () => {
   const manifest = AuditEngine.createProjectManifest({
     projectId: 'project-1',
     projectName: 'Defense Ready Review',
@@ -267,7 +267,7 @@ test('builds defense-ready audit pack markdown with dual-review and source-relia
     }
   );
 
-  assert.match(pack, /^# Defense-ready Audit Pack/m);
+  assert.match(pack, /^# Methods Appendix \/ Review Evidence Package/m);
   assert.match(pack, /local-first evidence export/i);
   assert.match(pack, /reviewer response, thesis defense, or methods appendix/i);
   assert.match(pack, /## PRISMA Counts/);
@@ -284,7 +284,7 @@ test('builds defense-ready audit pack markdown with dual-review and source-relia
   assert.match(pack, /## Appendix-ready Notes/);
 });
 
-test('defense-ready audit pack lists richer reliability summary by source database and warning type', () => {
+test('review evidence package lists richer reliability summary by source database and warning type', () => {
   const pack = AuditEngine.buildDefenseReadyAuditPackMarkdown(
     AuditEngine.createProjectManifest({
       projectId: 'project-cn-1',
@@ -328,7 +328,7 @@ test('defense-ready audit pack lists richer reliability summary by source databa
   assert.match(pack, /import-quality signals, not final screening decisions/i);
 });
 
-test('builds defense-ready audit pack markdown in zh when language is zh', () => {
+test('builds review evidence package markdown in zh when language is zh', () => {
   const pack = AuditEngine.buildDefenseReadyAuditPackMarkdown(
     AuditEngine.createProjectManifest({
       projectId: 'project-zh-1',
@@ -349,7 +349,7 @@ test('builds defense-ready audit pack markdown in zh when language is zh', () =>
     }
   );
 
-  assert.match(pack, /^# 答辩审计包/m);
+  assert.match(pack, /^# 方法附录 \/ 复核证据包/m);
   assert.match(pack, /## 中文源可靠性摘要/);
   assert.match(pack, /这些提示不会自动改变筛选决定/);
   assert.match(pack, /人工复核者保留最终决定权/);
@@ -600,7 +600,7 @@ test('v2.5 conflict gate blocks final exports while keeping evidence exports ava
 
 test('v2.2 workspace includes the audit package export buttons', async () => {
   const workspaceHtml = await fs.readFile(
-    path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
+    path.join(repoRoot, 'app/index.html'),
     'utf8'
   );
 
@@ -615,7 +615,7 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
-  assert.match(workspaceHtml, /Defense-ready Audit Pack/);
+  assert.match(workspaceHtml, /Methods Appendix \/ Review Evidence Package/);
   assert.match(workspaceHtml, /downloadFile\('quality_appraisal'\)/);
   assert.match(workspaceHtml, /quality_appraisal\.csv/);
   assert.match(workspaceHtml, /downloadFile\('evidence_table'\)/);
@@ -650,7 +650,7 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
 test('v2.2 app exposes RIS export options for included and excluded records', async () => {
   const [source, workspaceHtml] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8'),
-    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'app/index.html'), 'utf8'),
   ]);
 
   assert.match(source, /function serializeRecordsToRis\(records, options = \{\}\)/);
@@ -669,7 +669,7 @@ test('v2.2 app exposes RIS export options for included and excluded records', as
 test('v2.2 app exposes result-table export format selectors', async () => {
   const [source, workspaceHtml] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/app.js'), 'utf8'),
-    fs.readFile(path.join(repoRoot, 'literature-screening-v2.2/workspace.html'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'app/index.html'), 'utf8'),
   ]);
 
   assert.match(source, /function downloadResultTableExport\(kind\)/);
@@ -690,7 +690,7 @@ test('v2.2 app exposes result-table export format selectors', async () => {
 
 test('v2.2 release hardening smoke keeps dual-review and export-format paths visible', async () => {
   const workspaceHtml = await fs.readFile(
-    path.join(repoRoot, 'literature-screening-v2.2/workspace.html'),
+    path.join(repoRoot, 'app/index.html'),
     'utf8'
   );
 

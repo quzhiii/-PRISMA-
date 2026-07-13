@@ -22,6 +22,7 @@ V3.0-UPDATE-NOTES.md
 # Local server
 node_modules/
 *.log
+dist/
 
 # Backup files
 *.bak

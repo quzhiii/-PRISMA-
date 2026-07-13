@@ -707,7 +707,7 @@
 
     if (isZh) {
       return [
-        '## V2.6 建议队列控件摘要',
+        '## 建议队列控件摘要',
         '',
         `建议队列总数：${summary.totalSuggestions}`,
         `待复核建议队列：${summary.pendingSuggestions}`,
@@ -719,13 +719,13 @@
         '',
         'Available Step 3 queue controls: queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity.',
         'This section reports available controls and derived metadata summaries, not tracked control-click usage.',
-        'V2.6 建议队列仍然只作为人工复核前的 advisory 队列，不会直接改变 `ScreeningDecision` 或 PRISMA 计数。',
+        '建议队列仍然只作为人工复核前的 advisory 队列，不会直接改变 `ScreeningDecision` 或 PRISMA 计数。',
         '',
       ];
     }
 
     return [
-      '## V2.6 Advisory Queue Controls Summary',
+      '## Advisory Queue Controls Summary',
       '',
       `Total advisory queue suggestions: ${summary.totalSuggestions}`,
       `Pending advisory queue suggestions: ${summary.pendingSuggestions}`,
@@ -737,7 +737,7 @@
       '',
       'Available Step 3 queue controls: queue labels, queue summary, priority sorting, review-state filters, and empty-state clarity.',
       'This section reports available controls and derived metadata summaries, not tracked control-click usage.',
-      'V2.6 queue metadata remains advisory-only and does not change `ScreeningDecision` records or PRISMA counts.',
+      'Queue metadata remains advisory-only and does not change `ScreeningDecision` records or PRISMA counts.',
       '',
     ];
   }
@@ -1133,7 +1133,7 @@
 
     if (isZh) {
       return [
-        '# 答辩审计包',
+        '# 方法附录 / 复核证据包',
         '',
         '目标文件：`DEFENSE_AUDIT_PACK.md`',
         '此本地优先证据导出将审计、双人复核、质量评价、来源可靠性与 AI 边界记录整理为可复用于审稿回复、论文答辩或方法学附录的材料。',
@@ -1205,7 +1205,7 @@
     }
 
     return [
-      '# Defense-ready Audit Pack',
+      '# Methods Appendix / Review Evidence Package',
       '',
       'File target: `DEFENSE_AUDIT_PACK.md`',
       'This local-first evidence export packages audit, dual-review, quality, source-reliability, and AI-boundary records for reviewer response, thesis defense, or methods appendix reuse.',
