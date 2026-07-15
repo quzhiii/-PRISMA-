@@ -67,9 +67,9 @@ These decisions must be resolved before the corresponding release-train work pro
 | Autosave recovery | Do not promise recovery from `prisma_autosave` until a project-keyed reader, age check, and diagnostics exist | M3 closeout |
 | Authoritative persistence | Undecided between full-state localStorage and IndexedDB ledger roles; do not add a third authority | M7 implementation |
 | Reviewer Bundle schema | Preserve `reviewer_bundle.v1.local` compatibility for current code and in-memory tests; no persisted Reviewer Bundle fixtures currently exist. Design any incompatible M4 contract as an explicit version transition | M4 implementation |
-| Bundle field naming | Undecided between current camelCase and planned snake_case; select one canonical serialized contract before adding fixtures | M4 contract freeze |
-| Bundle integrity hash | Current `rbp:` fingerprint is only an accidental-mismatch detector; choose a cryptographic hash algorithm and canonical manifest/decision scope | M4 implementation |
-| Duplicate bundle policy | Reject exact duplicate application and define whether a newer replacement from the same reviewer is allowed | M4 implementation |
+| Bundle field naming | Preserve existing camelCase fields for `reviewer_bundle.v1.local`; add the additive `m4.v1` contract fields in camelCase to avoid breaking current in-memory consumers | M4 contract freeze |
+| Bundle integrity hash | Keep `rbp:` as the legacy base-fingerprint compatibility field; use deterministic SHA-256 fields for source manifest, records, decisions, integrity metadata, and bundle ID | M4 implementation |
+| Duplicate bundle policy | Reject an already applied Decision Bundle by its deterministic `bundleId`; a newer replacement policy remains deferred until an explicit replacement contract exists | M4 implementation |
 | History model | Preserve current snapshots until a migration exists; do not call them replayable or hash-verified checkpoints | M7 implementation |
 | Export manifest scope | Current manifest is project metadata; decide archive/artifact list, hashes, producer, and Export Snapshot binding | M5 evidence contract |
 | Import checkpoint semantics | Treat current prompt as restart, not resume; define file identity, adapter version, checkpoint schema, and legal stage transitions | M7 implementation |

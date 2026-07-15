@@ -90,6 +90,10 @@ test('M3 source keeps recovery truthful and preserves M4/M7 boundaries', async (
   assert.match(app, /let pendingNewProjectSession = false/);
   assert.match(app, /forceNew: pendingNewProjectSession/);
   assert.match(app, /restore_failed/);
+  assert.match(app, /function importCollaborationSeedPackage/);
+  assert.match(app, /diagnoseReviewerBundle/);
+  assert.match(app, /appliedReviewerBundleIds/);
+  assert.match(await readRepoFile('app/index.html'), /importCollaborationSeedPackage\(\)/);
   assert.match(engine, /project_package\.v1\.local/);
   assert.doesNotMatch(engine, /EvidenceDock|SiftTrail|ReviewTrail/);
 

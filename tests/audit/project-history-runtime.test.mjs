@@ -146,6 +146,7 @@ let screeningDecisions = [];
 let aiSuggestionEvents = [];
 let projectHistory = [];
 let dualReviewResults = { A: {}, B: {}, final: {} };
+let appliedReviewerBundleIds = [];
 let dualReviewConflictState = getEmptyDualReviewConflictState();
 let currentProjectId = 'project-history-runtime';
 let currentUserSession = null;
@@ -240,6 +241,7 @@ function setState(patch = {}) {
   if ('aiSuggestionEvents' in patch) aiSuggestionEvents = patch.aiSuggestionEvents;
   if ('projectHistory' in patch) projectHistory = patch.projectHistory;
   if ('dualReviewResults' in patch) dualReviewResults = patch.dualReviewResults;
+  if ('appliedReviewerBundleIds' in patch) appliedReviewerBundleIds = patch.appliedReviewerBundleIds;
   if ('dualReviewConflictState' in patch) dualReviewConflictState = patch.dualReviewConflictState;
   if ('currentProjectId' in patch) currentProjectId = patch.currentProjectId;
 }
@@ -256,6 +258,7 @@ function getState() {
     aiSuggestionEvents,
     projectHistory,
     dualReviewResults,
+    appliedReviewerBundleIds,
     dualReviewConflictState,
     persistedSnapshots,
     toastLog,

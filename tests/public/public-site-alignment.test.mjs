@@ -109,6 +109,9 @@ test('dual-review setup describes browser-local file handoff without account or 
   assert.match(page, /不提供实时同步|No real-time sync/i);
   assert.match(page, /Collaboration Seed/);
   assert.match(page, /Reviewer Decision Bundle/);
+  assert.match(page, /SHA-256/);
+  assert.match(page, /m4\.v1/);
+  assert.match(page, /重复 Bundle/);
   assert.match(page, /浏览器本地状态|browser-local state/i);
   assert.doesNotMatch(page, /登录|加入项目|等待同步|项目连接|\blogin\b|join project|wait(?:ing)? for sync|project connection/i);
 });

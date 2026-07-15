@@ -146,6 +146,7 @@ let isDualReviewMode = false;
 let currentReviewer = 'A';
 let reviewerNames = { A: '审查员A', B: '审查员B' };
 let dualReviewResults = { A: {}, B: {}, final: {} };
+let appliedReviewerBundleIds = [];
 let dualReviewConflictState = {
   screeningPairs: [],
   screeningConflicts: [],
@@ -1790,6 +1791,7 @@ function removeSourceFileFromProject(fileName) {
     qualityAssessments = [];
     dualReviewResults = { A: {}, B: {}, final: {} };
     dualReviewConflictState = getEmptyDualReviewConflictState();
+    appliedReviewerBundleIds = [];
     currentStep = 1;
     document.getElementById('uploadInfo')?.classList.add('hidden');
     setStep(1);
@@ -6028,13 +6030,14 @@ function ensureProjectId() {
 }
 
 function startNewProjectSession(options = {}) {
+  const requestedProjectId = typeof options.projectId === 'string' ? options.projectId.trim() : '';
   const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
     ? runtimeSession.projectId.trim()
     : '';
   const createProjectId = typeof generateProjectId === 'function'
     ? generateProjectId
     : () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  currentProjectId = sessionProjectId || (options.forceNew ? createProjectId() : currentProjectId || createProjectId());
+  currentProjectId = requestedProjectId || sessionProjectId || (options.forceNew ? createProjectId() : currentProjectId || createProjectId());
   pendingNewProjectSession = false;
   try {
     localStorage.setItem('prisma_current_project_id', currentProjectId);
@@ -6094,6 +6097,7 @@ function buildCurrentProjectHistoryState() {
     projectHistory,
     dualReviewResults,
     dualReviewConflictState,
+    appliedReviewerBundleIds,
   };
 }
 
@@ -6105,6 +6109,7 @@ function getCurrentReviewerBundleProjectState() {
     currentProjectId: projectId,
     timestamp: new Date().toISOString(),
     ...buildCurrentProjectHistoryState(),
+    appliedReviewerBundleIds,
   };
 }
 
@@ -6122,7 +6127,7 @@ function getReviewerBundleDateStamp() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function exportCollaborationSeedPackage() {
+function exportCollaborationSeedPackage(slot = currentReviewer) {
   if (!REVIEWER_BUNDLE_ENGINE) {
     showToast('Reviewer bundle module is not loaded', 'error');
     return null;
@@ -6132,10 +6137,15 @@ function exportCollaborationSeedPackage() {
     return null;
   }
 
+  const reviewerSlot = slot === 'B' ? 'B' : 'A';
+  const reviewerId = `reviewer_${reviewerSlot}`;
   const state = getCurrentReviewerBundleProjectState();
-  const bundle = REVIEWER_BUNDLE_ENGINE.createCollaborationSeedPackage(state);
+  const bundle = REVIEWER_BUNDLE_ENGINE.createCollaborationSeedPackage(state, {
+    reviewerId,
+    reviewerLabel: getReviewerLabelForSlot(reviewerSlot),
+  });
   const projectId = state.projectId || 'local-project';
-  const filename = `PRISMA-Collaboration-Seed-${projectId}-${getReviewerBundleDateStamp()}.json`;
+  const filename = `PRISMA-Collaboration-Seed-${reviewerSlot}-${projectId}-${getReviewerBundleDateStamp()}.json`;
   downloadJsonBundle(bundle, filename);
   appendAuditEventsSafe({
     eventType: 'collaboration_seed_package_exported',
@@ -6143,12 +6153,15 @@ function exportCollaborationSeedPackage() {
     after: {
       filename,
       baseFingerprint: bundle.baseFingerprint,
+      bundleId: bundle.bundleId || '',
+      reviewerId,
       recordCount: Array.isArray(bundle.uploadedData) ? bundle.uploadedData.length : 0,
     },
     source: 'human',
     metadata: {
       schemaVersion: bundle.schemaVersion,
       bundleType: bundle.bundleType,
+      bundleId: bundle.bundleId || '',
     },
   }, { persist: true });
   showToast('已导出 collaboration seed package', 'success');
@@ -6211,16 +6224,79 @@ function importReviewerDecisionBundle() {
   input.click();
 }
 
+function importCollaborationSeedPackage() {
+  if (!REVIEWER_BUNDLE_ENGINE) {
+    showToast('Reviewer bundle module is not loaded', 'error');
+    return null;
+  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      try {
+        const bundle = JSON.parse(readerEvent.target.result);
+        const diagnosis = REVIEWER_BUNDLE_ENGINE.diagnoseReviewerBundle(bundle);
+        if (!diagnosis.ok || diagnosis.bundleType !== 'collaboration_seed') {
+          throw new Error(diagnosis.errors?.[0]?.message || 'Invalid collaboration seed package.');
+        }
+        const seedState = REVIEWER_BUNDLE_ENGINE.applyCollaborationSeedPackage({}, bundle);
+        startNewProjectSession({ projectId: bundle.projectId || bundle.project?.projectId, forceNew: true });
+        restoreProjectState(seedState);
+        uploadedData = seedState.uploadedData || [];
+        uploadedFiles = seedState.uploadedFiles || [];
+        projectManifest = seedState.projectManifest || null;
+        currentStep = 2;
+        const seedReviewerId = bundle.reviewer?.reviewerId || '';
+        currentReviewer = seedReviewerId === 'reviewer_B' ? 'B' : 'A';
+        setReviewMode('dual', { refresh: false });
+        ensureProjectManifest();
+        displayUploadInfo();
+        setStep(2);
+        persistCurrentProjectState();
+        showToast(`已导入 Collaboration Seed：${file.name}`, 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Collaboration Seed 导入失败：${error.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 function applyReviewerDecisionBundle(bundle, options = {}) {
   if (!REVIEWER_BUNDLE_ENGINE) {
     showToast('Reviewer bundle module is not loaded', 'error');
     return null;
   }
 
-  createProjectHistorySnapshot('before_reviewer_bundle_import', 'Before reviewer decision bundle import');
   const state = getCurrentReviewerBundleProjectState();
+  if (typeof REVIEWER_BUNDLE_ENGINE.diagnoseReviewerBundle === 'function') {
+    const diagnosis = REVIEWER_BUNDLE_ENGINE.diagnoseReviewerBundle(bundle, {
+      projectState: state,
+      projectId: state.projectId,
+      appliedBundleIds: appliedReviewerBundleIds,
+    });
+    if (!diagnosis.ok) {
+      renderProjectRecoveryDiagnosis({
+        ok: false,
+        errors: diagnosis.errors || [],
+        warnings: diagnosis.warnings || [],
+      }, options.filename || 'Reviewer Decision Bundle');
+      showToast(`Reviewer Bundle 无法导入：${diagnosis.errors?.[0]?.message || '文件校验失败'}`, 'error');
+      return null;
+    }
+  }
+  createProjectHistorySnapshot('before_reviewer_bundle_import', 'Before reviewer decision bundle import');
   const mergedState = REVIEWER_BUNDLE_ENGINE.applyReviewerDecisionBundle(state, bundle);
   restoreProjectState(mergedState);
+  appliedReviewerBundleIds = Array.isArray(mergedState.appliedReviewerBundleIds)
+    ? mergedState.appliedReviewerBundleIds
+    : appliedReviewerBundleIds;
   syncDualReviewResultsFromDecisions();
   refreshDualReviewConflictState({ auditNewConflicts: true });
   appendAuditEventsSafe({
@@ -6230,6 +6306,7 @@ function applyReviewerDecisionBundle(bundle, options = {}) {
       filename: options.filename || '',
       reviewerId: bundle?.reviewer?.reviewerId || '',
       baseFingerprint: bundle?.baseFingerprint || '',
+      bundleId: bundle?.bundleId || '',
       decisionCount: Array.isArray(bundle?.screeningDecisions) ? bundle.screeningDecisions.length : 0,
       unresolvedConflictCount: dualReviewConflictState?.exportGate?.unresolvedConflictCount || 0,
     },
@@ -6237,6 +6314,7 @@ function applyReviewerDecisionBundle(bundle, options = {}) {
     metadata: {
       schemaVersion: bundle?.schemaVersion || '',
       bundleType: bundle?.bundleType || '',
+      bundleId: bundle?.bundleId || '',
     },
   }, { persist: false });
   persistCurrentProjectState();
@@ -6302,6 +6380,7 @@ function persistCurrentProjectState(options = {}) {
     projectHistory,
     dualReviewResults,
     dualReviewConflictState,
+    appliedReviewerBundleIds,
   };
   const snapshot = PROJECT_PACKAGE_ENGINE && typeof PROJECT_PACKAGE_ENGINE.buildProjectPackage === 'function'
     ? PROJECT_PACKAGE_ENGINE.buildProjectPackage(state)
@@ -6339,6 +6418,9 @@ function restoreProjectState(snapshot) {
   conservativeAiQueueFilter = 'all';
   currentConservativeAiQueueContext = null;
   projectHistory = Array.isArray(snapshot.projectHistory) ? snapshot.projectHistory : [];
+  appliedReviewerBundleIds = Array.isArray(snapshot.appliedReviewerBundleIds)
+    ? Array.from(new Set(snapshot.appliedReviewerBundleIds.map((id) => String(id || '').trim()).filter(Boolean)))
+    : [];
   dualReviewResults = snapshot.dualReviewResults || dualReviewResults || { A: {}, B: {}, final: {} };
   dualReviewConflictState = {
     ...getEmptyDualReviewConflictState(),
@@ -9506,6 +9588,7 @@ function resetApp() {
   projectHistory = [];
   dualReviewResults = { A: {}, B: {}, final: {} };
   dualReviewConflictState = getEmptyDualReviewConflictState();
+  appliedReviewerBundleIds = [];
   projectManifest = null;
   pendingNewProjectSession = true;
   document.getElementById('uploadInfo').classList.add('hidden');

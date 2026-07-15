@@ -621,11 +621,12 @@
             <div class="surface-panel"><strong><span class="zh">副审查员</span><span class="en">Secondary Reviewer</span></strong><div id="reviewer-b-status">加载中...</div></div>
           </div>
           <div class="button-group" style="margin-top: 12px;">
-            <button type="button" class="btn btn-secondary" onclick="saveProjectFile()"><span class="zh">导出协作项目</span><span class="en">Export Collaboration Project</span></button>
-            <button type="button" class="btn btn-secondary" onclick="showProjectStatus()"><span class="zh">查看详细状态</span><span class="en">View Project Status</span></button>
+            <button type="button" class="btn btn-secondary" onclick="exportCollaborationSeedPackage('A')"><span class="zh">导出 Reviewer A Seed</span><span class="en">Export Reviewer A Seed</span></button>
+            <button type="button" class="btn btn-secondary" onclick="exportCollaborationSeedPackage('B')"><span class="zh">导出 Reviewer B Seed</span><span class="en">Export Reviewer B Seed</span></button>
+            <button type="button" class="btn btn-secondary" onclick="importCollaborationSeedPackage()"><span class="zh">导入 Collaboration Seed</span><span class="en">Import Collaboration Seed</span></button>
+            <button type="button" class="btn btn-secondary" onclick="showProjectStatus()"><span class="zh">查看本地交接状态</span><span class="en">View Local Handoff Status</span></button>
           </div>
           <div class="button-group" style="margin-top: 12px;">
-            <button type="button" class="btn btn-secondary" onclick="exportCollaborationSeedPackage()"><span class="zh">导出 collaboration seed</span><span class="en">Export Collaboration Seed</span></button>
             <button type="button" class="btn btn-secondary" onclick="exportReviewerDecisionBundle()"><span class="zh">导出 reviewer decision bundle</span><span class="en">Export Reviewer Decision Bundle</span></button>
             <button type="button" class="btn btn-secondary" onclick="importReviewerDecisionBundle()"><span class="zh">导入 reviewer decision bundle</span><span class="en">Import Reviewer Decision Bundle</span></button>
           </div>

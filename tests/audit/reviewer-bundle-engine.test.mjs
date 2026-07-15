@@ -202,6 +202,7 @@ test('applies a reviewer decision bundle by merge, not full replacement', () => 
   assert.deepEqual(merged.uploadedData, ownerState.uploadedData);
   assert.deepEqual(merged.projectManifest, ownerState.projectManifest);
   assert.equal(merged.screeningDecisions.length, 2);
+  assert.deepEqual(merged.appliedReviewerBundleIds, [reviewerBBundle.bundleId]);
   assert.deepEqual(
     merged.screeningDecisions.map((decision) => decision.reviewerId).sort(),
     ['reviewer_A', 'reviewer_B']
@@ -284,4 +285,105 @@ test('round-trips reviewer bundles into an unresolved dual-review conflict gate'
   assert.equal(agreement.sampleSize, 1);
   assert.equal(agreement.disagreementPairCount, 1);
   assert.equal(agreement.pendingDisagreementCount, 1);
+});
+
+test('freezes the M4 cryptographic contract across seed and decision bundles', () => {
+  const ReviewerBundleEngine = loadReviewerBundleEngine();
+  const projectState = createBaseProjectState();
+  const seed = ReviewerBundleEngine.createCollaborationSeedPackage(projectState, {
+    reviewerId: 'reviewer_A',
+    exportedAt: '2026-06-09T06:00:00.000Z',
+  });
+  const decision = ReviewerBundleEngine.createReviewerDecisionBundle(projectState, {
+    reviewerId: 'reviewer_A',
+    exportedAt: '2026-06-09T06:01:00.000Z',
+  });
+
+  [seed, decision].forEach((bundle) => {
+    assert.equal(bundle.schemaVersion, 'reviewer_bundle.v1.local');
+    assert.equal(bundle.contractVersion, 'm4.v1');
+    assert.equal(bundle.integrity.algorithm, 'SHA-256');
+    assert.match(bundle.sourceManifestHash, /^sha256:[0-9a-f]{64}$/);
+    assert.match(bundle.recordsHash, /^sha256:[0-9a-f]{64}$/);
+    assert.match(bundle.decisionsHash, /^sha256:[0-9a-f]{64}$/);
+    assert.match(bundle.bundleId, /^rb-[0-9a-f]{64}$/);
+    assert.equal(bundle.producer, 'PRISMA Workbench');
+    assert.equal(bundle.producerVersion, '2.5-dual-review-release');
+  });
+
+  assert.deepEqual(ReviewerBundleEngine.diagnoseReviewerBundle(seed).errors, []);
+  assert.deepEqual(ReviewerBundleEngine.diagnoseReviewerBundle(decision).errors, []);
+});
+
+test('uses the standard SHA-256 vector for deterministic bundle hashing', () => {
+  const ReviewerBundleEngine = loadReviewerBundleEngine();
+  const emptyPayloadHash = ReviewerBundleEngine.buildDecisionsHash([], {});
+  assert.equal(emptyPayloadHash, 'sha256:ce4b4a2702612f1294f92d0ce8338dcfa19d4caeafc73e8cdf30b96c6a2a379d');
+});
+
+test('rejects tampered records, decisions, reviewer scope, and duplicate decision bundles', () => {
+  const ReviewerBundleEngine = loadReviewerBundleEngine();
+  const projectState = createBaseProjectState({ screeningDecisions: [] });
+  const reviewerState = createBaseProjectState({
+    screeningDecisions: [
+      {
+        decisionId: 'bundle-a-1',
+        recordId: 'record-1',
+        stage: 'full_text',
+        reviewerId: 'reviewer_A',
+        decision: 'include',
+        updatedAt: '2026-06-09T06:10:00.000Z',
+      },
+    ],
+  });
+  const bundle = ReviewerBundleEngine.createReviewerDecisionBundle(reviewerState, {
+    reviewerId: 'reviewer_A',
+    exportedAt: '2026-06-09T06:11:00.000Z',
+  });
+
+  const seed = ReviewerBundleEngine.createCollaborationSeedPackage(projectState);
+  const tamperedRecords = { ...seed, uploadedData: [{ id: 'changed-record' }] };
+  assert.ok(ReviewerBundleEngine.diagnoseReviewerBundle(tamperedRecords).errors.some((item) => item.code === 'records_hash_mismatch'));
+
+  const tamperedDecisions = { ...bundle, screeningDecisions: [{ ...bundle.screeningDecisions[0], decision: 'exclude' }] };
+  assert.ok(ReviewerBundleEngine.diagnoseReviewerBundle(tamperedDecisions).errors.some((item) => item.code === 'decisions_hash_mismatch'));
+
+  const wrongReviewer = { ...bundle, screeningDecisions: [{ ...bundle.screeningDecisions[0], reviewerId: 'reviewer_B' }] };
+  assert.ok(ReviewerBundleEngine.diagnoseReviewerBundle(wrongReviewer).errors.some((item) => item.code === 'reviewer_scope_mismatch'));
+
+  assert.throws(
+    () => ReviewerBundleEngine.applyReviewerDecisionBundle({ ...projectState, auditEvents: [{ eventType: 'reviewer_decision_bundle_imported', after: { bundleId: bundle.bundleId } }] }, bundle),
+    (error) => error.code === 'invalid_reviewer_bundle' && error.diagnosis.errors.some((item) => item.code === 'duplicate_bundle')
+  );
+});
+
+test('rejects missing records and mismatched project identities before merge', () => {
+  const ReviewerBundleEngine = loadReviewerBundleEngine();
+  const projectState = createBaseProjectState({ screeningDecisions: [] });
+  const bundle = ReviewerBundleEngine.createReviewerDecisionBundle(projectState, {
+    reviewerId: 'reviewer_A',
+    exportedAt: '2026-06-09T06:20:00.000Z',
+  });
+
+  assert.ok(ReviewerBundleEngine.diagnoseReviewerBundle(bundle, {
+    projectState: { ...projectState, uploadedData: projectState.uploadedData.slice(0, 1) },
+  }).errors.some((item) => item.code === 'record_count_mismatch'));
+  assert.ok(ReviewerBundleEngine.diagnoseReviewerBundle(bundle, { projectId: 'another-project' }).errors.some((item) => item.code === 'project_identity_mismatch'));
+  assert.throws(
+    () => ReviewerBundleEngine.applyReviewerDecisionBundle({ ...projectState, currentProjectId: 'another-project' }, bundle),
+    (error) => error.code === 'invalid_reviewer_bundle'
+  );
+});
+
+test('imports a collaboration seed as a clean reviewer context', () => {
+  const ReviewerBundleEngine = loadReviewerBundleEngine();
+  const projectState = createBaseProjectState();
+  const seed = ReviewerBundleEngine.createCollaborationSeedPackage(projectState);
+  const reviewerContext = ReviewerBundleEngine.applyCollaborationSeedPackage({}, seed);
+
+  assert.deepEqual(reviewerContext.uploadedData, projectState.uploadedData);
+  assert.deepEqual(reviewerContext.uploadedFiles, projectState.uploadedFiles);
+  assert.deepEqual(reviewerContext.screeningDecisions, []);
+  assert.deepEqual(reviewerContext.qualityAssessments, []);
+  assert.deepEqual(reviewerContext.auditEvents, []);
 });

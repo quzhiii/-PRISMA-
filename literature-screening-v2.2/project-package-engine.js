@@ -40,6 +40,7 @@
     'screeningDecisions',
     'aiSuggestionEvents',
     'projectHistory',
+    'appliedReviewerBundleIds',
     'dualReviewResults',
     'dualReviewConflictState',
   ];
@@ -50,6 +51,7 @@
     'screeningDecisions',
     'aiSuggestionEvents',
     'projectHistory',
+    'appliedReviewerBundleIds',
   ];
 
   function clonePlain(value, fallback) {
@@ -151,6 +153,9 @@
     normalized.screeningDecisions = Array.isArray(normalized.screeningDecisions) ? normalized.screeningDecisions : [];
     normalized.aiSuggestionEvents = Array.isArray(normalized.aiSuggestionEvents) ? normalized.aiSuggestionEvents : [];
     normalized.projectHistory = Array.isArray(normalized.projectHistory) ? normalized.projectHistory : [];
+    normalized.appliedReviewerBundleIds = Array.isArray(normalized.appliedReviewerBundleIds)
+      ? Array.from(new Set(normalized.appliedReviewerBundleIds.map((id) => normalizeString(id)).filter(Boolean)))
+      : [];
     normalized.dualReviewResults = isPlainObject(normalized.dualReviewResults)
       ? normalized.dualReviewResults
       : { A: {}, B: {}, final: {} };
