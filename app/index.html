@@ -67,42 +67,48 @@
       <section id="workspace-onboarding" class="card workspace-step-card onboarding-wizard">
         <div class="card-header">
           <div>
-            <div class="card-kicker step-badge"><span class="zh">新手引导</span><span class="en">Onboarding</span></div>
-            <h2 class="card-title"><span class="zh">选择你的使用路径</span><span class="en">Choose your workspace path</span></h2>
-            <p class="section-subtitle"><span class="zh">不隐藏 Step 1 导入控件；这里只帮你快速决定从 demo、真实数据库导出、双人复核、审计包还是质量评价开始。</span><span class="en">Step 1 import controls stay visible. This panel helps you start from demo data, real database exports, dual review, audit exports, or quality appraisal.</span></p>
+            <div class="card-kicker step-badge"><span class="zh">项目入口</span><span class="en">Project entry</span></div>
+            <h2 class="card-title"><span class="zh">开始或恢复项目</span><span class="en">Start or resume a project</span></h2>
+            <p class="section-subtitle"><span class="zh">选择 Demo、新建导入或恢复已有项目。数据默认在当前浏览器本地处理，应用不会自动上传项目记录。</span><span class="en">Choose a demo, a new import, or an existing project. Data is processed locally in this browser by default, and project records are not uploaded automatically.</span></p>
           </div>
         </div>
         <div class="route-grid">
-          <article class="route-card priority">
+          <article class="route-card priority" data-start-mode="demo">
             <div class="route-top"><span class="route-badge"><span class="zh">我是新手</span><span class="en">New user</span></span><span class="pill">Demo</span></div>
-            <h3><span class="zh">我是新手，想试 demo</span><span class="en">Try demo data first</span></h3>
-            <p class="route-meta"><span class="zh">加载 public demo dataset，快速走通字段映射、去重、筛选和导出。</span><span class="en">Load the public demo dataset to walk through mapping, deduplication, screening, and exports.</span></p>
+            <h3><span class="zh">体验公开 Demo</span><span class="en">Try the public demo</span></h3>
+            <p class="route-meta"><span class="zh">创建独立的演示项目，不覆盖已有本地项目。</span><span class="en">Create an isolated demo project without replacing an existing local project.</span></p>
             <button type="button" class="btn btn-primary" onclick="selectOnboardingPath('demo')"><span class="zh">加载公开演示数据</span><span class="en">Load public demo dataset</span></button>
           </article>
-          <article class="route-card">
+          <article class="route-card" data-start-mode="new-import">
             <div class="route-top"><span class="route-badge"><span class="zh">真实项目</span><span class="en">Real project</span></span><span class="pill">Local</span></div>
-            <h3><span class="zh">我有真实数据库导出文件</span><span class="en">I have database export files</span></h3>
-            <p class="route-meta"><span class="zh">上传 PubMed NBIB、CNKI ENW/RIS、万方 / 维普 CSV 或 Zotero 导出文件。</span><span class="en">Upload PubMed NBIB, CNKI ENW/RIS, Wanfang/VIP CSV, or Zotero exports.</span></p>
-            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('upload')"><span class="zh">上传数据库导出</span><span class="en">Upload database export</span></button>
+            <h3><span class="zh">新建项目并导入</span><span class="en">Create and import</span></h3>
+            <p class="route-meta"><span class="zh">为数据库导出创建新的本地项目 ID，再进入 Step 1。</span><span class="en">Create a new local project ID for database exports, then continue to Step 1.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('new-import')"><span class="zh">创建项目并选择文件</span><span class="en">Create project and choose files</span></button>
           </article>
-          <article class="route-card">
-            <div class="route-top"><span class="route-badge"><span class="zh">双人复核</span><span class="en">Dual review</span></span><span class="pill">V2.5</span></div>
-            <h3><span class="zh">我要双人复核</span><span class="en">Start dual review</span></h3>
-            <p class="route-meta"><span class="zh">进入 Reviewer A / B 本地文件协作入口，保留冲突队列和 resolver 证据。</span><span class="en">Open the Reviewer A / B local file-based workflow with conflict queues and resolver evidence.</span></p>
-            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('dual-review')"><span class="zh">进入双人复核</span><span class="en">Open dual review</span></button>
+          <article class="route-card" data-start-mode="resume">
+            <div class="route-top"><span class="route-badge"><span class="zh">继续工作</span><span class="en">Continue</span></span><span class="pill">JSON / Local</span></div>
+            <h3><span class="zh">恢复已有项目</span><span class="en">Resume an existing project</span></h3>
+            <p class="route-meta"><span class="zh">先诊断完整项目文件、本地项目快照或 autosave，再改变当前状态。</span><span class="en">Diagnose a full-project file, local snapshot, or autosave before changing current state.</span></p>
+            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('resume')"><span class="zh">查看恢复选项</span><span class="en">Show recovery options</span></button>
           </article>
-          <article class="route-card">
-            <div class="route-top"><span class="route-badge"><span class="zh">审计包</span><span class="en">Audit package</span></span><span class="pill">Step 6</span></div>
-            <h3><span class="zh">我要导出审计包 / 附录材料</span><span class="en">Export audit package / appendix materials</span></h3>
-            <p class="route-meta"><span class="zh">完成筛选和质量评价后，在 Step 6 导出 PRISMA、事件、决策、冲突和 DEFENSE_AUDIT_PACK。</span><span class="en">After screening and quality appraisal, Step 6 exports PRISMA, events, decisions, conflicts, and DEFENSE_AUDIT_PACK.</span></p>
-            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('audit')"><span class="zh">查看审计导出提示</span><span class="en">Show audit export guidance</span></button>
-          </article>
-          <article class="route-card">
-            <div class="route-top"><span class="route-badge"><span class="zh">质量评价</span><span class="en">Quality appraisal</span></span><span class="pill">Step 5</span></div>
-            <h3><span class="zh">我要做质量评价</span><span class="en">Prepare quality appraisal</span></h3>
-            <p class="route-meta"><span class="zh">质量评价队列会在全文复核后出现，用于记录工具族、领域判断、引用证据和审稿备注。</span><span class="en">The quality queue appears after full-text review and records tool family, domain judgement, supporting quotes, and reviewer notes.</span></p>
-            <button type="button" class="btn btn-secondary" onclick="selectOnboardingPath('quality')"><span class="zh">查看质量评价提示</span><span class="en">Show quality guidance</span></button>
-          </article>
+        </div>
+        <div class="surface-panel workspace-side-panel" style="margin-top: 20px;">
+          <h3><span class="zh">复核方式</span><span class="en">Review mode</span></h3>
+          <p class="muted-text"><span class="zh">项目入口与复核方式分开选择；双人模式仍基于浏览器本地状态和文件交接。</span><span class="en">Choose the project entry and review mode separately. Dual mode still relies on browser-local state and file handoff.</span></p>
+          <div class="button-group">
+            <button type="button" class="btn btn-primary" onclick="setReviewMode('single')"><span class="zh">单人复核</span><span class="en">Single review</span></button>
+            <button type="button" class="btn btn-secondary" onclick="setReviewMode('dual')"><span class="zh">双人独立复核</span><span class="en">Dual independent review</span></button>
+          </div>
+        </div>
+        <div id="project-recovery-options" class="surface-panel workspace-side-panel hidden" style="margin-top: 20px;">
+          <h3><span class="zh">恢复选项</span><span class="en">Recovery options</span></h3>
+          <p class="muted-text"><span class="zh">恢复诊断失败不会改变当前项目。Reviewer Bundle 需使用双人复核交接入口，不能作为完整项目加载。</span><span class="en">A failed diagnosis does not change the current project. Reviewer Bundles use the dual-review handoff path and cannot be loaded as full projects.</span></p>
+          <div class="button-group">
+            <button type="button" class="btn btn-primary" onclick="loadProject()"><span class="zh">选择完整项目 JSON</span><span class="en">Choose full-project JSON</span></button>
+            <button type="button" class="btn btn-secondary" onclick="resumeLocalProject('project_snapshot')"><span class="zh">检查本地项目快照</span><span class="en">Check local project snapshot</span></button>
+            <button type="button" class="btn btn-secondary" onclick="resumeLocalProject('autosave')"><span class="zh">检查 autosave</span><span class="en">Check autosave</span></button>
+          </div>
+          <div id="project-recovery-diagnostics" class="recovery-diagnostics muted-text" role="status" aria-live="polite"><span class="zh">尚未选择恢复来源。</span><span class="en">No recovery source selected yet.</span></div>
         </div>
       </section>
 
@@ -1091,6 +1097,7 @@
   <script src="../literature-screening-v2.2/conservative-ai-engine.js?v=20260604-v26-foundation"></script>
   <script src="../literature-screening-v2.2/project-history-engine.js?v=20260603-v251-history"></script>
   <script src="../literature-screening-v2.2/reviewer-bundle-engine.js?v=20260609-reviewer-bundle"></script>
+  <script src="../literature-screening-v2.2/project-package-engine.js?v=20260714-m3-start"></script>
   <script>window.PRISMA_ASSET_BASE = '../literature-screening-v2.2/';</script>
   <script src="../literature-screening-v2.2/app.js?v=20260512-v25-dual-review-exports"></script>
   <script src="../literature-screening-v2.2/v1.7-core-patch.js?v=20260329-uploadfix3"></script>

@@ -21,6 +21,7 @@ const AI_PROVIDER_ENGINE = typeof globalThis !== 'undefined' ? globalThis.AiProv
 const CONSERVATIVE_AI_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ConservativeAiEngine || null : null;
 const PROJECT_HISTORY_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectHistoryEngine || null : null;
 const REVIEWER_BUNDLE_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ReviewerBundleEngine || null : null;
+const PROJECT_PACKAGE_ENGINE = typeof globalThis !== 'undefined' ? globalThis.ProjectPackageEngine || null : null;
 const REVIEWER_BUNDLE_ENGINE_SCRIPT = 'reviewer-bundle-engine.js';
 const AUDIT_EXPORT_TYPES = Object.freeze([
   'audit_manifest',
@@ -203,6 +204,7 @@ let exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
 // v1.4: Explicit state split
 let filterRules = null; // last used rules
 let currentProjectId = null; // local project id for persistence
+let pendingNewProjectSession = false;
 
 // v1.1: Multi-user collaboration variables
 let projectCollaboration = {
@@ -2157,18 +2159,73 @@ function withCurrentLangParam(targetPath) {
 
 function selectOnboardingPath(path) {
   const normalized = String(path || '').trim();
-  if (normalized === 'demo') return loadSampleData();
-  if (normalized === 'upload') return openFilePicker();
-  if (normalized === 'dual-review') {
-    window.location.href = withCurrentLangParam('login.html');
+  if (normalized === 'demo') {
+    detachCollaborativeSessionForProjectEntry();
+    return loadSampleData();
+  }
+  if (normalized === 'new-import') {
+    detachCollaborativeSessionForProjectEntry();
+    pendingNewProjectSession = true;
+    setWorkspaceOnboardingVisible(false);
+    openFilePicker();
     return;
   }
-  if (normalized === 'audit') {
-    showToast('完成筛选和质量评价后，可在 Step 6 导出审计包。', 'info');
-    return;
+  if (normalized === 'resume') {
+    detachCollaborativeSessionForProjectEntry();
+    pendingNewProjectSession = false;
+    setWorkspaceOnboardingVisible(true, { showRecovery: true });
   }
-  if (normalized === 'quality') {
-    showToast('质量评价会在全文复核后进入 Step 5。', 'info');
+}
+
+function setWorkspaceOnboardingVisible(isVisible, options = {}) {
+  const onboarding = document.getElementById('workspace-onboarding');
+  const recoveryOptions = document.getElementById('project-recovery-options');
+  if (onboarding) onboarding.classList.toggle('hidden', !isVisible);
+  if (recoveryOptions) {
+    recoveryOptions.classList.toggle('hidden', !isVisible || !options.showRecovery);
+    if (isVisible && options.showRecovery) {
+      recoveryOptions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
+function detachCollaborativeSessionForProjectEntry() {
+  if (collaborationSyncInterval) {
+    clearInterval(collaborationSyncInterval);
+    collaborationSyncInterval = null;
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('storage', handleCollaborationStorageEvent);
+  }
+  try {
+    sessionStorage.removeItem(USER_SESSION_KEY);
+  } catch (_) {}
+  runtimeSession = null;
+  currentUserSession = null;
+  projectData = null;
+  setReviewMode('single', { refresh: false });
+}
+
+function applyWorkspaceStartIntent(intentInput = null) {
+  if (!PROJECT_PACKAGE_ENGINE || typeof window === 'undefined') return;
+  const intent = intentInput || PROJECT_PACKAGE_ENGINE.parseStartIntent(window.location.href);
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('review') || params.get('mode') === 'dual') {
+    setReviewMode(intent.reviewMode);
+  }
+  if (intent.warnings.length > 0) {
+    showToast('入口参数无法识别，已使用安全默认值。', 'warning');
+  }
+
+  if (intent.startMode === 'demo') {
+    loadSampleData();
+  } else if (intent.startMode === 'new-import') {
+    pendingNewProjectSession = true;
+    setWorkspaceOnboardingVisible(false);
+    document.getElementById('step1')?.scrollIntoView({ block: 'start' });
+  } else if (intent.startMode === 'resume') {
+    pendingNewProjectSession = false;
+    setWorkspaceOnboardingVisible(true, { showRecovery: true });
   }
 }
 
@@ -2178,6 +2235,12 @@ if (typeof window !== 'undefined') {
 
 // Initialize
 function init() {
+  const startIntent = PROJECT_PACKAGE_ENGINE && typeof window !== 'undefined'
+    ? PROJECT_PACKAGE_ENGINE.parseStartIntent(window.location.href)
+    : null;
+  if (startIntent && startIntent.startMode !== 'none') {
+    detachCollaborativeSessionForProjectEntry();
+  }
   runtimeMode = detectRuntimeMode();
   initializeRuntimeContext(runtimeMode);
 
@@ -2277,6 +2340,7 @@ function init() {
       setStep(1);
     }
   }
+  applyWorkspaceStartIntent(startIntent);
 }
 
 function initializeCollaborativeSession() {
@@ -2941,6 +3005,7 @@ function saveImportProgress(state) {
     }));
   } catch (e) {
     console.warn('Failed to save import progress:', e);
+    reportProjectStorageFailure(e, 'import_progress');
   }
 }
 
@@ -3089,18 +3154,24 @@ async function handleImportFiles(files) {
     return;
   }
 
+  const hasExistingProjectState = uploadedData.length > 0 || uploadedFiles.length > 0 || !!screeningResults || !!filterRules;
+  const startAsNewProject = pendingNewProjectSession;
+
   // 检查是否有未完成的导入进度
   const savedProgress = loadImportProgress();
   if (savedProgress) {
-    const resume = confirm(`检测到未完成的导入任务（已导入${savedProgress.processedCount}/${savedProgress.totalCount}条），是否继续？`);
-    if (!resume) {
-      clearImportProgress();
-    }
+    showToast(`检测到未完成的导入记录（${savedProgress.processedCount}/${savedProgress.totalCount}）。当前版本不能续传，本次会从头重新导入。`, 'info');
+    clearImportProgress();
   }
 
-  createProjectHistorySnapshot('before_import', 'Before import');
-  const preservedHistory = Array.isArray(projectHistory) ? projectHistory.slice() : [];
-  startNewProjectSession({ projectHistory: preservedHistory });
+  if (!startAsNewProject) {
+    createProjectHistorySnapshot('before_import', 'Before import');
+  }
+  const preservedHistory = startAsNewProject || !Array.isArray(projectHistory) ? [] : projectHistory.slice();
+  startNewProjectSession({
+    projectHistory: preservedHistory,
+    forceNew: pendingNewProjectSession || (!hasExistingProjectState && !currentProjectId),
+  });
   importJobs = [];
 
   const fileJobIds = new Map();
@@ -4869,6 +4940,7 @@ function ensureProjectManifest() {
   projectManifest = AUDIT_ENGINE.createProjectManifest({
     ...(projectManifest || {}),
     projectId,
+    reviewMode: isDualReviewMode ? 'dual' : 'single',
     projectName: projectManifest?.projectName || 'Untitled systematic review',
     reviewType: projectManifest?.reviewType || 'systematic_review',
     prismaVersion: 'PRISMA_2020',
@@ -5959,8 +6031,16 @@ function startNewProjectSession(options = {}) {
   const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
     ? runtimeSession.projectId.trim()
     : '';
-  currentProjectId = sessionProjectId || currentProjectId || generateProjectId();
-  localStorage.setItem('prisma_current_project_id', currentProjectId);
+  const createProjectId = typeof generateProjectId === 'function'
+    ? generateProjectId
+    : () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  currentProjectId = sessionProjectId || (options.forceNew ? createProjectId() : currentProjectId || createProjectId());
+  pendingNewProjectSession = false;
+  try {
+    localStorage.setItem('prisma_current_project_id', currentProjectId);
+  } catch (error) {
+    reportProjectStorageFailure(error, 'project_identity');
+  }
 
   // Reset project-scoped pieces
   uploadedData = [];
@@ -6197,12 +6277,13 @@ function createProjectHistorySnapshot(reason, label, options = {}) {
   return snapshot;
 }
 
-function persistCurrentProjectState() {
+function persistCurrentProjectState(options = {}) {
   const projectId = ensureProjectId();
-  const snapshot = {
+  const state = {
     version: APP_RELEASE_VERSION,
     timestamp: new Date().toISOString(),
     projectId,
+    reviewMode: isDualReviewMode ? 'dual' : 'single',
     uploadedData,
     uploadedFiles,
     screeningResults,
@@ -6222,15 +6303,22 @@ function persistCurrentProjectState() {
     dualReviewResults,
     dualReviewConflictState,
   };
+  const snapshot = PROJECT_PACKAGE_ENGINE && typeof PROJECT_PACKAGE_ENGINE.buildProjectPackage === 'function'
+    ? PROJECT_PACKAGE_ENGINE.buildProjectPackage(state)
+    : state;
   try {
     localStorage.setItem(getProjectStorageKey(projectId), JSON.stringify(snapshot));
   } catch (e) {
     console.warn('Failed to persist project state:', e);
+    reportProjectStorageFailure(e, 'project_snapshot');
+    if (options.throwOnError) throw e;
+    return false;
   }
 
   if (currentUserSession && projectData) {
     saveProjectData();
   }
+  return true;
 }
 
 function restoreProjectState(snapshot) {
@@ -6436,6 +6524,192 @@ function shouldAutoRestoreProjectState() {
   return !!currentUserSession;
 }
 
+function renderProjectRecoveryDiagnosis(diagnosis, sourceLabel) {
+  const container = document.getElementById('project-recovery-diagnostics');
+  if (!container) return;
+  const errors = Array.isArray(diagnosis?.errors) ? diagnosis.errors : [];
+  const warnings = Array.isArray(diagnosis?.warnings) ? diagnosis.warnings : [];
+  const lines = [];
+  if (diagnosis?.ok) {
+    lines.push(`已通过诊断：${sourceLabel}`);
+    if (diagnosis.projectId || diagnosis.normalized?.projectId) {
+      lines.push(`项目 ID：${diagnosis.projectId || diagnosis.normalized.projectId}`);
+    }
+  } else {
+    lines.push(`无法恢复：${sourceLabel}`);
+  }
+  errors.forEach((entry) => lines.push(`错误：${entry.message || entry.code}`));
+  warnings.forEach((entry) => lines.push(`提示：${entry.message || entry.code}`));
+  container.dataset.status = diagnosis?.ok ? 'success' : 'error';
+  container.textContent = lines.join('\n');
+}
+
+function reportProjectStorageFailure(error, operation = 'project_snapshot') {
+  const kind = PROJECT_PACKAGE_ENGINE && typeof PROJECT_PACKAGE_ENGINE.classifyStorageError === 'function'
+    ? PROJECT_PACKAGE_ENGINE.classifyStorageError(error)
+    : 'storage_write_failed';
+  const messages = {
+    quota_exceeded: '浏览器本地存储空间不足，当前更改可能未保存。请先导出项目备份，再清理站点存储。',
+    storage_unavailable: '浏览器阻止了本地存储，当前更改可能未保存。请检查隐私或站点权限设置。',
+    storage_write_failed: '项目状态写入本地存储失败，当前更改可能未保存。请立即导出项目备份。',
+  };
+  console.warn(`Project storage operation failed (${operation}):`, error);
+  showToast(messages[kind], 'error');
+  return kind;
+}
+
+function renderRestoredProjectWorkspace() {
+  if (screeningResults) {
+    displayResults(screeningResults);
+    if (currentStep >= 5 && FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
+      prepareQualityAssessmentShell({ persist: false, silent: true });
+    }
+    setStep(Math.min(currentStep || 3, WORKFLOW_STEP_COUNT));
+    if (currentStep >= 4) displayFulltextReviewUI();
+  } else if (uploadedData.length > 0) {
+    if (!columnMapping || Object.keys(columnMapping).length === 0) detectColumns();
+    displayUploadInfo();
+    setStep(Math.max(2, Math.min(currentStep || 2, WORKFLOW_STEP_COUNT)));
+  } else {
+    setStep(1);
+  }
+  if (filterRules) setFormRules(filterRules);
+}
+
+function restoreDiagnosedProject(diagnosis, sourceLabel) {
+  if (!diagnosis?.ok || !diagnosis.normalized) {
+    renderProjectRecoveryDiagnosis(diagnosis, sourceLabel);
+    return false;
+  }
+
+  const previous = {
+    projectId: currentProjectId,
+    storedProjectId: null,
+    reviewMode: isDualReviewMode ? 'dual' : 'single',
+    state: {
+      uploadedData,
+      uploadedFiles,
+      screeningResults,
+      columnMapping,
+      fileFormat,
+      formatSource,
+      currentStep,
+      filterRules,
+      exclusionReasons,
+      qualityAssessments,
+      importJobs,
+      projectManifest,
+      auditEvents,
+      screeningDecisions,
+      aiSuggestionEvents,
+      projectHistory,
+      dualReviewResults,
+      dualReviewConflictState,
+    },
+  };
+  try {
+    previous.storedProjectId = localStorage.getItem('prisma_current_project_id');
+  } catch (_) {}
+  const project = diagnosis.normalized;
+  const targetProjectId = project.projectId || generateProjectId();
+  let previousTargetSnapshot = null;
+  let targetSnapshotRead = false;
+  try {
+    previousTargetSnapshot = localStorage.getItem(getProjectStorageKey(targetProjectId));
+    targetSnapshotRead = true;
+  } catch (_) {}
+  try {
+    currentProjectId = targetProjectId;
+    restoreProjectState(project);
+    setReviewMode(project.reviewMode === 'dual' ? 'dual' : 'single', { refresh: false });
+    renderRestoredProjectWorkspace();
+    persistCurrentProjectState({ throwOnError: true });
+    localStorage.setItem('prisma_current_project_id', currentProjectId);
+  } catch (error) {
+    currentProjectId = previous.projectId;
+    try {
+      if (previous.storedProjectId === null) {
+        localStorage.removeItem('prisma_current_project_id');
+      } else {
+        localStorage.setItem('prisma_current_project_id', previous.storedProjectId);
+      }
+      if (targetSnapshotRead) {
+        const targetStorageKey = getProjectStorageKey(targetProjectId);
+        if (previousTargetSnapshot === null) {
+          localStorage.removeItem(targetStorageKey);
+        } else {
+          localStorage.setItem(targetStorageKey, previousTargetSnapshot);
+        }
+      }
+    } catch (storageRollbackError) {
+      console.warn('Project identity rollback failed:', storageRollbackError);
+    }
+    try {
+      restoreProjectState(previous.state);
+      setReviewMode(previous.reviewMode, { refresh: false });
+      renderRestoredProjectWorkspace();
+    } catch (rollbackError) {
+      console.warn('Project restore rollback UI failed:', rollbackError);
+    }
+    const failedDiagnosis = {
+      ...diagnosis,
+      ok: false,
+      errors: [
+        ...(diagnosis.errors || []),
+        { code: 'restore_failed', message: `项目通过格式诊断，但无法安全恢复：${error.message || 'unknown error'}` },
+      ],
+    };
+    renderProjectRecoveryDiagnosis(failedDiagnosis, sourceLabel);
+    showToast('项目恢复失败，原项目状态未更改。', 'error');
+    return false;
+  }
+  pendingNewProjectSession = false;
+  setWorkspaceOnboardingVisible(false);
+  renderProjectRecoveryDiagnosis(diagnosis, sourceLabel);
+  showToast(`项目已恢复：${sourceLabel}`, 'success');
+  return true;
+}
+
+function resumeLocalProject(source) {
+  if (!PROJECT_PACKAGE_ENGINE) {
+    showToast('项目诊断模块未加载，请刷新页面后重试。', 'error');
+    return false;
+  }
+  const sourceType = source === 'autosave' ? 'autosave' : 'project_snapshot';
+  let raw = null;
+  let storageProjectId = '';
+  try {
+    if (sourceType === 'autosave') {
+      raw = localStorage.getItem('prisma_autosave');
+      if (raw) {
+        try { storageProjectId = String(JSON.parse(raw)?.projectId || ''); } catch (_) {}
+      }
+    } else {
+      storageProjectId = String(localStorage.getItem('prisma_current_project_id') || '').trim();
+      raw = storageProjectId ? localStorage.getItem(getProjectStorageKey(storageProjectId)) : null;
+    }
+  } catch (error) {
+    reportProjectStorageFailure(error, 'project_recovery_read');
+  }
+
+  const sourceLabel = sourceType === 'autosave' ? 'autosave' : '本地项目快照';
+  if (!raw) {
+    const missing = {
+      ok: false,
+      errors: [{ code: 'missing_recovery_candidate', message: `未找到${sourceLabel}。` }],
+      warnings: [],
+    };
+    renderProjectRecoveryDiagnosis(missing, sourceLabel);
+    return false;
+  }
+  const diagnosis = PROJECT_PACKAGE_ENGINE.diagnoseRecoveryCandidate(raw, {
+    source: sourceType,
+    storageProjectId,
+    now: Date.now(),
+  });
+  return restoreDiagnosedProject(diagnosis, sourceLabel);
+}
+
 function loadCurrentProjectStateFromLocalStorage() {
   const candidateIds = [];
   const sessionProjectId = runtimeSession && typeof runtimeSession.projectId === 'string'
@@ -6461,19 +6735,13 @@ function loadCurrentProjectStateFromLocalStorage() {
 
   if (!raw) return false;
 
-  try {
-    const snapshot = JSON.parse(raw);
-    if (!snapshot || !snapshot.projectId) return false;
-    currentProjectId = snapshot.projectId;
-    if (matchedProjectId !== snapshot.projectId) {
-      localStorage.setItem('prisma_current_project_id', snapshot.projectId);
-    }
-    restoreProjectState(snapshot);
-    return true;
-  } catch (e) {
-    console.warn('Failed to load project state:', e);
-    return false;
-  }
+  if (!PROJECT_PACKAGE_ENGINE) return false;
+  const diagnosis = PROJECT_PACKAGE_ENGINE.diagnoseRecoveryCandidate(raw, {
+    source: 'project_snapshot',
+    storageProjectId: matchedProjectId,
+    now: Date.now(),
+  });
+  return restoreDiagnosedProject(diagnosis, '本地项目快照');
 }
 
 // v1.4: Exclusion template helpers
@@ -6663,7 +6931,7 @@ function editRulesAndRerun() {
 
   const markedCount = getManualReviewMarkedCount();
   if (markedCount > 0) {
-    const ok = confirm(`修改筛选规则将重置当前人工审核结果（已标记 ${markedCount} 条记录）。\n是否继续？`);
+    const ok = confirm(`修改筛选规则将重置当前人工审核结果（已标记 ${markedCount} 条记录）。\n确认继续吗？`);
     if (!ok) return;
 
     // Reset collaborative decisions if present
@@ -9220,15 +9488,9 @@ function hideLoading() {
 }
 
 function resetApp() {
-  // v1.4: Clear current project snapshot
-  try {
-    const id = localStorage.getItem('prisma_current_project_id');
-    if (id) localStorage.removeItem(getProjectStorageKey(id));
-    localStorage.removeItem('prisma_current_project_id');
-  } catch (_) {}
-
+  // Keep the active snapshot recoverable until the user commits to a new import or demo.
   uploadedData = [];
-  uploadedFiles = []; // v3.0
+  uploadedFiles = [];
   screeningResults = null;
   columnMapping = {};
   fileFormat = 'unknown';
@@ -9236,14 +9498,26 @@ function resetApp() {
   currentStep = 1;
   filterRules = null;
   exclusionReasons = [...DEFAULT_EXCLUSION_REASONS];
-  currentProjectId = null;
+  qualityAssessments = [];
+  importJobs = [];
+  auditEvents = [];
+  screeningDecisions = [];
+  aiSuggestionEvents = [];
+  projectHistory = [];
+  dualReviewResults = { A: {}, B: {}, final: {} };
+  dualReviewConflictState = getEmptyDualReviewConflictState();
+  projectManifest = null;
+  pendingNewProjectSession = true;
   document.getElementById('uploadInfo').classList.add('hidden');
   document.getElementById('fileInput').value = '';
   hideProgress();
   setStep(1);
   renderExclusionTemplateButtons();
   renderExclusionTemplateEditor();
+  renderImportJobShell();
+  renderQualityAssessmentShell();
   updateStep4EntryLock();
+  setWorkspaceOnboardingVisible(true);
   showToast('已重置应用', 'success');
 }
 
@@ -9269,7 +9543,7 @@ function applySampleDataPayload(payload) {
   const sourceFileName = payload?.source === 'sample-data.json' ? 'sample-data.json' : '内置示例数据.json';
   const sourceLabel = '公开演示数据';
 
-  startNewProjectSession();
+  startNewProjectSession({ forceNew: true });
   uploadedData = records.map((record) => ({
     ...record,
     _source: record._source || sourceLabel,
@@ -9291,6 +9565,7 @@ function applySampleDataPayload(payload) {
   displayRulesPreview();
   createProjectHistorySnapshot('after_import', 'After import');
   persistCurrentProjectState();
+  if (typeof setWorkspaceOnboardingVisible === 'function') setWorkspaceOnboardingVisible(false);
   updateStep4EntryLock();
 
   showToast('✅ 公开演示数据加载成功！共 ' + uploadedData.length + ' 条记录', 'success');
@@ -10440,10 +10715,11 @@ function saveProject() {
   ensureProjectId();
   const safeTemplate = sanitizeExclusionTemplate(exclusionReasons);
 
-  const project = {
+  const state = {
     version: APP_RELEASE_VERSION,
     timestamp: new Date().toISOString(),
     projectId: currentProjectId,
+    reviewMode: isDualReviewMode ? 'dual' : 'single',
     uploadedData: uploadedData,
     uploadedFiles: uploadedFiles,
     screeningResults: screeningResults,
@@ -10463,6 +10739,9 @@ function saveProject() {
     dualReviewResults: dualReviewResults,
     dualReviewConflictState: dualReviewConflictState
   };
+  const project = PROJECT_PACKAGE_ENGINE && typeof PROJECT_PACKAGE_ENGINE.buildProjectPackage === 'function'
+    ? PROJECT_PACKAGE_ENGINE.buildProjectPackage(state, { timestamp: state.timestamp })
+    : state;
 
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -10474,7 +10753,11 @@ function saveProject() {
 
   const now = new Date().toLocaleString('zh-CN');
   document.getElementById('lastSaveTime').textContent = `上次保存：${now}`;
-  localStorage.setItem('lastSaveTime', now);
+  try {
+    localStorage.setItem('lastSaveTime', now);
+  } catch (error) {
+    reportProjectStorageFailure(error, 'last_save_time');
+  }
   
   showToast('✅ 项目已保存', 'success');
 }
@@ -10490,76 +10773,21 @@ function loadProject() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const project = JSON.parse(event.target.result);
-        
-        if (!project.version) {
-          showToast('⚠️ 这不是有效的项目文件', 'warning');
-          return;
-        }
-
-        // Start a fresh local project session so different projects don't interfere
-        startNewProjectSession();
-
-        uploadedData = project.uploadedData || [];
-        uploadedFiles = project.uploadedFiles || [];
-        screeningResults = project.screeningResults || null;
-        columnMapping = project.columnMapping || {};
-        fileFormat = project.fileFormat || 'unknown';
-        formatSource = project.formatSource || 'Unknown';
-        currentStep = project.currentStep || 1;
-        filterRules = project.filterRules || null;
-        qualityAssessments = normalizeQualityAssessmentsState(project.qualityAssessments || []);
-        importJobs = normalizeImportJobsState(project.importJobs || []);
-        projectManifest = project.projectManifest || projectManifest || null;
-        auditEvents = Array.isArray(project.auditEvents) ? project.auditEvents : [];
-        screeningDecisions = Array.isArray(project.screeningDecisions) ? project.screeningDecisions : [];
-        aiSuggestionEvents = Array.isArray(project.aiSuggestionEvents) ? project.aiSuggestionEvents : [];
-        projectHistory = Array.isArray(project.projectHistory) ? project.projectHistory : [];
-        dualReviewResults = project.dualReviewResults || { A: {}, B: {}, final: {} };
-        dualReviewConflictState = project.dualReviewConflictState || dualReviewConflictState;
-
-        // Backward compatible: old versions may store exclusionReasons as an object map
-        let templateFromFile = project.exclusionReasons;
-        if (!Array.isArray(templateFromFile) && templateFromFile && typeof templateFromFile === 'object') {
-          templateFromFile = Object.keys(templateFromFile);
-        }
-        setExclusionReasonsTemplate(templateFromFile);
-
-        // Restore project id if provided (otherwise keep the newly generated one)
-        if (project.projectId && typeof project.projectId === 'string') {
-          currentProjectId = project.projectId;
-          localStorage.setItem('prisma_current_project_id', currentProjectId);
-        }
-
-        if (screeningResults) {
-          displayResults(screeningResults);
-          if (currentStep >= 5 && FEATURE_FLAGS.ENABLE_QUALITY_ASSESSMENT) {
-            prepareQualityAssessmentShell({ persist: false, silent: true });
-          }
-          setStep(Math.min(currentStep || 3, WORKFLOW_STEP_COUNT));
-          if (currentStep >= 4) {
-            displayFulltextReviewUI();
-          }
-        } else if (uploadedData.length > 0) {
-          displayUploadInfo();
-          setStep(2);
-        }
-
-        if (filterRules) {
-          setFormRules(filterRules);
-        }
-
-        persistCurrentProjectState();
-
-        const savedTime = new Date(project.timestamp).toLocaleString('zh-CN');
-        document.getElementById('lastSaveTime').textContent = `上次保存：${savedTime}`;
-        
-        showToast(`✅ 项目已加载（保存于 ${savedTime}）`, 'success');
-      } catch (error) {
-        showToast('❌ 项目文件格式错误', 'error');
-        console.error(error);
+      if (!PROJECT_PACKAGE_ENGINE) {
+        showToast('项目诊断模块未加载，请刷新页面后重试。', 'error');
+        return;
       }
+      const diagnosis = PROJECT_PACKAGE_ENGINE.parseProjectPackageText(event.target.result);
+      renderProjectRecoveryDiagnosis(diagnosis, file.name);
+      if (!diagnosis.ok) {
+        const firstError = diagnosis.errors[0];
+        showToast(`无法恢复项目：${firstError?.message || '项目文件不兼容'}`, 'error');
+        setWorkspaceOnboardingVisible(true, { showRecovery: true });
+        return;
+      }
+      if (!restoreDiagnosedProject(diagnosis, file.name)) return;
+      const savedTime = new Date(diagnosis.normalized.timestamp).toLocaleString('zh-CN');
+      document.getElementById('lastSaveTime').textContent = `上次保存：${savedTime}`;
     };
     
     reader.readAsText(file);
@@ -10578,10 +10806,11 @@ function autoSaveToggle() {
     
     autoSaveInterval = setInterval(() => {
       if (uploadedData && uploadedData.length > 0) {
-        localStorage.setItem('prisma_autosave', JSON.stringify({
+        const state = {
           version: APP_RELEASE_VERSION,
           timestamp: new Date().toISOString(),
           projectId: currentProjectId || null,
+          reviewMode: isDualReviewMode ? 'dual' : 'single',
           uploadedData: uploadedData,
           uploadedFiles: uploadedFiles,
           screeningResults: screeningResults,
@@ -10600,7 +10829,16 @@ function autoSaveToggle() {
           projectHistory: projectHistory,
           dualReviewResults: dualReviewResults,
           dualReviewConflictState: dualReviewConflictState
-        }));
+        };
+        const autosave = PROJECT_PACKAGE_ENGINE && typeof PROJECT_PACKAGE_ENGINE.buildProjectPackage === 'function'
+          ? PROJECT_PACKAGE_ENGINE.buildProjectPackage(state, { timestamp: state.timestamp })
+          : state;
+        try {
+          localStorage.setItem('prisma_autosave', JSON.stringify(autosave));
+        } catch (error) {
+          reportProjectStorageFailure(error, 'autosave');
+          return;
+        }
         
         const now = new Date().toLocaleString('zh-CN');
         document.getElementById('lastSaveTime').textContent = `自动保存于：${now}`;
@@ -10689,42 +10927,46 @@ function setDefaultExclusion(reason) {
 }
 
 // v1.1: Dual-reviewer mode functions
-function setReviewMode(mode) {
+function setReviewMode(mode, options = {}) {
   isDualReviewMode = (mode === 'dual');
+  if (!runtimeSession) {
+    runtimeMode = isDualReviewMode ? RUNTIME_MODE.DUAL_MAIN : RUNTIME_MODE.SINGLE;
+    applyModeGating(runtimeMode);
+  }
   
   // Update button styles
   const singleBtn = document.getElementById('single-mode-btn');
   const dualBtn = document.getElementById('dual-mode-btn');
   
   if (isDualReviewMode) {
-    singleBtn.style.background = 'rgba(255,255,255,0.2)';
-    singleBtn.style.color = 'white';
-    singleBtn.style.border = '2px solid white';
-    singleBtn.style.fontWeight = 'normal';
+    if (singleBtn) singleBtn.style.background = 'rgba(255,255,255,0.2)';
+    if (singleBtn) singleBtn.style.color = 'white';
+    if (singleBtn) singleBtn.style.border = '2px solid white';
+    if (singleBtn) singleBtn.style.fontWeight = 'normal';
     
-    dualBtn.style.background = 'white';
-    dualBtn.style.color = '#667eea';
-    dualBtn.style.border = 'none';
-    dualBtn.style.fontWeight = 'bold';
+    if (dualBtn) dualBtn.style.background = 'white';
+    if (dualBtn) dualBtn.style.color = '#667eea';
+    if (dualBtn) dualBtn.style.border = 'none';
+    if (dualBtn) dualBtn.style.fontWeight = 'bold';
     
-    document.getElementById('dual-review-setup').classList.remove('hidden');
+    document.getElementById('dual-review-setup')?.classList.remove('hidden');
   } else {
-    singleBtn.style.background = 'white';
-    singleBtn.style.color = '#667eea';
-    singleBtn.style.border = 'none';
-    singleBtn.style.fontWeight = 'bold';
+    if (singleBtn) singleBtn.style.background = 'white';
+    if (singleBtn) singleBtn.style.color = '#667eea';
+    if (singleBtn) singleBtn.style.border = 'none';
+    if (singleBtn) singleBtn.style.fontWeight = 'bold';
     
-    dualBtn.style.background = 'rgba(255,255,255,0.2)';
-    dualBtn.style.color = 'white';
-    dualBtn.style.border = '2px solid white';
-    dualBtn.style.fontWeight = 'normal';
+    if (dualBtn) dualBtn.style.background = 'rgba(255,255,255,0.2)';
+    if (dualBtn) dualBtn.style.color = 'white';
+    if (dualBtn) dualBtn.style.border = '2px solid white';
+    if (dualBtn) dualBtn.style.fontWeight = 'normal';
     
-    document.getElementById('dual-review-setup').classList.add('hidden');
-    document.getElementById('kappa-analysis').classList.add('hidden');
+    document.getElementById('dual-review-setup')?.classList.add('hidden');
+    document.getElementById('kappa-analysis')?.classList.add('hidden');
   }
   
   // Refresh review UI if already displayed
-  if (screeningResults) {
+  if (screeningResults && options.refresh !== false) {
     displayFulltextReviewUI();
   }
 }

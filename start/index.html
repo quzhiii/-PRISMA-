@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="从 Demo、新建导入或恢复已有项目进入 PRISMA Workbench v2.5。">
+  <title>开始或恢复项目 - PRISMA Workbench v2.5</title>
+  <link rel="stylesheet" href="../literature-screening-v2.2/style.css?v=20260714-start-entry">
+</head>
+<body>
+  <div class="site-shell">
+    <div class="page-frame">
+      <header class="site-nav">
+        <a class="brand" href="../"><span class="brand-copy"><span class="brand-title">PRISMA Workbench</span><span class="brand-subtitle"><span class="zh">开始与恢复</span><span class="en">Start and recovery</span></span></span></a>
+        <nav class="nav-actions" aria-label="Primary navigation"><a class="ghost-link" href="../"><span class="zh">首页</span><span class="en">Home</span></a><a class="ghost-link" href="../resources/"><span class="zh">资源</span><span class="en">Resources</span></a><button type="button" class="lang-toggle" id="langToggle">EN</button></nav>
+      </header>
+
+      <main class="section-stack">
+        <section class="landing-hero start-hero">
+          <div>
+            <div class="eyebrow">Start / Resume</div>
+            <h1 class="hero-title"><span class="zh">从一个明确的项目起点开始。</span><span class="en">Start from one clear project entry.</span></h1>
+            <p class="hero-description"><span class="zh">先选择 Demo、新建并导入，或恢复已有项目；进入工作台后再选择单人或双人独立复核。项目记录默认留在当前浏览器，应用不会自动上传。</span><span class="en">Choose a demo, a new import, or an existing project first; then choose single or dual independent review in the workspace. Project records stay in this browser by default and are not uploaded automatically.</span></p>
+          </div>
+          <div class="start-mode-panel" aria-label="Review mode">
+            <span class="start-mode-label"><span class="zh">复核方式</span><span class="en">Review mode</span></span>
+            <div class="start-mode-switch">
+              <button type="button" class="btn btn-primary" id="singleModeButton" data-review-mode="single"><span class="zh">单人筛选</span><span class="en">Single review</span></button>
+              <button type="button" class="btn btn-secondary" id="dualModeButton" data-review-mode="dual"><span class="zh">双人独立筛选</span><span class="en">Dual independent review</span></button>
+            </div>
+            <p class="muted-text"><span class="zh">双人模式仍使用本地状态和文件交接，不提供账号或实时同步。</span><span class="en">Dual mode still uses local state and file handoff, without accounts or real-time sync.</span></p>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-heading"><div><h2><span class="zh">选择项目起点</span><span class="en">Choose a project start</span></h2><p><span class="zh">每条路径都会说明准备内容、数据边界、目标阶段和可撤销范围。</span><span class="en">Each path states what to prepare, the data boundary, target stage, and rollback scope.</span></p></div></div>
+          <div class="route-grid start-route-grid">
+            <article class="route-card" data-start-mode="demo">
+              <div><div class="route-top"><span class="route-badge">Demo</span><span class="pill"><span class="zh">无需文件</span><span class="en">No file</span></span></div><h3><span class="zh">体验 Demo</span><span class="en">Try the demo</span></h3><p class="route-meta"><span class="zh">适合第一次了解导入、去重和筛选流程。</span><span class="en">For a first look at import, deduplication, and screening.</span></p><dl class="start-contract"><div><dt><span class="zh">适用场景</span><span class="en">Use case</span></dt><dd><span class="zh">快速体验</span><span class="en">Quick walkthrough</span></dd></div><div><dt><span class="zh">需要准备</span><span class="en">Prepare</span></dt><dd><span class="zh">无需上传</span><span class="en">Nothing</span></dd></div><div><dt><span class="zh">数据边界</span><span class="en">Data boundary</span></dt><dd><span class="zh">公开样例，本地处理</span><span class="en">Public sample, local processing</span></dd></div><div><dt><span class="zh">进入阶段</span><span class="en">Stage</span></dt><dd><span class="zh">导入后规则配置</span><span class="en">Post-import criteria</span></dd></div><div><dt><span class="zh">可撤销</span><span class="en">Reversible</span></dt><dd><span class="zh">可关闭，不覆盖旧项目</span><span class="en">Close without replacing old projects</span></dd></div><div><dt><span class="zh">产生文件</span><span class="en">Files</span></dt><dd><span class="zh">仅主动导出时产生</span><span class="en">Only on explicit export</span></dd></div></dl></div><div class="route-actions"><a class="cta-link secondary start-link" href="../app/?start=demo" data-app-start="demo"><span class="zh">加载公开 Demo</span><span class="en">Load public demo</span></a></div>
+            </article>
+            <article class="route-card priority" data-start-mode="new-import">
+              <div><div class="route-top"><span class="route-badge"><span class="zh">真实项目</span><span class="en">Real project</span></span><span class="pill">Import</span></div><h3><span class="zh">新建项目并导入</span><span class="en">Create and import</span></h3><p class="route-meta"><span class="zh">适合已有数据库导出文件、准备开始正式筛选。</span><span class="en">For starting formal screening from database exports.</span></p><dl class="start-contract"><div><dt><span class="zh">适用场景</span><span class="en">Use case</span></dt><dd><span class="zh">正式筛选</span><span class="en">Formal screening</span></dd></div><div><dt><span class="zh">需要准备</span><span class="en">Prepare</span></dt><dd>CSV / RIS / NBIB / ENW</dd></div><div><dt><span class="zh">数据边界</span><span class="en">Data boundary</span></dt><dd><span class="zh">浏览器本地处理</span><span class="en">Browser-local processing</span></dd></div><div><dt><span class="zh">进入阶段</span><span class="en">Stage</span></dt><dd><span class="zh">导入与字段核对</span><span class="en">Import and mapping</span></dd></div><div><dt><span class="zh">可撤销</span><span class="en">Reversible</span></dt><dd><span class="zh">取消选择不改旧项目</span><span class="en">Cancel leaves old projects unchanged</span></dd></div><div><dt><span class="zh">产生文件</span><span class="en">Files</span></dt><dd><span class="zh">项目备份与证据导出</span><span class="en">Project backup and evidence exports</span></dd></div></dl></div><div class="route-actions"><a class="cta-link secondary start-link" href="../app/?start=new-import" data-app-start="new-import"><span class="zh">进入导入</span><span class="en">Open import</span></a></div>
+            </article>
+            <article class="route-card" data-start-mode="resume">
+              <div><div class="route-top"><span class="route-badge"><span class="zh">继续工作</span><span class="en">Continue</span></span><span class="pill">JSON / Local</span></div><h3><span class="zh">恢复已有项目</span><span class="en">Resume an existing project</span></h3><p class="route-meta"><span class="zh">适合已有完整项目 JSON，或需要检查当前浏览器中的本地快照。</span><span class="en">For a full-project JSON backup or a diagnosed local browser snapshot.</span></p><dl class="start-contract"><div><dt><span class="zh">适用场景</span><span class="en">Use case</span></dt><dd><span class="zh">继续已有工作</span><span class="en">Continue existing work</span></dd></div><div><dt><span class="zh">需要准备</span><span class="en">Prepare</span></dt><dd><span class="zh">项目 JSON 或本地快照</span><span class="en">Project JSON or local snapshot</span></dd></div><div><dt><span class="zh">数据边界</span><span class="en">Data boundary</span></dt><dd><span class="zh">先在本地诊断</span><span class="en">Diagnosed locally first</span></dd></div><div><dt><span class="zh">进入阶段</span><span class="en">Stage</span></dt><dd><span class="zh">恢复到已保存阶段</span><span class="en">Saved project stage</span></dd></div><div><dt><span class="zh">可撤销</span><span class="en">Reversible</span></dt><dd><span class="zh">诊断失败不改变当前项目</span><span class="en">Failed diagnosis changes nothing</span></dd></div><div><dt><span class="zh">产生文件</span><span class="en">Files</span></dt><dd><span class="zh">恢复本身不下载文件</span><span class="en">Resume downloads nothing</span></dd></div></dl></div><div class="route-actions"><a class="cta-link secondary start-link" href="../app/?start=resume" data-app-start="resume"><span class="zh">诊断并恢复</span><span class="en">Diagnose and resume</span></a></div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="../dual-review/"><span class="zh">双人复核边界</span><span class="en">Dual-review boundary</span></a></footer>
+    </div>
+  </div>
+  <script>
+    let reviewMode = new URLSearchParams(location.search).get('review') === 'dual' ? 'dual' : 'single';
+    function applyLanguage(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dataset.lang = lang;
+      document.querySelectorAll('.zh').forEach((el) => { el.hidden = lang !== 'zh'; });
+      document.querySelectorAll('.en').forEach((el) => { el.hidden = lang === 'zh'; });
+      document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中';
+      try { localStorage.setItem('prisma_lang', lang); } catch (_) {}
+      updateLinks();
+    }
+    function updateLinks() {
+      const lang = document.documentElement.lang === 'en' ? 'en' : 'zh';
+      document.querySelectorAll('[data-app-start]').forEach((link) => {
+        link.href = `../app/?start=${link.dataset.appStart}&review=${reviewMode}&lang=${lang}`;
+      });
+      document.querySelectorAll('[data-review-mode]').forEach((button) => {
+        button.classList.toggle('btn-primary', button.dataset.reviewMode === reviewMode);
+        button.classList.toggle('btn-secondary', button.dataset.reviewMode !== reviewMode);
+      });
+    }
+    let lang = new URLSearchParams(location.search).get('lang');
+    if (lang !== 'zh' && lang !== 'en') { try { lang = localStorage.getItem('prisma_lang'); } catch (_) {} }
+    if (lang !== 'zh' && lang !== 'en') lang = 'zh';
+    document.getElementById('langToggle').addEventListener('click', () => applyLanguage(document.documentElement.lang === 'zh' ? 'en' : 'zh'));
+    document.querySelectorAll('[data-review-mode]').forEach((button) => button.addEventListener('click', () => { reviewMode = button.dataset.reviewMode; updateLinks(); }));
+    applyLanguage(lang);
+  </script>
+</body>
+</html>

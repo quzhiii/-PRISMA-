@@ -12,6 +12,7 @@ const distRoot = path.join(repoRoot, 'dist');
 
 const canonicalPages = [
   'index.html',
+  'start/index.html',
   'app/index.html',
   'dual-review/index.html',
   'resources/index.html',
@@ -72,6 +73,7 @@ test('root is the direct canonical V2.5 public homepage', async () => {
   const homepage = await readRepoFile('index.html');
 
   assert.match(homepage, /V2\.5 dual-review closeout/i);
+  assert.match(homepage, /href="start\/"/);
   assert.match(homepage, /href="app\/"/);
   assert.match(homepage, /href="dual-review\/"/);
   assert.match(homepage, /href="resources\/"/);
@@ -136,6 +138,7 @@ test('public-site build emits only allowlisted static artifacts', async () => {
   const files = await listFiles(distRoot);
   const requiredFiles = [
     ...canonicalPages,
+    'literature-screening-v2.2/project-package-engine.js',
     ...compatibilityPages.keys(),
     'dedup-engine.js',
     'literature-screening-v2.2/app.js',
@@ -153,7 +156,7 @@ test('public-site build emits only allowlisted static artifacts', async () => {
     assert.ok(files.includes(relativePath), `dist should include ${relativePath}`);
   });
 
-  const allowedFile = /^(?:index\.html|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|dual-review|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
+  const allowedFile = /^(?:index\.html|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|start|dual-review|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
   files.forEach((relativePath) => {
     assert.match(relativePath, allowedFile, `unexpected public artifact: ${relativePath}`);
   });

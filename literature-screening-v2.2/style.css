@@ -946,6 +946,99 @@ select {
 	flex-wrap: wrap;
 }
 
+.start-hero {
+	align-items: stretch;
+}
+
+.start-mode-panel {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 14px;
+	min-height: 100%;
+	padding: 28px;
+	border-radius: 24px;
+	background: rgba(255, 255, 255, 0.76);
+	border: 1px solid rgba(36, 52, 71, 0.12);
+}
+
+.start-mode-label {
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-bold);
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--color-primary);
+}
+
+.start-mode-switch {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.start-contract {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+	margin: 18px 0 0;
+}
+
+.start-contract > div {
+	padding: 10px 12px;
+	border-radius: 14px;
+	background: rgba(36, 52, 71, 0.06);
+	border: 1px solid rgba(36, 52, 71, 0.08);
+}
+
+.start-contract dt {
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-bold);
+	color: var(--color-primary);
+}
+
+.start-contract dd {
+	margin: 4px 0 0;
+	font-size: var(--font-size-sm);
+	color: var(--color-text-secondary);
+}
+
+.route-card.priority .start-contract > div,
+.route-card:hover .start-contract > div,
+.route-card:focus-within .start-contract > div {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.14);
+}
+
+.route-card.priority .start-contract dt,
+.route-card.priority .start-contract dd,
+.route-card:hover .start-contract dt,
+.route-card:hover .start-contract dd,
+.route-card:focus-within .start-contract dt,
+.route-card:focus-within .start-contract dd {
+	color: rgba(255, 255, 255, 0.86);
+}
+
+.recovery-diagnostics {
+	margin-top: 16px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	border: 1px solid var(--color-border);
+	background: rgba(36, 52, 71, 0.05);
+	white-space: pre-line;
+}
+
+.recovery-diagnostics[data-status="success"] {
+	border-color: rgba(22, 163, 74, 0.35);
+	background: rgba(22, 163, 74, 0.08);
+	color: var(--color-success);
+}
+
+.recovery-diagnostics[data-status="error"] {
+	border-color: rgba(220, 38, 38, 0.35);
+	background: rgba(220, 38, 38, 0.07);
+	color: var(--color-danger);
+}
+
 .feature-icon {
 	width: 48px;
 	height: 48px;

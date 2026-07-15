@@ -23,6 +23,7 @@ const testFiles = [
   'tests/import/import-job-state.test.mjs',
   'tests/import/import-hardening.test.mjs',
   'tests/import/parser-chunk-boundary.test.mjs',
+  'tests/project/project-package-engine.test.mjs',
   'tests/dedup/benchmark-smoke.test.mjs',
   'tests/dedup/benchmark-regression.test.mjs',
   'tests/dedup/record-normalization.test.mjs',
@@ -32,6 +33,7 @@ const testFiles = [
   'tests/dedup/candidate-output.test.mjs',
   'tests/benchmarks/package-coverage.test.mjs',
   'tests/public/public-site-alignment.test.mjs',
+  'tests/public/start-entry.test.mjs',
   'tests/public/naming-test-kit.test.mjs'
 ];
 

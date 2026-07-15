@@ -9,7 +9,7 @@
 
 [English](./README_EN.md) | 简体中文
 
-[在线使用](https://quzhiii.github.io/-PRISMA-/) · [工作台](./app/) · [双人复核说明](./dual-review/) · [资源中心](./resources/) · [提交问题](https://github.com/quzhiii/-PRISMA-/issues)
+[在线使用](https://quzhiii.github.io/-PRISMA-/) · [开始或恢复项目](./start/) · [工作台](./app/) · [双人复核说明](./dual-review/) · [资源中心](./resources/) · [提交问题](https://github.com/quzhiii/-PRISMA-/issues)
 
 > 独立项目声明：这是独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。项目名称中的 PRISMA 用于说明面向 PRISMA 相关工作流；研究者仍需根据官方材料核对报告要求。
 
@@ -98,6 +98,7 @@
 
 ```text
 index.html                          -> 当前 V2.5 官网
+start/index.html                    -> Demo、新建导入与项目恢复入口
 app/index.html                      -> canonical 工作台
 dual-review/index.html              -> 双人复核与文件交接边界
 resources/index.html                -> 公开资源中心
@@ -106,6 +107,8 @@ literature-screening-v2.2/audit-engine.js
                                     -> 审计模型、序列化和报告构建
 literature-screening-v2.2/reviewer-bundle-engine.js
                                     -> Reviewer Bundle 协议纯逻辑
+literature-screening-v2.2/project-package-engine.js
+                                    -> 完整项目包诊断与恢复合同
 scripts/build-public-site.mjs       -> 显式白名单静态构建
 ```
 

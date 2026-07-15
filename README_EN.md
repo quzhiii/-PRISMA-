@@ -9,7 +9,7 @@ A local-first workspace for systematic reviews, meta-analyses, and evidence synt
 
 English | [简体中文](./README.md)
 
-[Live site](https://quzhiii.github.io/-PRISMA-/) · [Workspace](./app/) · [Dual-review guide](./dual-review/) · [Resources](./resources/) · [Issues](https://github.com/quzhiii/-PRISMA-/issues)
+[Live site](https://quzhiii.github.io/-PRISMA-/) · [Start or resume a project](./start/) · [Workspace](./app/) · [Dual-review guide](./dual-review/) · [Resources](./resources/) · [Issues](https://github.com/quzhiii/-PRISMA-/issues)
 
 > Independent-project notice: this is an independent open-source project. It is not affiliated with, authorized by, or endorsed by the PRISMA Statement. The PRISMA name describes the intended workflow context; researchers must still verify reporting requirements against official materials.
 
@@ -98,6 +98,7 @@ The Search Strategy Assistant generates and records search strategies only. It d
 
 ```text
 index.html                          -> Current V2.5 homepage
+start/index.html                    -> Demo, new-import, and project-recovery entry
 app/index.html                      -> Canonical workspace
 dual-review/index.html              -> Dual-review and file-handoff boundary
 resources/index.html                -> Public resources hub
@@ -106,6 +107,8 @@ literature-screening-v2.2/audit-engine.js
                                     -> Audit models, serializers, and report builders
 literature-screening-v2.2/reviewer-bundle-engine.js
                                     -> Reviewer Bundle protocol helpers
+literature-screening-v2.2/project-package-engine.js
+                                    -> Full-project package diagnostics and recovery contract
 scripts/build-public-site.mjs       -> Explicit-allowlist static build
 ```
 
