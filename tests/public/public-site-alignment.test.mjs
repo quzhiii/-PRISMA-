@@ -15,6 +15,7 @@ const canonicalPages = [
   'start/index.html',
   'app/index.html',
   'dual-review/index.html',
+  'methods/index.html',
   'resources/index.html',
   'legacy/index.html',
 ];
@@ -76,6 +77,7 @@ test('root is the direct canonical V2.5 public homepage', async () => {
   assert.match(homepage, /href="start\/"/);
   assert.match(homepage, /href="app\/"/);
   assert.match(homepage, /href="dual-review\/"/);
+  assert.match(homepage, /href="methods\/"/);
   assert.match(homepage, /href="resources\/"/);
   assert.match(homepage, /href="legacy\/"/);
   assert.doesNotMatch(homepage, /http-equiv=["']refresh/i);
@@ -114,6 +116,38 @@ test('dual-review setup describes browser-local file handoff without account or 
   assert.match(page, /重复 Bundle/);
   assert.match(page, /浏览器本地状态|browser-local state/i);
   assert.doesNotMatch(page, /登录|加入项目|等待同步|项目连接|\blogin\b|join project|wait(?:ing)? for sync|project connection/i);
+});
+
+test('methods page explains evidence layers and limits without overclaiming', async () => {
+  const page = await readRepoFile('methods/index.html');
+  const homepage = await readRepoFile('index.html');
+  const resources = await readRepoFile('resources/index.html');
+
+  assert.match(page, /M5 methods and evidence/i);
+  assert.match(page, /E1/);
+  assert.match(page, /E2/);
+  assert.match(page, /E3/);
+  assert.match(page, /E4/);
+  assert.match(page, /export_snapshot\.v1\.local/);
+  assert.match(page, /m5\.v1/);
+  assert.match(page, /SHA-256/);
+  assert.match(page, /reviewer_bundle\.v1\.local/);
+  assert.match(page, /m4\.v1/);
+  assert.match(page, /Data fidelity protocol/i);
+  assert.match(page, /Version and reproduction/i);
+  assert.match(page, /project_history\.v2\.5\.1/);
+  assert.match(page, /PRISMA_LiteratureDB_v2\.2/);
+  assert.match(page, /warnings do not silently rewrite records or decisions/i);
+  assert.match(page, /source-quality warnings do not automatically create or change a `ScreeningDecision`/i);
+  assert.match(page, /node tests\/run-all-regressions\.js/);
+  assert.match(page, /node scripts\/build-public-site\.mjs/);
+  assert.match(page, /AI suggestions are recorded in a separate suggestion log/);
+  assert.match(page, /External validation remains planned/);
+  assert.match(page, /not affiliated with, authorized by, or endorsed by the PRISMA Statement/i);
+  assert.match(homepage, /href="methods\/"/);
+  assert.match(resources, /href="\.\.\/methods\/"/);
+  assert.doesNotMatch(page, /audit-ready|defense-ready|research-grade|standard PRISMA 2020|certified|validated in real projects/i);
+  assert.doesNotMatch(page, /data (?:never leaves|stays in) (?:the )?browser/i);
 });
 
 test('public copy keeps one release identity and avoids unsupported assurance language', async () => {
@@ -159,7 +193,7 @@ test('public-site build emits only allowlisted static artifacts', async () => {
     assert.ok(files.includes(relativePath), `dist should include ${relativePath}`);
   });
 
-  const allowedFile = /^(?:index\.html|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|start|dual-review|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
+  const allowedFile = /^(?:index\.html|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|start|dual-review|methods|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
   files.forEach((relativePath) => {
     assert.match(relativePath, allowedFile, `unexpected public artifact: ${relativePath}`);
   });

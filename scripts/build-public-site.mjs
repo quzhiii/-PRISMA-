@@ -15,6 +15,7 @@ const publicFiles = [
   'start/index.html',
   'app/index.html',
   'dual-review/index.html',
+  'methods/index.html',
   'resources/index.html',
   'legacy/index.html',
   'literature-screening-v2.2/index.html',

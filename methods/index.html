@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PRISMA Workbench Methods：当前实现、验证证据、限制、数据保真、双审完整性、导出快照和 AI 边界。">
+  <title>PRISMA Workbench Methods</title>
+  <link rel="stylesheet" href="../literature-screening-v2.2/style.css?v=20260713-public-alignment">
+</head>
+<body>
+  <div class="site-shell"><div class="page-frame">
+    <header class="site-nav">
+      <a class="brand" href="../"><span class="brand-copy"><span class="brand-title">PRISMA Workbench</span><span class="brand-subtitle"><span class="zh">方法与证据</span><span class="en">Methods and evidence</span></span></span></a>
+      <div class="nav-actions"><a class="ghost-link" href="../"><span class="zh">首页</span><span class="en">Home</span></a><a class="ghost-link" href="../start/"><span class="zh">开始项目</span><span class="en">Start</span></a><a class="ghost-link" href="../app/"><span class="zh">工作台</span><span class="en">Workspace</span></a><a class="ghost-link" href="../dual-review/"><span class="zh">双人复核</span><span class="en">Dual review</span></a><a class="ghost-link" href="../resources/"><span class="zh">资源</span><span class="en">Resources</span></a><button type="button" class="lang-toggle" id="langToggle">EN</button></div>
+    </header>
+
+    <main class="section-stack">
+      <section class="landing-hero">
+        <div>
+          <div class="eyebrow">M5 methods and evidence</div>
+          <h1 class="hero-title"><span class="zh">用可复核证据说明工作流，而不是用承诺替代验证。</span><span class="en">Explain the workflow with reviewable evidence, not unsupported promises.</span></h1>
+          <p class="hero-description"><span class="zh">本页说明当前 V2.5 公开版本线实际实现了什么、有哪些仓库测试和导出证据、仍有哪些限制。所有项目记录默认在浏览器本地处理；应用不会自动上传项目文件。</span><span class="en">This page describes what the current V2.5 public line implements, which repository tests and export artifacts support it, and what limits remain. Project records are processed locally by default; the app does not automatically upload project files.</span></p>
+          <div class="hero-actions"><a class="cta-link primary" href="../start/"><span class="zh">打开工作台入口</span><span class="en">Open workspace entry</span></a><a class="cta-link secondary" href="../resources/"><span class="zh">查看资源与基准</span><span class="en">View resources and benchmarks</span></a></div>
+        </div>
+        <div class="hero-metrics"><div class="hero-metric"><strong>E1-E4</strong><span><span class="zh">仓库证据层</span><span class="en">Repository evidence layers</span></span></div><div class="hero-metric"><strong>m5.v1</strong><span>Export Snapshot</span></div><div class="hero-metric"><strong><span class="zh">限制可见</span><span class="en">Limits visible</span></strong><span><span class="zh">不虚构外部验证</span><span class="en">No invented external validation</span></span></div></div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">当前实现</span><span class="en">Current implementation</span></h2><p><span class="zh">这些能力已经在当前工作台中可用，并由测试或导出合同覆盖。</span><span class="en">These capabilities are available in the current workspace and are covered by tests or export contracts.</span></p></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">导入与去重</span><span class="en">Import and deduplication</span></div><h3><span class="zh">混合来源导入，保守处理重复项</span><span class="en">Mixed-source import with conservative duplicates</span></h3><p><span class="zh">CSV、RIS、NBIB、ENW 和中文来源 fixture 覆盖字段映射、编码、来源数据库和可靠性提醒；硬重复与疑似重复分开处理。</span><span class="en">CSV, RIS, NBIB, ENW, and Chinese-source fixtures cover field mapping, encoding, source databases, and reliability warnings; hard duplicates and candidate duplicates are handled separately.</span></p></article>
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">双审完整性</span><span class="en">Dual-review integrity</span></div><h3><span class="zh">Seed / Decision Bundle 本地文件交接</span><span class="en">Seed / Decision Bundle local handoff</span></h3><p><span class="zh">`reviewer_bundle.v1.local` 保持兼容，`m4.v1` 增加 SHA-256 来源、记录、决定和 bundle ID 校验，重复 Decision Bundle 会被拒绝。</span><span class="en">`reviewer_bundle.v1.local` remains compatible while `m4.v1` adds SHA-256 source, record, decision, and bundle-ID checks; duplicate Decision Bundles are rejected.</span></p></article>
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">导出证据</span><span class="en">Export evidence</span></div><h3><span class="zh">Export Snapshot 绑定本地导出集合</span><span class="en">Export Snapshot binds the local export set</span></h3><p><span class="zh">`export_snapshot.v1.local` / `m5.v1` 记录证据包文件名、媒体类型、字节数、SHA-256、producer、artifact hash 和 manifest hash。</span><span class="en">`export_snapshot.v1.local` / `m5.v1` records evidence filenames, media types, byte counts, SHA-256 values, producer, artifact hash, and manifest hash.</span></p></article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">验证证据分层</span><span class="en">Evidence layers</span></h2><p><span class="zh">证据只指向仓库中已有材料；外部真实项目验证仍标记为 planned。</span><span class="en">Evidence points only to existing repository materials; external real-project validation remains planned.</span></p></div></div>
+        <div class="route-grid">
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">E1</span><span class="pill">Regression</span></div><h3><span class="zh">功能回归</span><span class="en">Functional regression</span></h3><p class="route-meta"><span class="zh">`tests/run-all-regressions.js` 聚合导入、去重、审计、双审、Reviewer Bundle、Export Snapshot、公开站点和质量评价测试。</span><span class="en">`tests/run-all-regressions.js` aggregates import, deduplication, audit, dual-review, Reviewer Bundle, Export Snapshot, public-site, and quality-appraisal tests.</span></p></div></article>
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">E2</span><span class="pill">Fidelity</span></div><h3><span class="zh">数据保真</span><span class="en">Data fidelity</span></h3><p class="route-meta"><span class="zh">中文来源和流式解析测试覆盖字段保留、来源映射、截断摘要提醒和格式边界。</span><span class="en">Chinese-source and streaming-parser tests cover field preservation, source mapping, truncated-abstract warnings, and format boundaries.</span></p></div></article>
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">E3</span><span class="pill">Benchmark</span></div><h3><span class="zh">去重基准</span><span class="en">Deduplication benchmarks</span></h3><p class="route-meta"><span class="zh">公开资源包含可复现基准说明、评分模板和去重读出文档。</span><span class="en">The public resources include reproducible benchmark guides, scoring templates, and deduplication readouts.</span></p></div><div class="route-actions"><a class="cta-link secondary" href="../docs/benchmarks/README.md"><span class="zh">打开基准说明</span><span class="en">Open benchmark guide</span></a></div></article>
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">E4</span><span class="pill">Workflow</span></div><h3><span class="zh">工作流完整性</span><span class="en">Workflow integrity</span></h3><p class="route-meta"><span class="zh">双审冲突、一致性指标、Reviewer Bundle round-trip、重复导入拒绝和 Export Snapshot hash 都有自动化测试。</span><span class="en">Dual-review conflicts, agreement metrics, Reviewer Bundle round-trip, duplicate import rejection, and Export Snapshot hashes are covered by automated tests.</span></p></div></article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">数据保真协议</span><span class="en">Data fidelity protocol</span></h2><p><span class="zh">每一步都保留来源、解析和人工决定之间的可追溯关系；提醒不会静默改写记录或决定。</span><span class="en">Each step keeps the traceable relationship between source, parsing, and human decisions; warnings do not silently rewrite records or decisions.</span></p></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">来源层</span><span class="en">Source layer</span></div><h3><span class="zh">文件与来源元数据一起保留</span><span class="en">Files stay linked to source metadata</span></h3><p><span class="zh">导入记录保留来源文件、解析格式、来源数据库和文件级记录数；项目清单与导入事件记录来源文件的增加和移除。</span><span class="en">Imported records retain source file, parser format, source database, and file-level record counts; the project manifest and import events record source-file additions and removals.</span></p></article>
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">解析层</span><span class="en">Parsing layer</span></div><h3><span class="zh">保留字段，显式标记不确定性</span><span class="en">Fields are preserved; uncertainty is explicit</span></h3><p><span class="zh">CSV、RIS、NBIB、ENW 采用流式解析；中文来源字段映射、摘要疑似截断、摘要噪音和来源映射不完整会进入记录或审计提醒，不伪装成完整字段。</span><span class="en">CSV, RIS, NBIB, and ENW use streaming parsers; Chinese-source mapping, suspected abstract truncation, abstract noise, and incomplete source mapping become record or audit warnings rather than being presented as complete fields.</span></p></article>
+          <article class="feature-card"><div class="feature-kicker"><span class="zh">决定层</span><span class="en">Decision layer</span></div><h3><span class="zh">警告与决定分开</span><span class="en">Warnings stay separate from decisions</span></h3><p><span class="zh">来源质量提醒不会自动创建或改变 `ScreeningDecision`。人工决定、排除理由、双审冲突和 resolver 结果分别进入决定表、事件日志和 Reviewer Bundle。</span><span class="en">Source-quality warnings do not automatically create or change a `ScreeningDecision`. Human decisions, exclusion reasons, dual-review conflicts, and resolver outcomes remain represented in decision tables, event logs, and Reviewer Bundles.</span></p></article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">导出与复核合同</span><span class="en">Export and review contracts</span></h2><p><span class="zh">导出文件是本地生成的证据材料，供研究者核对后用于方法附录、团队交接或审稿回复。</span><span class="en">Export files are local evidence materials for researcher review before methods appendices, team handoff, or reviewer responses.</span></p></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><h3>project_manifest.json</h3><p><span class="zh">保留项目元数据：项目名称、PRISMA 版本、AI 模式、应用版本和导出时间。它不是完整导出集合的完整性清单。</span><span class="en">Keeps project metadata: project name, PRISMA version, AI mode, app version, and export time. It is not the integrity manifest for the complete export set.</span></p></article>
+          <article class="feature-card"><h3>export_snapshot_manifest.json</h3><p><span class="zh">绑定 M5 本地导出集合：每个 artifact 的文件名、媒体类型、字节数、SHA-256、artifact set hash 和 manifest hash。</span><span class="en">Binds the M5 local export set: filename, media type, byte count, SHA-256, artifact-set hash, and manifest hash for each artifact.</span></p></article>
+          <article class="feature-card"><h3>Reviewer Bundle</h3><p><span class="zh">Seed 和 Decision Bundle 用于双审文件交接，不是在线协作服务。错误项目、篡改内容、错误 reviewer scope 和重复 bundle 会在 merge 前被拒绝。</span><span class="en">Seed and Decision Bundles support dual-review file handoff, not an online collaboration service. Wrong projects, tampering, wrong reviewer scope, and duplicate bundles are rejected before merge.</span></p></article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">版本与复现</span><span class="en">Version and reproduction</span></h2><p><span class="zh">以下标记是当前实现和测试使用的合同，不代表认证或不可变归档。</span><span class="en">The markers below are the contracts used by the current implementation and tests; they are not certification or immutable archiving.</span></p></div></div>
+        <div class="route-grid">
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">Release</span><span class="pill">V2.5</span></div><h3><span class="zh">当前实现标记</span><span class="en">Current implementation markers</span></h3><p class="route-meta"><span class="zh">公开版本线：`V2.5 dual-review closeout`；运行时：`2.5-dual-review-release`；数据库：`PRISMA_LiteratureDB_v2.2`；项目历史：`project_history.v2.5.1`。</span><span class="en">Public line: `V2.5 dual-review closeout`; runtime: `2.5-dual-review-release`; database: `PRISMA_LiteratureDB_v2.2`; project history: `project_history.v2.5.1`.</span></p></div></article>
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">Contracts</span><span class="pill">M4 / M5</span></div><h3><span class="zh">交接与导出合同</span><span class="en">Handoff and export contracts</span></h3><p class="route-meta"><span class="zh">Reviewer Bundle：`reviewer_bundle.v1.local` / `m4.v1`；Export Snapshot：`export_snapshot.v1.local` / `m5.v1`。这些合同支持本地诊断和哈希校验，不提供在线身份或外部见证。</span><span class="en">Reviewer Bundle: `reviewer_bundle.v1.local` / `m4.v1`; Export Snapshot: `export_snapshot.v1.local` / `m5.v1`. These contracts support local diagnostics and hash checks, not online identity or external witnessing.</span></p></div></article>
+          <article class="route-card"><div><div class="route-top"><span class="route-badge">Reproduce</span><span class="pill">Node.js</span></div><h3><span class="zh">本地复现路径</span><span class="en">Local reproduction path</span></h3><p class="route-meta"><span class="zh">在仓库根目录依次运行：`node --test tests/public/public-site-alignment.test.mjs`、`node --test tests/audit/audit-export.test.mjs`、`node tests/run-all-regressions.js`、`node scripts/build-public-site.mjs`。构建产物只来自显式白名单。</span><span class="en">From the repository root, run: `node --test tests/public/public-site-alignment.test.mjs`, `node --test tests/audit/audit-export.test.mjs`, `node tests/run-all-regressions.js`, and `node scripts/build-public-site.mjs`. The build output comes from an explicit allowlist.</span></p><div class="route-actions"><a class="cta-link secondary" href="../docs/benchmarks/README.md"><span class="zh">查看基准复现说明</span><span class="en">Open benchmark reproduction guide</span></a></div></div></article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">AI 边界</span><span class="en">AI boundary</span></h2><p><span class="zh">当前公开工作流以人工决定为准，AI 默认关闭。</span><span class="en">The current public workflow treats human decisions as authoritative, and AI is off by default.</span></p></div></div>
+        <div class="info-box ai-readiness-box ai-transparency-panel"><p><span class="zh">AI 建议记录在独立的 suggestion log 中。只有人工接受或改写后写入 `ScreeningDecision`，才会影响 PRISMA 计数；被拒绝或忽略的建议只保留为辅助记录。</span><span class="en">AI suggestions are recorded in a separate suggestion log. They affect PRISMA counts only after a human accepts or edits them into `ScreeningDecision`; rejected or ignored suggestions remain advisory records.</span></p><p><span class="zh">当前不默认连接真实 AI 服务，也不自动发送文献内容或密钥。任何未来服务接入都需要单独说明数据边界。</span><span class="en">The current default does not connect to a real AI provider or automatically send record content or keys. Any future provider connection needs a separate data-boundary explanation.</span></p></div>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2><span class="zh">已知限制</span><span class="en">Known limits</span></h2><p><span class="zh">这些限制保留在公开说明中，避免把当前能力说成更强的保证。</span><span class="en">These limits remain visible so current capabilities are not overstated.</span></p></div></div>
+        <div class="feature-grid">
+          <article class="feature-card"><h3><span class="zh">没有云端项目状态</span><span class="en">No hosted project state</span></h3><p><span class="zh">当前不提供账号、云端项目查询或实时同步；跨设备协作依赖本地 JSON 文件交接。</span><span class="en">There are no accounts, hosted project lookup, or real-time sync; cross-device collaboration relies on local JSON file handoff.</span></p></article>
+          <article class="feature-card"><h3><span class="zh">导出需研究者核对</span><span class="en">Exports require researcher review</span></h3><p><span class="zh">PRISMA 计数、质量评价和 GRADE 摘要是可复核材料，不替代研究方案、全文判断或方法学审查。</span><span class="en">PRISMA counts, quality appraisal, and GRADE summaries are reviewable materials, not replacements for protocols, full-text judgement, or methodological review.</span></p></article>
+          <article class="feature-card"><h3><span class="zh">外部验证仍在计划中</span><span class="en">External validation remains planned</span></h3><p><span class="zh">当前公开证据来自仓库测试、fixture 和基准文档；真实脱敏项目和用户测试不会在完成前被宣传为既有结果。</span><span class="en">Current public evidence comes from repository tests, fixtures, and benchmark docs; real de-identified projects and user tests are not presented as completed until they exist.</span></p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="https://github.com/quzhiii/-PRISMA-" target="_blank" rel="noreferrer">GitHub</a></footer>
+  </div></div>
+  <script>
+    function applyLanguage(lang) { document.documentElement.lang = lang; document.documentElement.dataset.lang = lang; document.querySelectorAll('.zh').forEach((el) => { el.hidden = lang !== 'zh'; }); document.querySelectorAll('.en').forEach((el) => { el.hidden = lang === 'zh'; }); document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中'; try { localStorage.setItem('prisma_lang', lang); } catch (_) {} }
+    let lang = new URLSearchParams(location.search).get('lang'); if (lang !== 'zh' && lang !== 'en') { try { lang = localStorage.getItem('prisma_lang'); } catch (_) {} } if (lang !== 'zh' && lang !== 'en') lang = 'zh'; document.getElementById('langToggle').addEventListener('click', () => applyLanguage(document.documentElement.lang === 'zh' ? 'en' : 'zh')); applyLanguage(lang);
+  </script>
+</body>
+</html>
