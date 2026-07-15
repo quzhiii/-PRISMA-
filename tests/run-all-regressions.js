@@ -13,6 +13,7 @@ const testFiles = [
   'tests/audit/audit-engine.test.mjs',
   'tests/audit/dual-review-engine.test.mjs',
   'tests/audit/reviewer-bundle-engine.test.mjs',
+  'tests/audit/reviewer-bundle-ui-runtime.test.mjs',
   'tests/audit/audit-workflow.test.mjs',
   'tests/audit/audit-export.test.mjs',
   'tests/audit/project-history-engine.test.mjs',

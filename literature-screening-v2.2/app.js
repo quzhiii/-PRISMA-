@@ -34,10 +34,28 @@ const AUDIT_EXPORT_TYPES = Object.freeze([
   'ai_usage_registry',
   'ai_suggestions',
   'prisma_traice_report',
+  'export_snapshot_manifest',
 ]);
 const DUAL_REVIEW_EXPORT_TYPES = Object.freeze([
   'dual_review_conflicts',
   'dual_review_agreement',
+]);
+const EXPORT_SNAPSHOT_ARTIFACT_TYPES = Object.freeze([
+  'audit_manifest',
+  'audit_events',
+  'audit_screening_decisions',
+  'audit_exclusion_reasons',
+  'audit_prisma_counts',
+  'audit_summary',
+  'defense_audit_pack',
+  'ai_usage_registry',
+  'ai_suggestions',
+  'prisma_traice_report',
+  'dual_review_conflicts',
+  'dual_review_agreement',
+  'quality_appraisal',
+  'evidence_table',
+  'grade_summary',
 ]);
 const V25_FINAL_CONFLICT_GATED_EXPORT_TYPES = Object.freeze([
   'included',
@@ -65,6 +83,7 @@ const V25_CONFLICT_EVIDENCE_EXPORT_TYPES = Object.freeze([
   'ai_usage_registry',
   'ai_suggestions',
   'prisma_traice_report',
+  'export_snapshot_manifest',
   'dual_review_conflicts',
   'dual_review_agreement',
 ]);
@@ -6292,7 +6311,8 @@ function applyReviewerDecisionBundle(bundle, options = {}) {
     }
   }
   createProjectHistorySnapshot('before_reviewer_bundle_import', 'Before reviewer decision bundle import');
-  const mergedState = REVIEWER_BUNDLE_ENGINE.applyReviewerDecisionBundle(state, bundle);
+  const mergeState = getCurrentReviewerBundleProjectState();
+  const mergedState = REVIEWER_BUNDLE_ENGINE.applyReviewerDecisionBundle(mergeState, bundle);
   restoreProjectState(mergedState);
   appliedReviewerBundleIds = Array.isArray(mergedState.appliedReviewerBundleIds)
     ? mergedState.appliedReviewerBundleIds
@@ -8837,6 +8857,100 @@ function buildAuditExportContent(type) {
   }
 }
 
+function getExportDownloadSpec(type) {
+  switch (type) {
+    case 'included':
+      return { filename: 'included_studies.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'excluded':
+      return { filename: 'excluded_studies.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'included_ris':
+      return { filename: 'included_studies.ris', mimeType: 'application/x-research-info-systems;charset=utf-8' };
+    case 'excluded_ris':
+      return { filename: 'excluded_studies.ris', mimeType: 'application/x-research-info-systems;charset=utf-8' };
+    case 'included_bibtex':
+      return { filename: 'included_studies.bib', mimeType: 'application/x-bibtex;charset=utf-8' };
+    case 'excluded_bibtex':
+      return { filename: 'excluded_studies.bib', mimeType: 'application/x-bibtex;charset=utf-8' };
+    case 'candidate-duplicates':
+      return { filename: 'candidate_duplicates.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'svg-colorful':
+      return { filename: 'prisma_flow_colorful.svg', mimeType: 'image/svg+xml' };
+    case 'svg-blackwhite':
+      return { filename: 'prisma_flow_blackwhite.svg', mimeType: 'image/svg+xml' };
+    case 'svg-subtle':
+      return { filename: 'prisma_flow_subtle.svg', mimeType: 'image/svg+xml' };
+    case 'report':
+      return { filename: 'screening_report.md', mimeType: 'text/markdown' };
+    case 'quality_appraisal':
+      return { filename: 'quality_appraisal.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'evidence_table':
+      return { filename: 'evidence_table.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'grade_summary':
+      return { filename: 'grade_summary.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'dual_review_conflicts':
+      return { filename: 'dual_review_conflicts.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'dual_review_agreement':
+      return { filename: 'dual_review_agreement.json', mimeType: 'application/json;charset=utf-8' };
+    case 'audit_manifest':
+      return { filename: 'project_manifest.json', mimeType: 'application/json;charset=utf-8' };
+    case 'audit_events':
+      return { filename: 'events.jsonl', mimeType: 'application/x-ndjson;charset=utf-8' };
+    case 'audit_screening_decisions':
+      return { filename: 'screening_decisions.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'audit_exclusion_reasons':
+      return { filename: 'exclusion_reasons.csv', mimeType: 'text/csv;charset=utf-8' };
+    case 'audit_prisma_counts':
+      return { filename: 'prisma_counts.json', mimeType: 'application/json;charset=utf-8' };
+    case 'audit_summary':
+      return { filename: 'audit_summary.md', mimeType: 'text/markdown;charset=utf-8' };
+    case 'defense_audit_pack':
+      return { filename: 'DEFENSE_AUDIT_PACK.md', mimeType: 'text/markdown;charset=utf-8' };
+    case 'ai_usage_registry':
+      return { filename: 'ai_usage_registry.json', mimeType: 'application/json;charset=utf-8' };
+    case 'ai_suggestions':
+      return { filename: 'ai_suggestions.jsonl', mimeType: 'application/x-ndjson;charset=utf-8' };
+    case 'prisma_traice_report':
+      return { filename: 'PRISMA_TRAICE_REPORT.md', mimeType: 'text/markdown;charset=utf-8' };
+    case 'export_snapshot_manifest':
+      return { filename: 'export_snapshot_manifest.json', mimeType: 'application/json;charset=utf-8' };
+    default:
+      return { filename: '', mimeType: '' };
+  }
+}
+
+function buildExportContentForSnapshot(type) {
+  if (isAuditExportType(type)) return buildAuditExportContent(type);
+  if (isDualReviewExportType(type)) return buildDualReviewExportContent(type);
+  switch (type) {
+    case 'quality_appraisal':
+      return buildQualityAppraisalExportContent();
+    case 'evidence_table':
+      return buildEvidenceTableExportContent();
+    case 'grade_summary':
+      return buildGradeSummaryExportContent();
+    default:
+      return '';
+  }
+}
+
+function buildExportSnapshotManifestContent() {
+  if (!AUDIT_ENGINE || typeof AUDIT_ENGINE.buildExportSnapshotManifestJson !== 'function') {
+    return '';
+  }
+  const manifest = ensureProjectManifest();
+  refreshDualReviewConflictState();
+  const artifacts = EXPORT_SNAPSHOT_ARTIFACT_TYPES.map((type) => {
+    const spec = getExportDownloadSpec(type);
+    return {
+      role: type,
+      filename: spec.filename,
+      mediaType: spec.mimeType,
+      content: buildExportContentForSnapshot(type),
+    };
+  });
+  return JSON.stringify(AUDIT_ENGINE.buildExportSnapshotManifestJson(manifest, artifacts), null, 2);
+}
+
 function getResultTableExportType(kind, format) {
   const normalizedKind = kind === 'excluded' ? 'excluded' : 'included';
   const normalizedFormat = ['ris', 'bibtex'].includes(format) ? format : 'csv';
@@ -9030,6 +9144,10 @@ function downloadFile(type) {
       filename = 'PRISMA_TRAICE_REPORT.md';
       mimeType = 'text/markdown;charset=utf-8';
       break;
+    case 'export_snapshot_manifest':
+      filename = 'export_snapshot_manifest.json';
+      mimeType = 'application/json;charset=utf-8';
+      break;
   }
 
   if (filename && typeof appendAuditEventsSafe === 'function') {
@@ -9068,6 +9186,10 @@ function downloadFile(type) {
 
   if (isDualReviewExport) {
     content = buildDualReviewExportContent(type);
+  }
+
+  if (type === 'export_snapshot_manifest') {
+    content = buildExportSnapshotManifestContent();
   }
 
   if (!filename) {
@@ -9119,6 +9241,7 @@ function downloadAllFiles() {
     'audit_summary',
     'defense_audit_pack',
     'audit_events',
+    'export_snapshot_manifest',
     'ai_usage_registry',
     'ai_suggestions',
     'prisma_traice_report',

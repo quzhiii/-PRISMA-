@@ -10,6 +10,11 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   const AUDIT_SCHEMA_VERSION = 'audit.v1';
+  const EXPORT_SNAPSHOT_SCHEMA_VERSION = 'export_snapshot.v1.local';
+  const EXPORT_SNAPSHOT_CONTRACT_VERSION = 'm5.v1';
+  const EXPORT_INTEGRITY_ALGORITHM = 'SHA-256';
+  const EXPORT_PRODUCER = 'PRISMA Workbench';
+  const EXPORT_PRODUCER_VERSION = '2.5-dual-review-release';
 
   const EXCLUSION_REASONS = Object.freeze([
     'wrong_population',
@@ -87,6 +92,83 @@
     }
 
     return value;
+  }
+
+  function stableStringify(value) {
+    if (value === undefined) return 'null';
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+
+  function utf8Bytes(value) {
+    const text = String(value || '');
+    if (typeof TextEncoder === 'function') return Array.from(new TextEncoder().encode(text));
+    const encoded = unescape(encodeURIComponent(text));
+    return Array.from(encoded, (character) => character.charCodeAt(0));
+  }
+
+  function sha256Hex(value) {
+    const bytes = utf8Bytes(value);
+    const bitLength = bytes.length * 8;
+    const paddedLength = ((bytes.length + 9 + 63) >> 6) << 6;
+    const buffer = new Uint8Array(paddedLength);
+    buffer.set(bytes);
+    buffer[bytes.length] = 0x80;
+    const view = new DataView(buffer.buffer);
+    view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000));
+    view.setUint32(paddedLength - 4, bitLength >>> 0);
+
+    const constants = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ];
+    let hash = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    const words = new Uint32Array(64);
+    const rightRotate = (item, amount) => (item >>> amount) | (item << (32 - amount));
+
+    for (let offset = 0; offset < paddedLength; offset += 64) {
+      for (let index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4);
+      for (let index = 16; index < 64; index += 1) {
+        const s0 = rightRotate(words[index - 15], 7) ^ rightRotate(words[index - 15], 18) ^ (words[index - 15] >>> 3);
+        const s1 = rightRotate(words[index - 2], 17) ^ rightRotate(words[index - 2], 19) ^ (words[index - 2] >>> 10);
+        words[index] = (words[index - 16] + s0 + words[index - 7] + s1) >>> 0;
+      }
+
+      let [a, b, c, d, e, f, g, h] = hash;
+      for (let index = 0; index < 64; index += 1) {
+        const s1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+        const choose = (e & f) ^ (~e & g);
+        const temp1 = (h + s1 + choose + constants[index] + words[index]) >>> 0;
+        const s0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+        const majority = (a & b) ^ (a & c) ^ (b & c);
+        const temp2 = (s0 + majority) >>> 0;
+        h = g;
+        g = f;
+        f = e;
+        e = (d + temp1) >>> 0;
+        d = c;
+        c = b;
+        b = a;
+        a = (temp1 + temp2) >>> 0;
+      }
+      hash = hash.map((item, index) => (item + [a, b, c, d, e, f, g, h][index]) >>> 0);
+    }
+
+    return hash.map((item) => item.toString(16).padStart(8, '0')).join('');
+  }
+
+  function sha256Digest(value) {
+    return `sha256:${sha256Hex(value)}`;
   }
 
   function normalizeString(value, fallback) {
@@ -813,6 +895,178 @@
 
   function buildProjectManifestExport(manifestInput) {
     return toExportProjectManifest(manifestInput);
+  }
+
+  function buildExportArtifactDescriptor(artifactInput) {
+    const artifact = artifactInput || {};
+    const filename = normalizeString(artifact.filename || artifact.fileName, 'artifact.txt');
+    const content = String(artifact.content === undefined || artifact.content === null ? '' : artifact.content);
+    const mediaType = normalizeString(artifact.mediaType || artifact.mimeType || artifact.type, 'text/plain;charset=utf-8');
+    return {
+      filename,
+      media_type: mediaType,
+      size_bytes: utf8Bytes(content).length,
+      hash_algorithm: EXPORT_INTEGRITY_ALGORITHM,
+      sha256: sha256Digest(content),
+      role: normalizeString(artifact.role || artifact.exportType, ''),
+    };
+  }
+
+  function buildExportSnapshotManifest(manifestInput, artifactsInput = [], options = {}) {
+    const manifest = createProjectManifest(manifestInput);
+    const generatedAt = normalizeString(options.generatedAt || options.exportedAt, '') || manifest.exportGeneratedAt;
+    const artifacts = (Array.isArray(artifactsInput) ? artifactsInput : [])
+      .map(buildExportArtifactDescriptor)
+      .sort((left, right) => left.filename.localeCompare(right.filename));
+    const artifactDigestPayload = artifacts.map((artifact) => ({
+      filename: artifact.filename,
+      media_type: artifact.media_type,
+      size_bytes: artifact.size_bytes,
+      sha256: artifact.sha256,
+      role: artifact.role,
+    }));
+    const artifactsHash = sha256Digest(stableStringify(artifactDigestPayload));
+    const snapshotId = `export-${sha256Hex(stableStringify({
+      projectId: manifest.projectId,
+      generatedAt,
+      artifactsHash,
+    }))}`;
+
+    return {
+      schemaVersion: EXPORT_SNAPSHOT_SCHEMA_VERSION,
+      contractVersion: EXPORT_SNAPSHOT_CONTRACT_VERSION,
+      producer: EXPORT_PRODUCER,
+      producerVersion: EXPORT_PRODUCER_VERSION,
+      projectId: manifest.projectId,
+      projectName: manifest.projectName,
+      appVersion: manifest.appVersion,
+      auditSchemaVersion: manifest.schemaVersion,
+      generatedAt,
+      snapshotId,
+      artifactCount: artifacts.length,
+      artifacts,
+      integrity: {
+        algorithm: EXPORT_INTEGRITY_ALGORITHM,
+        artifactsHash,
+        manifestHash: '',
+      },
+    };
+  }
+
+  function finalizeExportSnapshotManifest(snapshotInput) {
+    const snapshot = clonePlain(snapshotInput, {});
+    const integrity = {
+      algorithm: EXPORT_INTEGRITY_ALGORITHM,
+      ...(snapshot.integrity || {}),
+      manifestHash: '',
+    };
+    const payload = { ...snapshot, integrity };
+    const manifestHash = sha256Digest(stableStringify(payload));
+    return {
+      ...snapshot,
+      integrity: {
+        ...integrity,
+        manifestHash,
+      },
+    };
+  }
+
+  function buildExportSnapshotManifestJson(manifestInput, artifactsInput = [], options = {}) {
+    return finalizeExportSnapshotManifest(buildExportSnapshotManifest(manifestInput, artifactsInput, options));
+  }
+
+  function diagnoseExportSnapshotManifest(snapshotInput, expectedArtifactsInput = []) {
+    const errors = [];
+    const warnings = [];
+    const snapshot = snapshotInput && typeof snapshotInput === 'object' && !Array.isArray(snapshotInput)
+      ? snapshotInput
+      : null;
+    if (!snapshot) {
+      return { ok: false, errors: [{ code: 'invalid_export_snapshot_shape', message: 'Export Snapshot manifest must be a JSON object.' }], warnings };
+    }
+
+    if (snapshot.schemaVersion !== EXPORT_SNAPSHOT_SCHEMA_VERSION) {
+      errors.push({ code: 'unsupported_export_snapshot_schema', message: 'Export Snapshot schema is not supported.' });
+    }
+    if (snapshot.contractVersion !== EXPORT_SNAPSHOT_CONTRACT_VERSION) {
+      errors.push({ code: 'unsupported_export_snapshot_contract', message: 'Export Snapshot contract is not supported.' });
+    }
+    if (snapshot.producer !== EXPORT_PRODUCER) {
+      errors.push({ code: 'unsupported_export_snapshot_producer', message: 'Export Snapshot producer is not supported.' });
+    }
+    if (snapshot.integrity?.algorithm !== EXPORT_INTEGRITY_ALGORITHM) {
+      errors.push({ code: 'unsupported_export_snapshot_hash', message: 'Export Snapshot hash algorithm is not supported.' });
+    }
+
+    const artifacts = Array.isArray(snapshot.artifacts) ? snapshot.artifacts : [];
+    if (snapshot.artifactCount !== artifacts.length) {
+      errors.push({ code: 'artifact_count_mismatch', message: 'Export Snapshot artifact count does not match the artifact list.' });
+    }
+
+    artifacts.forEach((artifact) => {
+      if (!artifact?.filename) errors.push({ code: 'artifact_filename_missing', message: 'Export artifact filename is missing.' });
+      if (!/^sha256:[0-9a-f]{64}$/.test(String(artifact?.sha256 || ''))) {
+        errors.push({ code: 'artifact_hash_invalid', message: `Export artifact hash is invalid for ${artifact?.filename || 'unknown artifact'}.` });
+      }
+      if (artifact?.hash_algorithm !== EXPORT_INTEGRITY_ALGORITHM) {
+        errors.push({ code: 'artifact_hash_algorithm_invalid', message: `Export artifact hash algorithm is invalid for ${artifact?.filename || 'unknown artifact'}.` });
+      }
+    });
+
+    const expectedArtifacts = Array.isArray(expectedArtifactsInput) ? expectedArtifactsInput.map(buildExportArtifactDescriptor) : [];
+    if (expectedArtifacts.length > 0) {
+      const expectedByFilename = new Map(expectedArtifacts.map((artifact) => [artifact.filename, artifact]));
+      artifacts.forEach((artifact) => {
+        const expected = expectedByFilename.get(artifact.filename);
+        if (!expected) {
+          errors.push({ code: 'unexpected_artifact', message: `Unexpected export artifact: ${artifact.filename}.` });
+          return;
+        }
+        if (artifact.sha256 !== expected.sha256 || artifact.size_bytes !== expected.size_bytes || artifact.media_type !== expected.media_type) {
+          errors.push({ code: 'artifact_integrity_mismatch', message: `Export artifact integrity mismatch: ${artifact.filename}.` });
+        }
+      });
+      expectedArtifacts.forEach((artifact) => {
+        if (!artifacts.some((entry) => entry.filename === artifact.filename)) {
+          errors.push({ code: 'missing_artifact', message: `Expected export artifact is missing: ${artifact.filename}.` });
+        }
+      });
+    } else if (artifacts.length === 0) {
+      warnings.push({ code: 'empty_export_snapshot', message: 'Export Snapshot manifest contains no artifacts.' });
+    }
+
+    const artifactDigestPayload = artifacts
+      .map((artifact) => ({
+        filename: artifact.filename,
+        media_type: artifact.media_type,
+        size_bytes: artifact.size_bytes,
+        sha256: artifact.sha256,
+        role: artifact.role || '',
+      }))
+      .sort((left, right) => left.filename.localeCompare(right.filename));
+    const expectedArtifactsHash = sha256Digest(stableStringify(artifactDigestPayload));
+    if (snapshot.integrity?.artifactsHash !== expectedArtifactsHash) {
+      errors.push({ code: 'artifacts_hash_mismatch', message: 'Export Snapshot artifacts hash cannot be verified.' });
+    }
+
+    const manifestHash = snapshot.integrity?.manifestHash || '';
+    if (!/^sha256:[0-9a-f]{64}$/.test(String(manifestHash))) {
+      errors.push({ code: 'manifest_hash_invalid', message: 'Export Snapshot manifest hash is missing or invalid.' });
+    } else {
+      const payload = clonePlain(snapshot, {});
+      payload.integrity = { ...(payload.integrity || {}), manifestHash: '' };
+      if (manifestHash !== sha256Digest(stableStringify(payload))) {
+        errors.push({ code: 'manifest_hash_mismatch', message: 'Export Snapshot manifest hash cannot be verified.' });
+      }
+    }
+
+    return {
+      ok: errors.length === 0,
+      errors,
+      warnings,
+      artifactCount: artifacts.length,
+      projectId: normalizeString(snapshot.projectId, ''),
+    };
   }
 
   function toExportProjectManifest(manifestInput) {
@@ -1635,6 +1889,8 @@
 
   return {
     AUDIT_SCHEMA_VERSION,
+    EXPORT_SNAPSHOT_SCHEMA_VERSION,
+    EXPORT_SNAPSHOT_CONTRACT_VERSION,
     EXCLUSION_REASONS,
     createAiUsageRegistryEntry,
     upsertAiUsageRegistry,
@@ -1651,6 +1907,9 @@
     summarizeAiSuggestions,
     summarizeV26AdvisoryQueue,
     buildProjectManifestExport,
+    buildExportArtifactDescriptor,
+    buildExportSnapshotManifestJson,
+    diagnoseExportSnapshotManifest,
     buildAiUsageRegistryExport,
     serializeEventsJsonl,
     serializeScreeningDecisionsCsv,

@@ -871,6 +871,7 @@
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_prisma_counts')"><span class="zh">PRISMA 计数 JSON</span><span class="en">PRISMA Counts</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('audit_summary')"><span class="zh">审计摘要 MD</span><span class="en">Audit Summary</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('defense_audit_pack')"><span class="zh">方法附录 / 复核证据包</span><span class="en">Methods Appendix / Review Evidence Package</span></button>
+              <button type="button" class="btn btn-secondary" onclick="downloadFile('export_snapshot_manifest')"><span class="zh">导出快照清单 JSON</span><span class="en">Export Snapshot Manifest</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_usage_registry')"><span class="zh">AI 使用登记 JSON</span><span class="en">AI Usage Registry</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('ai_suggestions')"><span class="zh">AI 建议日志 JSONL</span><span class="en">AI Suggestion Log</span></button>
               <button type="button" class="btn btn-secondary" onclick="downloadFile('prisma_traice_report')"><span class="zh">PRISMA-trAIce MD</span><span class="en">PRISMA-trAIce MD</span></button>
@@ -924,6 +925,10 @@
                   <tr style="border-bottom: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>DEFENSE_AUDIT_PACK.md</code></td>
                     <td style="padding: 4px 8px;"><span class="zh">方法附录 / 复核证据包：整合 PRISMA 计数、双审冲突、一致性指标、质量评价、中文源可靠性提醒和 AI 边界说明；使用前需由研究者核对</span><span class="en">Methods appendix / review evidence package: combines PRISMA counts, dual-review conflict status, agreement metrics, quality appraisal, Chinese-source reliability warnings, and AI boundary notes; researcher verification is required before use.</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid var(--border, #eee);">
+                    <td style="padding: 4px 8px;"><code>export_snapshot_manifest.json</code></td>
+                    <td style="padding: 4px 8px;"><span class="zh">M5 导出快照清单：列出证据包文件、媒体类型、字节数、SHA-256 hash、producer 和 manifest hash，用于复核本地导出集合是否一致。</span><span class="en">M5 export snapshot manifest: lists evidence-package files, media types, byte counts, SHA-256 hashes, producer, and manifest hash so a local export set can be checked for consistency.</span></td>
                   </tr>
                   <tr style="border-top: 1px solid var(--border, #eee);">
                     <td style="padding: 4px 8px;"><code>ai_usage_registry.json</code></td>

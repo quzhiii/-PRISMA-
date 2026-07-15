@@ -406,6 +406,68 @@ test('serializes audit package artifacts with stable escaping', () => {
   assert.match(zhSummary, /AI 建议不会/);
 });
 
+test('builds and verifies an M5 export snapshot manifest with artifact hashes', () => {
+  const manifest = AuditEngine.createProjectManifest({
+    projectId: 'project-1',
+    projectName: 'Export Snapshot Review',
+    appVersion: 'v2.5',
+  });
+  const artifacts = [
+    {
+      role: 'audit_manifest',
+      filename: 'project_manifest.json',
+      mediaType: 'application/json;charset=utf-8',
+      content: JSON.stringify(AuditEngine.buildProjectManifestExport(manifest), null, 2),
+    },
+    {
+      role: 'audit_screening_decisions',
+      filename: 'screening_decisions.csv',
+      mediaType: 'text/csv;charset=utf-8',
+      content: AuditEngine.serializeScreeningDecisionsCsv([
+        AuditEngine.createScreeningDecision({
+          decisionId: 'decision-1',
+          projectId: 'project-1',
+          recordId: 'record-1',
+          stage: 'full_text',
+          reviewerId: 'reviewer_A',
+          decision: 'include',
+        }),
+      ]),
+    },
+  ];
+
+  const snapshot = AuditEngine.buildExportSnapshotManifestJson(manifest, artifacts, {
+    generatedAt: '2026-07-15T00:00:00.000Z',
+  });
+  const diagnosis = AuditEngine.diagnoseExportSnapshotManifest(snapshot, artifacts);
+
+  assert.equal(snapshot.schemaVersion, 'export_snapshot.v1.local');
+  assert.equal(snapshot.contractVersion, 'm5.v1');
+  assert.equal(snapshot.producer, 'PRISMA Workbench');
+  assert.equal(snapshot.producerVersion, '2.5-dual-review-release');
+  assert.equal(snapshot.integrity.algorithm, 'SHA-256');
+  assert.match(snapshot.snapshotId, /^export-[0-9a-f]{64}$/);
+  assert.match(snapshot.integrity.artifactsHash, /^sha256:[0-9a-f]{64}$/);
+  assert.match(snapshot.integrity.manifestHash, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(snapshot.artifactCount, 2);
+  assert.deepEqual(snapshot.artifacts.map((artifact) => artifact.filename), [
+    'project_manifest.json',
+    'screening_decisions.csv',
+  ]);
+  assert.ok(snapshot.artifacts.every((artifact) => artifact.hash_algorithm === 'SHA-256'));
+  assert.ok(snapshot.artifacts.every((artifact) => /^sha256:[0-9a-f]{64}$/.test(artifact.sha256)));
+  assert.deepEqual(diagnosis.errors, []);
+  assert.equal(diagnosis.ok, true);
+
+  const tampered = {
+    ...snapshot,
+    artifacts: snapshot.artifacts.map((artifact) => artifact.filename === 'screening_decisions.csv'
+      ? { ...artifact, size_bytes: artifact.size_bytes + 1 }
+      : artifact),
+  };
+  assert.ok(AuditEngine.diagnoseExportSnapshotManifest(tampered, artifacts).errors.some((error) => error.code === 'artifact_integrity_mismatch'));
+});
+
 test('serializes AI suggestion review trace fields in JSONL exports', () => {
   const acceptedJsonl = AuditEngine.serializeAiSuggestionEventsJsonl([
     AuditEngine.createAiSuggestionEvent({
@@ -479,6 +541,7 @@ test('v2.2 app exposes all audit export download types', async () => {
     'ai_usage_registry',
     'ai_suggestions',
     'prisma_traice_report',
+    'export_snapshot_manifest',
     'defense_audit_pack',
   ];
   const expectedFiles = [
@@ -491,6 +554,7 @@ test('v2.2 app exposes all audit export download types', async () => {
     'ai_usage_registry.json',
     'ai_suggestions.jsonl',
     'PRISMA_TRAICE_REPORT.md',
+    'export_snapshot_manifest.json',
     'DEFENSE_AUDIT_PACK.md',
   ];
 
@@ -501,6 +565,9 @@ test('v2.2 app exposes all audit export download types', async () => {
   assert.match(source, /buildAuditSummaryMarkdown\(manifest, auditEvents, screeningDecisions, \{[\s\S]*aiSuggestionEvents,/);
   assert.match(source, /case 'defense_audit_pack':/);
   assert.match(source, /buildDefenseReadyAuditPackMarkdown\(/);
+  assert.match(source, /buildExportSnapshotManifestContent/);
+  assert.match(source, /buildExportSnapshotManifestJson/);
+  assert.match(source, /EXPORT_SNAPSHOT_ARTIFACT_TYPES/);
 });
 
 test('v2.2 app summarizes reliability warnings with source and warning-type rollups for defense pack', async () => {
@@ -586,6 +653,7 @@ test('v2.5 conflict gate blocks final exports while keeping evidence exports ava
     'audit_screening_decisions',
     'audit_exclusion_reasons',
     'defense_audit_pack',
+    'export_snapshot_manifest',
     'dual_review_conflicts',
     'dual_review_agreement',
   ].forEach((type) => assert.match(evidenceGateBlock[1], new RegExp(`'${type}'`)));
@@ -612,10 +680,13 @@ test('v2.2 workspace includes the audit package export buttons', async () => {
   assert.match(workspaceHtml, /downloadFile\('audit_prisma_counts'\)/);
   assert.match(workspaceHtml, /downloadFile\('audit_summary'\)/);
   assert.match(workspaceHtml, /downloadFile\('defense_audit_pack'\)/);
+  assert.match(workspaceHtml, /downloadFile\('export_snapshot_manifest'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_usage_registry'\)/);
   assert.match(workspaceHtml, /downloadFile\('ai_suggestions'\)/);
   assert.match(workspaceHtml, /downloadFile\('prisma_traice_report'\)/);
   assert.match(workspaceHtml, /Methods Appendix \/ Review Evidence Package/);
+  assert.match(workspaceHtml, /export_snapshot_manifest\.json/);
+  assert.match(workspaceHtml, /SHA-256/);
   assert.match(workspaceHtml, /downloadFile\('quality_appraisal'\)/);
   assert.match(workspaceHtml, /quality_appraisal\.csv/);
   assert.match(workspaceHtml, /downloadFile\('evidence_table'\)/);

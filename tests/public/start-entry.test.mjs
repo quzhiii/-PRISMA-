@@ -101,4 +101,7 @@ test('M3 source keeps recovery truthful and preserves M4/M7 boundaries', async (
   assert.match(bundleEngine, /reviewer_bundle\.v1\.local/);
   const historyEngine = await readRepoFile('literature-screening-v2.2/project-history-engine.js');
   assert.match(historyEngine, /project_history\.v2\.5\.1/);
+  const auditEngine = await readRepoFile('literature-screening-v2.2/audit-engine.js');
+  assert.match(auditEngine, /export_snapshot\.v1\.local/);
+  assert.match(auditEngine, /m5\.v1/);
 });

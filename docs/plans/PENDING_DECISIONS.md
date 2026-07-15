@@ -71,7 +71,7 @@ These decisions must be resolved before the corresponding release-train work pro
 | Bundle integrity hash | Keep `rbp:` as the legacy base-fingerprint compatibility field; use deterministic SHA-256 fields for source manifest, records, decisions, integrity metadata, and bundle ID | M4 implementation |
 | Duplicate bundle policy | Reject an already applied Decision Bundle by its deterministic `bundleId`; a newer replacement policy remains deferred until an explicit replacement contract exists | M4 implementation |
 | History model | Preserve current snapshots until a migration exists; do not call them replayable or hash-verified checkpoints | M7 implementation |
-| Export manifest scope | Current manifest is project metadata; decide archive/artifact list, hashes, producer, and Export Snapshot binding | M5 evidence contract |
+| Export manifest scope | Keep `project_manifest.json` as project metadata; add `export_snapshot.v1.local` / `m5.v1` as the evidence export manifest that binds artifact filename, media type, byte size, SHA-256 hash, producer, artifact hash, and manifest hash for the local export set | M5 evidence contract |
 | Import checkpoint semantics | Treat current prompt as restart, not resume; define file identity, adapter version, checkpoint schema, and legal stage transitions | M7 implementation |
 | AI provenance invariant | Keep UI advisory-only; require package/export validation before claiming that all countable decisions have human provenance | M5 closeout |
 
