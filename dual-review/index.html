@@ -17,10 +17,10 @@
       <main class="section-stack">
         <section class="landing-hero">
           <div>
-            <div class="eyebrow">V2.5 file-based collaboration</div>
-            <h1 class="hero-title"><span class="zh">双人复核设置，不提供在线身份服务。</span><span class="en">Dual-review setup without an online identity service.</span></h1>
-            <p class="hero-description"><span class="zh">无需账号。不提供在线项目查询，也不提供实时同步。工作台使用浏览器本地状态；跨设备协作通过文件交接完成。</span><span class="en">No account is required. No online project lookup and no real-time sync are provided. The workspace uses browser-local state; cross-device collaboration happens through file handoff.</span></p>
-            <div class="hero-actions"><a class="cta-link primary" href="../start/?review=dual"><span class="zh">选择项目入口并设置 Reviewer A / B</span><span class="en">Choose a project entry and set Reviewer A / B</span></a></div>
+            <div class="eyebrow">Dual-review file handoff</div>
+            <h1 class="hero-title"><span class="zh">两位复核者可以用本地文件完成独立筛选交接。</span><span class="en">Two reviewers can hand off independent screening with local files.</span></h1>
+            <p class="hero-description"><span class="zh">适合一位项目负责人和两位复核者分工：负责人导出起点文件，Reviewer A / B 各自筛选，再把决定文件交回合并。整个交接过程不需要注册账号。</span><span class="en">Use this for one project owner and two reviewers: the owner exports a start file, Reviewer A / B screen separately, then return decision files for merge. The handoff needs no account.</span></p>
+            <div class="hero-actions"><a class="cta-link primary" href="../start/?review=dual"><span class="zh">开始双人复核项目</span><span class="en">Start a dual-review project</span></a></div>
           </div>
           <div class="hero-metrics">
             <div class="hero-metric"><strong><span class="zh">无账号</span><span class="en">No account</span></strong><span><span class="zh">浏览器本地运行</span><span class="en">Browser-local workflow</span></span></div>
@@ -29,15 +29,15 @@
           </div>
         </section>
         <section>
-          <div class="section-heading"><div><h2><span class="zh">当前可用的协作流程</span><span class="en">Current collaboration flow</span></h2><p><span class="zh">完整项目保存/加载仍是单独的备份路径；下面的 Reviewer Bundle 只处理复核交接。</span><span class="en">Full-project save/load remains a separate backup path. Reviewer Bundle files handle review handoff only.</span></p></div></div>
+          <div class="section-heading"><div><h2><span class="zh">三步完成文件交接</span><span class="en">Three-step file handoff</span></h2><p><span class="zh">如果你只是想备份整个项目，请使用工作台里的项目保存；这里主要用于 A/B 复核结果交接。</span><span class="en">For a full-project backup, use project save in the workspace. This page focuses on A/B review handoff.</span></p></div></div>
           <div class="workflow-grid">
-            <article class="workflow-step"><div class="workflow-index">STEP 01</div><h3>Collaboration Seed</h3><p><span class="zh">项目负责人在已有本地项目中导出 Collaboration Seed，复核者导入该文件建立独立上下文。Seed 使用 `reviewer_bundle.v1.local` + `m4.v1` 合同，包含 SHA-256 来源清单、记录数量和记录 hash。</span><span class="en">The project owner exports a Collaboration Seed and the reviewer imports it to create an independent context. The Seed uses the `reviewer_bundle.v1.local` + `m4.v1` contract with SHA-256 source-manifest, record-count, and record hashes.</span></p></article>
-            <article class="workflow-step"><div class="workflow-index">STEP 02</div><h3>Reviewer Decision Bundle</h3><p><span class="zh">Reviewer A 或 B 在自己的项目上下文中记录决定，并导出只包含其复核值的 Decision Bundle。导入前会验证 reviewer ID、项目 ID、记录 hash、决定 hash 和重复导入状态。</span><span class="en">Reviewer A or B records decisions in the independent context and exports a scoped Decision Bundle. Import validates reviewer ID, project ID, record hash, decisions hash, and duplicate-application state.</span></p></article>
-            <article class="workflow-step"><div class="workflow-index">STEP 03</div><h3><span class="zh">Merge import</span><span class="en">Merge import</span></h3><p><span class="zh">项目负责人将 Bundle 导入现有项目；非法修改、缺失记录、错误项目和重复 Bundle 会先被拒绝，合法 Bundle 才会刷新冲突队列、一致性指标和导出门禁。</span><span class="en">The owner imports the Bundle into the existing project. Tampering, missing records, wrong projects, and duplicate bundles are rejected before valid bundles refresh conflicts, agreement metrics, and the export gate.</span></p></article>
+            <article class="workflow-step"><div class="workflow-index">STEP 01</div><h3>Collaboration Seed</h3><p><span class="zh">项目负责人从已有项目导出 Seed，发给 Reviewer A / B。Seed 会带上项目和记录校验信息，包括 `reviewer_bundle.v1.local`、`m4.v1` 和 SHA-256 记录 hash。</span><span class="en">The owner exports a Seed from the project and sends it to Reviewer A / B. The Seed carries project and record checks, including `reviewer_bundle.v1.local`, `m4.v1`, and SHA-256 record hashes.</span></p></article>
+            <article class="workflow-step"><div class="workflow-index">STEP 02</div><h3>Reviewer Decision Bundle</h3><p><span class="zh">Reviewer A 或 B 在自己的电脑上完成筛选后，导出只属于自己的 Decision Bundle。文件会标明复核者、项目、记录和决定 hash。</span><span class="en">Reviewer A or B screens on their own computer, then exports a Decision Bundle for that reviewer only. The file records reviewer, project, record, and decision hashes.</span></p></article>
+            <article class="workflow-step"><div class="workflow-index">STEP 03</div><h3><span class="zh">Merge import</span><span class="en">Merge import</span></h3><p><span class="zh">项目负责人导入 Decision Bundle 后，工作台会检查项目、记录、复核者范围和重复 Bundle，再刷新冲突队列、一致性指标和导出状态。</span><span class="en">After the owner imports a Decision Bundle, the workspace checks project, records, reviewer scope, and duplicate bundles, then refreshes conflicts, agreement metrics, and export state.</span></p></article>
           </div>
         </section>
         <section>
-          <div class="info-box"><strong><span class="zh">边界说明</span><span class="en">Boundary</span></strong><p><span class="zh">项目 ID 只是本地项目标识，不是网络地址。应用不会在服务器上查找该 ID，也不会自动等待另一位复核者的数据。</span><span class="en">A project ID is a local identifier, not a network address. The application does not look it up on a server or automatically wait for another reviewer's data.</span></p></div>
+          <div class="info-box"><strong><span class="zh">协作提示</span><span class="en">Collaboration note</span></strong><p><span class="zh">项目 ID 用来确认文件属于同一个本地项目。请通过导出的 JSON 文件交换结果，并在合并后查看冲突队列和一致性指标。</span><span class="en">The project ID confirms that files belong to the same local project. Exchange results through exported JSON files, then review the conflict queue and agreement metrics after merge.</span></p></div>
         </section>
       </main>
       <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="../resources/"><span class="zh">资源中心</span><span class="en">Resources</span></a></footer>

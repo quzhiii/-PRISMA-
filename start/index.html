@@ -19,8 +19,8 @@
         <section class="landing-hero start-hero">
           <div>
             <div class="eyebrow">Start / Resume</div>
-            <h1 class="hero-title"><span class="zh">从一个明确的项目起点开始。</span><span class="en">Start from one clear project entry.</span></h1>
-            <p class="hero-description"><span class="zh">先选择 Demo、新建并导入，或恢复已有项目；进入工作台后再选择单人或双人独立复核。项目记录默认留在当前浏览器，应用不会自动上传。</span><span class="en">Choose a demo, a new import, or an existing project first; then choose single or dual independent review in the workspace. Project records stay in this browser by default and are not uploaded automatically.</span></p>
+            <h1 class="hero-title"><span class="zh">先选一种起步方式，再进入筛选工作台。</span><span class="en">Choose a start path, then enter the screening workspace.</span></h1>
+            <p class="hero-description"><span class="zh">第一次使用可以先体验 Demo；正式项目请准备数据库导出的 CSV、RIS、NBIB 或 ENW 文件；已有项目可以从 JSON 备份恢复。进入工作台后，再选择单人筛选或双人独立筛选。项目记录默认保存在当前浏览器，需要分享时由你主动导出。</span><span class="en">First-time users can try the demo. Formal projects can start from CSV, RIS, NBIB, or ENW database exports. Existing projects can resume from a JSON backup. After entering the workspace, choose single review or dual independent review. Project records are saved in the current browser by default and shared by explicit export.</span></p>
           </div>
           <div class="start-mode-panel" aria-label="Review mode">
             <span class="start-mode-label"><span class="zh">复核方式</span><span class="en">Review mode</span></span>
@@ -28,12 +28,12 @@
               <button type="button" class="btn btn-primary" id="singleModeButton" data-review-mode="single"><span class="zh">单人筛选</span><span class="en">Single review</span></button>
               <button type="button" class="btn btn-secondary" id="dualModeButton" data-review-mode="dual"><span class="zh">双人独立筛选</span><span class="en">Dual independent review</span></button>
             </div>
-            <p class="muted-text"><span class="zh">双人模式仍使用本地状态和文件交接，不提供账号或实时同步。</span><span class="en">Dual mode still uses local state and file handoff, without accounts or real-time sync.</span></p>
+            <p class="muted-text"><span class="zh">双人模式通过本地文件交接 A/B 结果，适合同伴各自筛选后再合并。</span><span class="en">Dual mode hands off A/B results with local files, suitable for reviewers who screen separately and merge later.</span></p>
           </div>
         </section>
 
         <section>
-          <div class="section-heading"><div><h2><span class="zh">选择项目起点</span><span class="en">Choose a project start</span></h2><p><span class="zh">每条路径都会说明准备内容、数据边界、目标阶段和可撤销范围。</span><span class="en">Each path states what to prepare, the data boundary, target stage, and rollback scope.</span></p></div></div>
+          <div class="section-heading"><div><h2><span class="zh">选择项目起点</span><span class="en">Choose a project start</span></h2><p><span class="zh">每条路径都会告诉你要准备什么、会进入哪一步、会不会影响已有项目。</span><span class="en">Each path tells you what to prepare, where it enters the workflow, and how it affects existing projects.</span></p></div></div>
           <div class="route-grid start-route-grid">
             <article class="route-card" data-start-mode="demo">
               <div><div class="route-top"><span class="route-badge">Demo</span><span class="pill"><span class="zh">无需文件</span><span class="en">No file</span></span></div><h3><span class="zh">体验 Demo</span><span class="en">Try the demo</span></h3><p class="route-meta"><span class="zh">适合第一次了解导入、去重和筛选流程。</span><span class="en">For a first look at import, deduplication, and screening.</span></p><dl class="start-contract"><div><dt><span class="zh">适用场景</span><span class="en">Use case</span></dt><dd><span class="zh">快速体验</span><span class="en">Quick walkthrough</span></dd></div><div><dt><span class="zh">需要准备</span><span class="en">Prepare</span></dt><dd><span class="zh">无需上传</span><span class="en">Nothing</span></dd></div><div><dt><span class="zh">数据边界</span><span class="en">Data boundary</span></dt><dd><span class="zh">公开样例，本地处理</span><span class="en">Public sample, local processing</span></dd></div><div><dt><span class="zh">进入阶段</span><span class="en">Stage</span></dt><dd><span class="zh">导入后规则配置</span><span class="en">Post-import criteria</span></dd></div><div><dt><span class="zh">可撤销</span><span class="en">Reversible</span></dt><dd><span class="zh">可关闭，不覆盖旧项目</span><span class="en">Close without replacing old projects</span></dd></div><div><dt><span class="zh">产生文件</span><span class="en">Files</span></dt><dd><span class="zh">仅主动导出时产生</span><span class="en">Only on explicit export</span></dd></div></dl></div><div class="route-actions"><a class="cta-link secondary start-link" href="../app/?start=demo" data-app-start="demo"><span class="zh">加载公开 Demo</span><span class="en">Load public demo</span></a></div>
@@ -48,7 +48,7 @@
         </section>
       </main>
 
-      <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="../dual-review/"><span class="zh">双人复核边界</span><span class="en">Dual-review boundary</span></a></footer>
+      <footer class="footer-row"><span><span class="zh">独立开源项目，不隶属于 PRISMA Statement 官方组织，也未获其授权或背书。</span><span class="en">Independent open-source project; not affiliated with, authorized by, or endorsed by the PRISMA Statement.</span></span><a class="mini-link" href="../dual-review/"><span class="zh">双人复核说明</span><span class="en">Dual-review guide</span></a></footer>
     </div>
   </div>
   <script>

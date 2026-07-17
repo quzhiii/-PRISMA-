@@ -106,48 +106,50 @@ test('legacy HTML entry points are noindex compatibility aliases to canonical ro
 test('dual-review setup describes browser-local file handoff without account or sync claims', async () => {
   const page = await readRepoFile('dual-review/index.html');
 
-  assert.match(page, /无需账号|No account/i);
-  assert.match(page, /不提供在线项目查询|No online project lookup/i);
-  assert.match(page, /不提供实时同步|No real-time sync/i);
+  assert.match(page, /不需要注册账号|needs no account/i);
+  assert.match(page, /本地文件|local files/i);
+  assert.match(page, /项目负责人|project owner/i);
   assert.match(page, /Collaboration Seed/);
   assert.match(page, /Reviewer Decision Bundle/);
   assert.match(page, /SHA-256/);
   assert.match(page, /m4\.v1/);
   assert.match(page, /重复 Bundle/);
-  assert.match(page, /浏览器本地状态|browser-local state/i);
+  assert.match(page, /浏览器本地运行|browser-local workflow/i);
   assert.doesNotMatch(page, /登录|加入项目|等待同步|项目连接|\blogin\b|join project|wait(?:ing)? for sync|project connection/i);
 });
 
-test('methods page explains evidence layers and limits without overclaiming', async () => {
+test('methods page presents a beginner-friendly public workflow guide without overclaiming', async () => {
   const page = await readRepoFile('methods/index.html');
   const homepage = await readRepoFile('index.html');
   const resources = await readRepoFile('resources/index.html');
 
-  assert.match(page, /M5 methods and evidence/i);
-  assert.match(page, /E1/);
-  assert.match(page, /E2/);
-  assert.match(page, /E3/);
-  assert.match(page, /E4/);
+  assert.match(page, /Methods guide/i);
+  assert.match(page, /第一次接触系统综述/u);
+  assert.match(page, /从 Demo 或导入开始/u);
+  assert.match(page, /流程里会留下哪些记录/u);
+  assert.match(page, /每条记录来自哪个文件/u);
+  assert.match(page, /硬重复和疑似重复分开处理/u);
+  assert.match(page, /筛选结论和理由可追溯/u);
+  assert.match(page, /双人复核怎么交接/u);
+  assert.match(page, /可以导出哪些材料/u);
+  assert.match(page, /给需要复现的人/u);
   assert.match(page, /export_snapshot\.v1\.local/);
   assert.match(page, /m5\.v1/);
   assert.match(page, /SHA-256/);
   assert.match(page, /reviewer_bundle\.v1\.local/);
   assert.match(page, /m4\.v1/);
-  assert.match(page, /Data fidelity protocol/i);
-  assert.match(page, /Version and reproduction/i);
   assert.match(page, /project_history\.v2\.5\.1/);
   assert.match(page, /PRISMA_LiteratureDB_v2\.2/);
-  assert.match(page, /warnings do not silently rewrite records or decisions/i);
-  assert.match(page, /source-quality warnings do not automatically create or change a `ScreeningDecision`/i);
   assert.match(page, /node tests\/run-all-regressions\.js/);
   assert.match(page, /node scripts\/build-public-site\.mjs/);
   assert.match(page, /AI suggestions are recorded in a separate suggestion log/);
-  assert.match(page, /External validation remains planned/);
+  assert.match(page, /Real-project validation is planned/);
   assert.match(page, /not affiliated with, authorized by, or endorsed by the PRISMA Statement/i);
   assert.match(homepage, /href="methods\/"/);
   assert.match(resources, /href="\.\.\/methods\/"/);
   assert.doesNotMatch(page, /audit-ready|defense-ready|research-grade|standard PRISMA 2020|certified|validated in real projects/i);
   assert.doesNotMatch(page, /data (?:never leaves|stays in) (?:the )?browser/i);
+  assert.doesNotMatch(page, /用可复核证据说明工作流|承诺替代验证|限制可见|M5 methods and evidence|当前实现|验证证据分层|数据保真协议|导出与复核合同|已知限制|unsupported promises|No invented external validation/i);
 });
 
 test('public copy keeps one release identity and avoids unsupported assurance language', async () => {
@@ -164,6 +166,7 @@ test('public copy keeps one release identity and avoids unsupported assurance la
   assert.doesNotMatch(combined, /ready for the PRISMA 2020 checklist/i);
   assert.doesNotMatch(combined, /数据不离开浏览器|data (?:never leaves|stays in) (?:the )?browser/i);
   assert.doesNotMatch(combined, /绝对安全|完全保障|100% secure|completely secure/i);
+  assert.doesNotMatch(combined, /用可复核证据说明工作流|承诺替代验证|限制可见|不虚构外部验证|M5 methods and evidence|No invented external validation|unsupported promises/i);
 });
 
 test('public-site build emits only allowlisted static artifacts', async () => {

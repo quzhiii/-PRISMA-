@@ -15,6 +15,7 @@ const publicIdentityFiles = [
   'index.html',
   'app/index.html',
   'dual-review/index.html',
+  'methods/index.html',
   'resources/index.html',
   'legacy/index.html',
 ];

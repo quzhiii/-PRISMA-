@@ -148,8 +148,8 @@ test('public V2.5 release labels are synchronized across page shells', async () 
   ]);
 
   assert.match(rootIndexHtml, /V2\.5 dual-review closeout/i);
-  assert.match(rootIndexHtml, /打开 V2\.5 工作台|Open V2\.5 workspace/);
-  assert.match(rootIndexHtml, /双人复核设置|Dual-review setup/);
+  assert.match(rootIndexHtml, /开始一个项目|Start a project/i);
+  assert.match(rootIndexHtml, /双人复核|Dual review/i);
   assert.match(indexHtml, /PRISMA Workbench v2\.5/);
   assert.match(indexHtml, /V2\.5 dual-review closeout/i);
   assert.match(workspaceHtml, /PRISMA Literature Screening v2\.5/);
@@ -165,11 +165,11 @@ test('official homepage explains product paths without workspace overload', asyn
   const indexHtml = await readV22File('index.html');
 
   assert.match(indexHtml, /Who it is for|适合谁|使用场景/i);
-  assert.match(indexHtml, /Why.*PRISMA|为什么选择|different from.*diagram/i);
-  assert.match(indexHtml, /Local-first|本地优先/i);
-  assert.match(indexHtml, /designed for traceability|可追溯、面向复核/i);
-  assert.match(indexHtml, /Open Workspace|打开 V2\.5 工作台/);
-  assert.match(indexHtml, /Dual-review setup|双人复核设置/);
+  assert.match(indexHtml, /What it helps organize|它帮你整理什么/i);
+  assert.match(indexHtml, /Local save|本地保存/i);
+  assert.match(indexHtml, /可追溯导出|Traceable exports/i);
+  assert.match(indexHtml, /Start a project|开始一个项目/i);
+  assert.match(indexHtml, /Dual review|双人复核/i);
   assert.match(indexHtml, /Resources|资源中心/);
   assert.doesNotMatch(indexHtml, /\bV3(?:\.0)?\b/i);
   assert.doesNotMatch(indexHtml, /audit-ready/i);
@@ -723,12 +723,13 @@ test('v2.7 import reliability warnings surface without automatic final decisions
 });
 
 test('public docs and workspace position sample data as a public demo dataset', async () => {
-  const [readme, readmeEn, roadmap, workspaceHtml, landingHtml, appSource] = await Promise.all([
+  const [readme, readmeEn, roadmap, workspaceHtml, landingHtml, resourcesHtml, appSource] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'README.md'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'README_EN.md'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'docs/ROADMAP_2026.md'), 'utf8'),
     readV22File('workspace.html'),
     readV22File('landing.html'),
+    readV22File('resources.html'),
     readV22App(),
   ]);
 
@@ -736,7 +737,8 @@ test('public docs and workspace position sample data as a public demo dataset', 
   assert.match(readmeEn, /Public demo guide/i);
   assert.match(roadmap, /Demo dataset \| 可公开的演示数据/);
   assert.match(workspaceHtml, /公开演示数据|public demo dataset/i);
-  assert.match(landingHtml, /公开演示数据|public demo data/i);
+  assert.match(landingHtml, /Demo 熟悉流程|Try the demo first/i);
+  assert.match(resourcesHtml, /公开演示数据|Public demo/i);
   assert.match(appSource, /public demo dataset|公开演示数据/i);
 });
 
@@ -825,21 +827,22 @@ test('roadmap captures release hardening and formal website direction before val
   assert.match(roadmap, /Commercial validation remains|commercial validation 仍然|商业验证仍然/i);
 });
 
-test('release-facing pages keep primary entry clean while docs surface V3 preparation assets', async () => {
+test('release-facing pages keep the public entry beginner-friendly while docs stay linked from resources', async () => {
   const [rootIndexHtml, indexHtml, landingHtml] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'index.html'), 'utf8'),
     readV22File('index.html'),
     readV22File('landing.html'),
   ]);
 
-  assert.match(rootIndexHtml, /公开演示数据|public demo data/i);
-  assert.match(rootIndexHtml, /复现基准|reproducibility benchmarks/i);
-  assert.match(rootIndexHtml, /筛选模板|review templates/i);
+  assert.match(rootIndexHtml, /从文献检索结果开始，完成去重、筛选、复核和 PRISMA 导出/);
+  assert.match(rootIndexHtml, /适合第一次做系统综述的学生|students starting their first systematic review/i);
+  assert.match(rootIndexHtml, /模板和示例|Templates and examples/i);
   assert.doesNotMatch(indexHtml, /href="[^\"]*sample-data\.json"/);
   assert.doesNotMatch(indexHtml, /href="[^\"]*docs\/benchmarks\/README\.md"/);
   assert.doesNotMatch(indexHtml, /href="[^\"]*docs\/papers\/README\.md"/);
   assert.equal(landingHtml, indexHtml);
-  assert.match(indexHtml, /Open Workspace/);
+  assert.match(indexHtml, /开始一个项目|Start a project/i);
+  assert.match(indexHtml, /了解流程|Learn the workflow/i);
   assert.doesNotMatch(indexHtml, /\bV3(?:\.0)?\b/i);
 });
 
@@ -853,11 +856,12 @@ test('release-facing pages route allowlisted assets through an unversioned resou
   assert.match(indexHtml, /href="resources\/"/);
   assert.equal(landingHtml, indexHtml);
   assert.match(resourcesHtml, /PRISMA Workbench 资源中心/);
+  assert.match(resourcesHtml, /从示例、模板和说明开始/);
   assert.match(resourcesHtml, /公开演示数据/);
-  assert.match(resourcesHtml, /可复现基准/);
+  assert.match(resourcesHtml, /基准复现/);
   assert.match(resourcesHtml, /模板包/);
-  assert.match(resourcesHtml, /检索策略助手/);
-  assert.doesNotMatch(resourcesHtml, /<span class="zh">[^<]*(public demo dataset|benchmark package|paper skeleton|Workflow Kits|Review Starter Kits|Search Strategy Assistant|Demo|Benchmark|Paper|Design|Boundary|Skeleton|Tests)[^<]*<\/span>/i);
+  assert.match(resourcesHtml, /方法说明|Methods guide/i);
+  assert.doesNotMatch(resourcesHtml, /<span class="zh">[^<]*(public demo dataset|benchmark package|paper skeleton|Workflow Kits|Review Starter Kits|Search Strategy Assistant|Paper|Design|Boundary|Skeleton|Tests)[^<]*<\/span>/i);
   assert.match(resourcesHtml, /sample-data\.json/);
   assert.match(resourcesHtml, /docs\/demo\/README\.md/);
   assert.match(resourcesHtml, /docs\/benchmarks\/README\.md/);
@@ -873,11 +877,11 @@ test('release-facing pages expose dual-review entry and current V2.5 wording', a
   ]);
 
   assert.match(indexHtml, /href="dual-review\/"/);
-  assert.match(indexHtml, /双人复核设置|Dual-review setup/);
+  assert.match(indexHtml, /双人复核|Dual review/i);
   assert.match(indexHtml, /A\/B 决定隔离，冲突由 resolver 处理/);
   assert.match(indexHtml, /未解决冲突导出门禁/);
   assert.equal(landingHtml, indexHtml);
-  assert.match(loginHtml, /双人复核设置|Dual-review setup/);
+  assert.match(loginHtml, /两位复核者可以用本地文件完成独立筛选交接|Two reviewers can hand off independent screening with local files/i);
   assert.match(loginHtml, /No account|无需账号/i);
   assert.doesNotMatch(loginHtml, /登录|加入项目|等待同步|\blogin\b|join project|wait(?:ing)? for sync/i);
 });
