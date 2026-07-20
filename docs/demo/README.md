@@ -10,14 +10,14 @@ This guide walks you through the PRISMA Workbench workflow using the public demo
 
 ## Dataset Overview
 
-The demo dataset contains 22 records covering hypertension and Traditional Chinese Medicine research from 5 source databases:
+The demo dataset contains 21 records covering hypertension and Traditional Chinese Medicine research from 5 source databases:
 
 | Source | Records | Purpose |
 |---|---|---|
-| CNKI | 10 | Normal records, noisy abstracts, truncated abstracts, legitimate fund wording |
-| Wanfang | 3 | Fullwidth volume/issue notation, DOI mapping |
+| CNKI | 11 | Normal records, noisy abstracts, truncated abstracts, legitimate fund wording, DOI and title duplicate demonstrations |
+| Wanfang | 2 | Fullwidth volume/issue notation, DOI mapping |
 | VIP | 3 | Mixed headers, classification codes, missing abstracts |
-| SinoMed | 3 | PMID mapping, partial source mapping, incomplete fields |
+| SinoMed | 2 | PMID mapping, partial source mapping, incomplete fields |
 | PubMed | 3 | English systematic review, meta-analysis, review |
 
 ### Chinese-Source Reliability Signals
@@ -33,14 +33,16 @@ The dataset includes records that demonstrate source-quality warnings:
 
 The dataset includes:
 - 1 exact DOI duplicate (same DOI `10.1234/tcm.2023.001`)
-- 1 title duplicate (similar title, slightly different content)
+- 1 title candidate duplicate identified by the current `DedupEngine.run` output: two records titled `针刺治疗高血压的临床研究`, same year, strong author overlap, and only one record carrying a DOI
+
+Candidate duplicates are review prompts only. They must be confirmed by a human reviewer and are not automatically removed.
 
 ## Workflow Walkthrough
 
 ### Step 1: Import
 
 After loading the demo data, you will see:
-- 22 records imported
+- 21 records imported
 - Source distribution across 5 databases
 - Import reliability warnings for records with quality signals
 
@@ -77,7 +79,7 @@ This configuration will:
 After screening, you will see:
 - Records filtered by time window and keywords
 - Excluded records with reasons (e.g., animal_study)
-- Dedup results (1 DOI duplicate, 1 title candidate duplicate)
+- Dedup results from `DedupEngine.run` (1 DOI hard duplicate, 1 title candidate duplicate requiring human review)
 - PRISMA flow diagram with counts
 
 ### Step 4: Full-text Review
