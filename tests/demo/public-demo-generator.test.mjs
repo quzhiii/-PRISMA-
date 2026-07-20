@@ -6,19 +6,21 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { findLocalAbsolutePathLeaks, hasLocalAbsolutePathLeak } from '../../scripts/public-demo-safety.mjs';
+import {
+  buildProtectedDeliveryDirs,
+  derivePrimaryRepositoryRootFromGitCommonDir,
+  findLocalAbsolutePathLeaks,
+  hasLocalAbsolutePathLeak,
+  resolvePrimaryRepositoryRootFromGitCommonDir,
+  validateSafeOutputPath,
+} from '../../scripts/public-demo-safety.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const generatorPath = path.join(repoRoot, 'scripts', 'generate-public-demo-delivery.mjs');
-const deliveryRoot = path.resolve(repoRoot, '..', 'PRISMA-demo-delivery');
 const stagingPrefix = '.public-demo-v2-1-1-staging-';
-const protectedDeliveryPaths = [
-  path.join(deliveryRoot, 'public-demo-v1'),
-  path.join(deliveryRoot, 'public-demo-v2'),
-  path.join(deliveryRoot, 'public-demo-v2.1'),
-];
+const protectedDeliveryNames = ['public-demo-v1', 'public-demo-v2', 'public-demo-v2.1', 'public-demo-v2.1.1'];
 
 function runGenerator(args = []) {
   return spawnSync(process.execPath, [generatorPath, ...args], {
@@ -27,8 +29,35 @@ function runGenerator(args = []) {
   });
 }
 
+function runGit(args = []) {
+  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
+}
+
 function makeTempRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'prisma-public-demo-generator-'));
+}
+
+function makeMockRepositoryLayout({ linkedWorktree = false, linkedOutsidePrimary = false } = {}) {
+  const tempRoot = makeTempRoot();
+  const primaryRepositoryRoot = path.join(tempRoot, 'primary-repo');
+  const gitCommonDir = path.join(primaryRepositoryRoot, '.git');
+  const checkoutRoot = linkedWorktree
+    ? path.join(linkedOutsidePrimary ? path.join(tempRoot, 'external-worktrees') : path.join(primaryRepositoryRoot, '.worktrees'), 'integration-worktree')
+    : primaryRepositoryRoot;
+  fs.mkdirSync(gitCommonDir, { recursive: true });
+  fs.mkdirSync(checkoutRoot, { recursive: true });
+  buildProtectedDeliveryDirs(primaryRepositoryRoot).forEach((dir) => fs.mkdirSync(dir, { recursive: true }));
+  return { tempRoot, primaryRepositoryRoot, gitCommonDir, checkoutRoot, protectedDirs: buildProtectedDeliveryDirs(primaryRepositoryRoot) };
+}
+
+function validateMockOutput(outputPath, layout) {
+  return validateSafeOutputPath(outputPath, {
+    checkoutRoot: layout.checkoutRoot,
+    primaryRepositoryRoot: layout.primaryRepositoryRoot,
+    protectedDirs: layout.protectedDirs,
+  });
 }
 
 function listStagingDirs(parentDir) {
@@ -75,6 +104,68 @@ function assertRejectsWithoutStaging(outputPath, messagePattern, stagingParent =
   assert.deepEqual(after, before);
 }
 
+test('public demo safety derives the primary repository root from git common dir', () => {
+  const layout = makeMockRepositoryLayout();
+  try {
+    assert.equal(derivePrimaryRepositoryRootFromGitCommonDir(layout.gitCommonDir), layout.primaryRepositoryRoot);
+    assert.equal(resolvePrimaryRepositoryRootFromGitCommonDir(layout.gitCommonDir), fs.realpathSync.native(layout.primaryRepositoryRoot));
+    assert.deepEqual(buildProtectedDeliveryDirs(layout.primaryRepositoryRoot).map((entry) => path.basename(entry)), protectedDeliveryNames);
+  } finally {
+    fs.rmSync(layout.tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('public demo safety rejects invalid git common dirs fail closed', () => {
+  const tempRoot = makeTempRoot();
+  try {
+    assert.throws(() => derivePrimaryRepositoryRootFromGitCommonDir(''), /Git common dir is empty/);
+    assert.throws(() => derivePrimaryRepositoryRootFromGitCommonDir('relative/.git'), /must be absolute/);
+    assert.throws(() => derivePrimaryRepositoryRootFromGitCommonDir(path.join(tempRoot, 'not-git')), /must resolve to the primary repository .git directory/);
+    assert.throws(() => resolvePrimaryRepositoryRootFromGitCommonDir(path.join(tempRoot, 'missing-repo', '.git')), /does not exist or is not a directory/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+[
+  ['ordinary primary checkout', {}],
+  ['linked worktree under .worktrees', { linkedWorktree: true }],
+  ['linked worktree outside primary repository', { linkedWorktree: true, linkedOutsidePrimary: true }],
+].forEach(([name, options]) => {
+  test(`public demo safety protects checkout primary and delivery roots for ${name}`, () => {
+    const layout = makeMockRepositoryLayout(options);
+    try {
+      assert.throws(() => validateMockOutput(path.join(layout.checkoutRoot, 'future-output'), layout), /current checkout/);
+      if (path.resolve(layout.checkoutRoot) !== path.resolve(layout.primaryRepositoryRoot)) {
+        assert.throws(() => validateMockOutput(path.join(layout.primaryRepositoryRoot, 'future-output'), layout), /primary repository/);
+      }
+
+      layout.protectedDirs.forEach((protectedDir) => {
+        assert.throws(() => validateMockOutput(protectedDir, layout), /read-only protected delivery tree/);
+        assert.throws(() => validateMockOutput(path.join(protectedDir, '.', 'future-child', '..', 'future-child', 'package'), layout), /read-only protected delivery tree/);
+      });
+
+      const safeOutput = path.join(layout.tempRoot, 'safe-output');
+      assert.equal(validateMockOutput(safeOutput, layout), path.resolve(safeOutput));
+    } finally {
+      fs.rmSync(layout.tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+test('public demo safety follows isolated junction or symlink aliases during path validation', () => {
+  const layout = makeMockRepositoryLayout({ linkedWorktree: true });
+  const aliasRoot = path.join(layout.tempRoot, 'aliases');
+  const alias = path.join(aliasRoot, 'protected-alias');
+  try {
+    fs.mkdirSync(aliasRoot);
+    fs.symlinkSync(layout.protectedDirs[2], alias, process.platform === 'win32' ? 'junction' : 'dir');
+    assert.throws(() => validateMockOutput(path.join(alias, 'future-child'), layout), /read-only protected delivery tree/);
+  } finally {
+    fs.rmSync(layout.tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('public demo generator rejects missing output argument', () => {
   const result = runGenerator();
 
@@ -94,36 +185,34 @@ test('public demo generator rejects repository-internal output paths before stag
   assert.equal(fs.existsSync(outputDir), false);
 });
 
-test('public demo generator rejects protected delivery roots before staging', { skip: protectedDeliveryPaths.some((dir) => !fs.existsSync(dir)) }, () => {
+test('public demo generator rejects primary repository output paths before staging', () => {
+  const primaryRepositoryRoot = derivePrimaryRepositoryRootFromGitCommonDir(runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const outputDir = path.join(primaryRepositoryRoot, '.tmp-public-demo-v2-1-1-output');
+
+  assertRejectsWithoutStaging(outputDir, /primary repository/, primaryRepositoryRoot);
+  assert.equal(fs.existsSync(outputDir), false);
+});
+
+test('public demo generator rejects protected delivery roots before staging', () => {
+  const primaryRepositoryRoot = derivePrimaryRepositoryRootFromGitCommonDir(runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const protectedDeliveryPaths = buildProtectedDeliveryDirs(primaryRepositoryRoot);
+  assert.deepEqual(protectedDeliveryPaths.map((entry) => path.basename(entry)), protectedDeliveryNames);
+
   protectedDeliveryPaths.forEach((protectedPath) => {
     assertRejectsWithoutStaging(protectedPath, /read-only protected delivery tree/, path.dirname(protectedPath));
   });
 });
 
-test('public demo generator rejects missing descendants of protected delivery trees before staging', { skip: protectedDeliveryPaths.some((dir) => !fs.existsSync(dir)) }, () => {
+test('public demo generator rejects missing descendants of protected delivery trees before staging', () => {
+  const primaryRepositoryRoot = derivePrimaryRepositoryRootFromGitCommonDir(runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const protectedDeliveryPaths = buildProtectedDeliveryDirs(primaryRepositoryRoot);
+
   protectedDeliveryPaths.forEach((protectedPath) => {
     const nestedOutput = path.join(protectedPath, '.', 'future-child', '..', 'future-child', 'package');
 
     assertRejectsWithoutStaging(nestedOutput, /read-only protected delivery tree/, protectedPath);
     assert.equal(fs.existsSync(nestedOutput), false);
   });
-});
-
-test('public demo generator follows existing junction or symlink aliases during path validation', { skip: !fs.existsSync(protectedDeliveryPaths[2]) }, (t) => {
-  const tempRoot = makeTempRoot();
-  const alias = path.join(tempRoot, 'protected-alias');
-  try {
-    try {
-      fs.symlinkSync(protectedDeliveryPaths[2], alias, process.platform === 'win32' ? 'junction' : 'dir');
-    } catch (error) {
-      t.skip(`junction/symlink creation unavailable: ${error.message}`);
-      return;
-    }
-
-    assertRejectsWithoutStaging(path.join(alias, 'future-child'), /read-only protected delivery tree/, alias);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
 });
 
 test('public demo generator rejects existing files empty directories and non-empty directories without staging', () => {

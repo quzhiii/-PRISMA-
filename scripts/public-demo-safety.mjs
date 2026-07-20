@@ -29,15 +29,55 @@ export function isSameOrDescendantPath(candidatePath, parentPath) {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-export function validateSafeOutputPath(outputArg, { repoRoot, protectedDirs }) {
+export function derivePrimaryRepositoryRootFromGitCommonDir(gitCommonDir) {
+  const rawCommonDir = String(gitCommonDir || '').trim();
+  if (!rawCommonDir) throw new Error('Git common dir is empty; refusing to resolve protected delivery paths.');
+  if (!path.isAbsolute(rawCommonDir)) throw new Error('Git common dir must be absolute; refusing to resolve protected delivery paths.');
+
+  const commonDir = path.resolve(rawCommonDir);
+  if (path.basename(commonDir).toLowerCase() !== '.git') {
+    throw new Error('Git common dir must resolve to the primary repository .git directory.');
+  }
+  return path.dirname(commonDir);
+}
+
+export function resolvePrimaryRepositoryRootFromGitCommonDir(gitCommonDir) {
+  const primaryRepositoryRoot = derivePrimaryRepositoryRootFromGitCommonDir(gitCommonDir);
+  const commonDir = path.resolve(String(gitCommonDir).trim());
+  if (!fs.existsSync(commonDir) || !fs.statSync(commonDir).isDirectory()) {
+    throw new Error('Git common dir does not exist or is not a directory; refusing to resolve protected delivery paths.');
+  }
+  if (!fs.existsSync(primaryRepositoryRoot) || !fs.statSync(primaryRepositoryRoot).isDirectory()) {
+    throw new Error('Primary repository root does not exist or is not a directory; refusing to resolve protected delivery paths.');
+  }
+  return fs.realpathSync.native(primaryRepositoryRoot);
+}
+
+export function buildProtectedDeliveryDirs(primaryRepositoryRoot) {
+  const root = String(primaryRepositoryRoot || '').trim();
+  if (!root) throw new Error('Primary repository root is required to resolve protected delivery paths.');
+  const deliveryRoot = path.resolve(root, '..', 'PRISMA-demo-delivery');
+  return ['public-demo-v1', 'public-demo-v2', 'public-demo-v2.1', 'public-demo-v2.1.1'].map((name) => path.join(deliveryRoot, name));
+}
+
+export function validateSafeOutputPath(outputArg, { checkoutRoot, primaryRepositoryRoot, protectedDirs, cwd = process.cwd() }) {
   if (!outputArg) throw new Error('Missing output directory argument.');
-  const outputDir = path.resolve(outputArg);
+  if (!checkoutRoot) throw new Error('Current checkout root is required for output path validation.');
+  if (!primaryRepositoryRoot) throw new Error('Primary repository root is required for output path validation.');
+  const outputDir = path.resolve(cwd, outputArg);
   if (!path.isAbsolute(outputDir)) throw new Error('Could not resolve output directory to an absolute path.');
 
   const canonicalOutputDir = resolvePathWithRealParent(outputDir);
-  const canonicalRepoRoot = resolvePathWithRealParent(repoRoot);
-  if (isSameOrDescendantPath(canonicalOutputDir, canonicalRepoRoot)) {
-    throw new Error('Output directory must not be the PRISMA repository root or inside the PRISMA repository.');
+  const protectedRepositoryRoots = [
+    ['current checkout', checkoutRoot],
+    ['primary repository', primaryRepositoryRoot],
+  ];
+
+  for (const [label, protectedRoot] of protectedRepositoryRoots) {
+    const canonicalProtectedRoot = resolvePathWithRealParent(protectedRoot);
+    if (isSameOrDescendantPath(canonicalOutputDir, canonicalProtectedRoot)) {
+      throw new Error(`Output directory must not be a PRISMA repository root or inside the PRISMA repository (${label}).`);
+    }
   }
 
   for (const protectedDir of protectedDirs) {

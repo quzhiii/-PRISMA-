@@ -6,15 +6,21 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { findLocalAbsolutePathLeaks, isSameOrDescendantPath, validateSafeOutputPath } from './public-demo-safety.mjs';
+import {
+  buildProtectedDeliveryDirs,
+  findLocalAbsolutePathLeaks,
+  isSameOrDescendantPath,
+  resolvePrimaryRepositoryRootFromGitCommonDir,
+  validateSafeOutputPath,
+} from './public-demo-safety.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, '..');
+const checkoutRoot = path.resolve(__dirname, '..');
 const requireFromRepo = createRequire(import.meta.url);
-const DedupEngine = requireFromRepo(path.join(repoRoot, 'dedup-engine.js'));
-const AuditEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2', 'audit-engine.js'));
-const DualReviewEngine = requireFromRepo(path.join(repoRoot, 'literature-screening-v2.2', 'dual-review-engine.js'));
+const DedupEngine = requireFromRepo(path.join(checkoutRoot, 'dedup-engine.js'));
+const AuditEngine = requireFromRepo(path.join(checkoutRoot, 'literature-screening-v2.2', 'audit-engine.js'));
+const DualReviewEngine = requireFromRepo(path.join(checkoutRoot, 'literature-screening-v2.2', 'dual-review-engine.js'));
 
 const NOTICE = '本样例使用 PRISMA Workbench 公开模拟数据生成，不含真实客户数据，不代表真实客户案例或真实项目效果。';
 const DEMO_VERSION = 'public-demo-v2.1.1';
@@ -24,11 +30,6 @@ const GENERATOR_REL = 'scripts/generate-public-demo-delivery.mjs';
 const OUTPUT_MANIFEST_REL = '09_OUTPUT_MANIFEST.md';
 const GENERATION_RECORD_REL = 'GENERATION_RECORD.json';
 const STAGING_PREFIX = '.public-demo-v2-1-1-staging-';
-const PROTECTED_OUTPUT_RELS = [
-  path.join('..', 'PRISMA-demo-delivery', 'public-demo-v1'),
-  path.join('..', 'PRISMA-demo-delivery', 'public-demo-v2'),
-  path.join('..', 'PRISMA-demo-delivery', 'public-demo-v2.1'),
-];
 const PREFLIGHT_TESTS = [
   'tests/demo/public-demo-consistency.test.mjs',
   'tests/audit/audit-export.test.mjs',
@@ -203,8 +204,13 @@ function makePrismaSvg(counts, pendingFullText) {
 }
 
 function runGit(args) {
-  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
+  const result = spawnSync('git', args, { cwd: checkoutRoot, encoding: 'utf8' });
   return result.status === 0 ? result.stdout.trim() : '';
+}
+
+function resolvePrimaryRepositoryRoot() {
+  const gitCommonDir = runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  return resolvePrimaryRepositoryRootFromGitCommonDir(gitCommonDir);
 }
 
 function repositoryDirty() {
@@ -212,9 +218,11 @@ function repositoryDirty() {
 }
 
 function validateOutputArgument(outputArg) {
+  const primaryRepositoryRoot = resolvePrimaryRepositoryRoot();
   return validateSafeOutputPath(outputArg, {
-    repoRoot,
-    protectedDirs: PROTECTED_OUTPUT_RELS.map((rel) => path.resolve(repoRoot, rel)),
+    checkoutRoot,
+    primaryRepositoryRoot,
+    protectedDirs: buildProtectedDeliveryDirs(primaryRepositoryRoot),
   });
 }
 
@@ -236,7 +244,7 @@ function parseTapSummary(output) {
 function runPreflightTests() {
   return PREFLIGHT_TESTS.map((testFile) => {
     const command = `node --test ${testFile}`;
-    const result = spawnSync(process.execPath, ['--test', testFile], { cwd: repoRoot, encoding: 'utf8', env: cleanPreflightEnv() });
+    const result = spawnSync(process.execPath, ['--test', testFile], { cwd: checkoutRoot, encoding: 'utf8', env: cleanPreflightEnv() });
     const combined = `${result.stdout || ''}\n${result.stderr || ''}`;
     const summary = parseTapSummary(combined);
     const exitCode = result.status === null ? 1 : result.status;
@@ -274,7 +282,7 @@ function publishStaging(stagingDir, outputDir) {
 }
 
 function sourceMetadata(rel) {
-  const abs = path.join(repoRoot, rel);
+  const abs = path.join(checkoutRoot, rel);
   return { relative_path: rel, size: fileSize(abs), sha256: fileHash(abs) };
 }
 
@@ -427,13 +435,13 @@ function validateStagingOutput(outputDir) {
   }
   const sources = JSON.parse(fs.readFileSync(path.join(outputDir, 'evidence/generation_sources.json'), 'utf8')).sources;
   for (const source of sources) {
-    const abs = path.join(repoRoot, source.relative_path);
+    const abs = path.join(checkoutRoot, source.relative_path);
     if (fileSize(abs) !== source.size || fileHash(abs) !== source.sha256) throw new Error(`generation_sources mismatch: ${source.relative_path}`);
   }
 }
 
 function buildContext() {
-  const sampleBytes = fileBytes(path.join(repoRoot, SAMPLE_REL));
+  const sampleBytes = fileBytes(path.join(checkoutRoot, SAMPLE_REL));
   const sample = JSON.parse(sampleBytes.toString('utf8'));
   const records = (sample.data || []).map(normalizeRecord);
   const sourceDistribution = countBy(records, (record) => record.database);
@@ -482,7 +490,7 @@ function sourceClassificationSchema() {
 }
 
 function writeGenerationRecord(outputDir, context, testStatus, manifestSha256, outputFileCount) {
-  writeJson(outputDir, GENERATION_RECORD_REL, { notice: NOTICE, schema_version: 'public-demo-generation-record.v1', demo_version: DEMO_VERSION, generated_at: GENERATED_AT, generation_command: `node ${GENERATOR_REL} <output-directory>`, node_version: process.version, repository_head: runGit(['rev-parse', 'HEAD']), repository_dirty: repositoryDirty(), generator_relative_path: GENERATOR_REL, generator_sha256: fileHash(path.join(repoRoot, GENERATOR_REL)), input_relative_path: SAMPLE_REL, input_size: context.sampleSize, input_sha256: context.sampleHash, input_record_count: context.records.length, source_distribution: context.sourceDistribution, dedup_engine_stats: context.dedup.stats, prisma_counts: context.counts, test_status: testStatus, output_file_count: outputFileCount, manifest_sha256: manifestSha256, staging_and_publish_strategy: 'Preflight tests run before any output directory is created. Files are written to a sibling staging directory with a script-owned random prefix, validated there, then published with a single fs.renameSync call. On failure, only that owned staging directory is removed.', source_classification_schema: sourceClassificationSchema(), non_circular_recording_scheme: '09_OUTPUT_MANIFEST.md excludes itself and GENERATION_RECORD.json. GENERATION_RECORD.json records the manifest SHA256 after manifest validation.' });
+  writeJson(outputDir, GENERATION_RECORD_REL, { notice: NOTICE, schema_version: 'public-demo-generation-record.v1', demo_version: DEMO_VERSION, generated_at: GENERATED_AT, generation_command: `node ${GENERATOR_REL} <output-directory>`, node_version: process.version, repository_head: runGit(['rev-parse', 'HEAD']), repository_dirty: repositoryDirty(), generator_relative_path: GENERATOR_REL, generator_sha256: fileHash(path.join(checkoutRoot, GENERATOR_REL)), input_relative_path: SAMPLE_REL, input_size: context.sampleSize, input_sha256: context.sampleHash, input_record_count: context.records.length, source_distribution: context.sourceDistribution, dedup_engine_stats: context.dedup.stats, prisma_counts: context.counts, test_status: testStatus, output_file_count: outputFileCount, manifest_sha256: manifestSha256, staging_and_publish_strategy: 'Preflight tests run before any output directory is created. Files are written to a sibling staging directory with a script-owned random prefix, validated there, then published with a single fs.renameSync call. On failure, only that owned staging directory is removed.', source_classification_schema: sourceClassificationSchema(), non_circular_recording_scheme: '09_OUTPUT_MANIFEST.md excludes itself and GENERATION_RECORD.json. GENERATION_RECORD.json records the manifest SHA256 after manifest validation.' });
 }
 
 function generateInto(stagingDir, testStatus) {
