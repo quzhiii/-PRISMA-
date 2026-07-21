@@ -20,6 +20,16 @@ const canonicalPages = [
   'legacy/index.html',
 ];
 
+const canonicalFaviconHrefs = new Map([
+  ['index.html', 'favicon.svg'],
+  ['start/index.html', '../favicon.svg'],
+  ['app/index.html', '../favicon.svg'],
+  ['dual-review/index.html', '../favicon.svg'],
+  ['methods/index.html', '../favicon.svg'],
+  ['resources/index.html', '../favicon.svg'],
+  ['legacy/index.html', '../favicon.svg'],
+]);
+
 const compatibilityPages = new Map([
   ['login.html', 'dual-review/'],
   ['landing.html', './'],
@@ -58,6 +68,12 @@ const publicCopyFiles = [
 
 async function readRepoFile(relativePath) {
   return fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+}
+
+async function loadPublicDemoRecords() {
+  const parsed = JSON.parse(await readRepoFile('literature-screening-v2.2/sample-data.json'));
+  assert.equal(Array.isArray(parsed.data), true, 'sample-data.json must contain a data array');
+  return parsed.data;
 }
 
 async function listFiles(root, current = root) {
@@ -169,6 +185,49 @@ test('public copy keeps one release identity and avoids unsupported assurance la
   assert.doesNotMatch(combined, /用可复核证据说明工作流|承诺替代验证|限制可见|不虚构外部验证|M5 methods and evidence|No invented external validation|unsupported promises/i);
 });
 
+test('resources page mirrors the current public demo record count', async () => {
+  const records = await loadPublicDemoRecords();
+  const resources = await readRepoFile('resources/index.html');
+
+  assert.equal(records.length, 21);
+  assert.match(resources, new RegExp(`${records.length} records`));
+  assert.match(resources, new RegExp(`先用 ${records.length} 条记录体验流程`, 'u'));
+  assert.match(resources, new RegExp(`Try the workflow with ${records.length} records`));
+  assert.doesNotMatch(resources, /22 records|22 条记录|22条记录/u);
+});
+
+test('app workspace has one bilingual semantic h1 without promoting step headings', async () => {
+  const app = await readRepoFile('app/index.html');
+  const h1Matches = app.match(/<h1\b/gi) || [];
+
+  assert.equal(h1Matches.length, 1);
+  assert.match(app, /<h1 class="sr-only">/);
+  assert.match(app, /PRISMA Workbench 文献筛选与复核工作台/u);
+  assert.match(app, /PRISMA Workbench Literature Screening and Review Workspace/);
+  assert.doesNotMatch(app, /<h1[^>]*>\s*<span class="zh">导入文献记录/u);
+  assert.doesNotMatch(app, /<h1[^>]*>\s*<span class="zh">开始或恢复项目/u);
+});
+
+test('canonical pages reference the safe svg favicon with route-relative paths', async () => {
+  const favicon = await readRepoFile('favicon.svg');
+  const buildScript = await readRepoFile('scripts/build-public-site.mjs');
+
+  assert.ok(favicon.trim().length > 0, 'favicon.svg should not be empty');
+  assert.match(favicon, /<svg\b[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  assert.doesNotMatch(favicon, /<script\b|<foreignObject\b|data:|base64|[A-Z]:\\|Users[\\/]/i);
+  assert.doesNotMatch(favicon.replace('http://www.w3.org/2000/svg', ''), /https?:\/\//i);
+  assert.match(buildScript, /'favicon\.svg'/);
+
+  for (const [relativePath, faviconHref] of canonicalFaviconHrefs) {
+    const page = await readRepoFile(relativePath);
+    assert.match(
+      page,
+      new RegExp(`<link\\s+rel="icon"\\s+type="image/svg\\+xml"\\s+href="${faviconHref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`),
+      `${relativePath} should reference ${faviconHref}`,
+    );
+  }
+});
+
 test('public-site build emits only allowlisted static artifacts', async () => {
   execFileSync(process.execPath, ['scripts/build-public-site.mjs'], {
     cwd: repoRoot,
@@ -178,6 +237,7 @@ test('public-site build emits only allowlisted static artifacts', async () => {
   const files = await listFiles(distRoot);
   const requiredFiles = [
     ...canonicalPages,
+    'favicon.svg',
     'literature-screening-v2.2/project-package-engine.js',
     ...compatibilityPages.keys(),
     'dedup-engine.js',
@@ -196,7 +256,7 @@ test('public-site build emits only allowlisted static artifacts', async () => {
     assert.ok(files.includes(relativePath), `dist should include ${relativePath}`);
   });
 
-  const allowedFile = /^(?:index\.html|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|start|dual-review|methods|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
+  const allowedFile = /^(?:index\.html|favicon\.svg|login\.html|landing\.html|LICENSE|dedup-engine\.js|(?:app|start|dual-review|methods|resources|legacy)\/index\.html|literature-screening-v2\.2\/(?:index|workspace|login|resources|landing)\.html|literature-screening-v2\.2\/(?:[a-z0-9.-]+\.(?:js|css|json))|docs\/demo\/README\.md|docs\/benchmarks\/(?:README\.md|dedup\/.*)|docs\/templates\/.*|docs\/design\/SEARCH_STRATEGY_ASSISTANT\.md)$/i;
   files.forEach((relativePath) => {
     assert.match(relativePath, allowedFile, `unexpected public artifact: ${relativePath}`);
   });

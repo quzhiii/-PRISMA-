@@ -8,6 +8,7 @@ const distRoot = path.join(repoRoot, 'dist');
 
 const publicFiles = [
   'index.html',
+  'favicon.svg',
   'login.html',
   'landing.html',
   'LICENSE',
